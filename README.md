@@ -1,2 +1,2 @@
 # misja-mada
-Website for Fundacja Misja Mada.
+Strona internetowa dla Fundacji Misja Mada stworzona z pomocą Perplexity.
