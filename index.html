@@ -5,15 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Fundacja Misja MADA - Wspieramy dzieci i misjonarzy na Madagaskarze. Pomóż nam nieść nadzieję najbardziej potrzebującym.">
     <meta name="keywords" content="Fundacja Misja MADA, Madagaskar, pomoc dzieciom, misje, Antsirabé, wsparcie">
+    <meta name="author" content="Fundacja Misja MADA">
+    <meta property="og:title" content="Fundacja Misja MADA - Pomoc dla dzieci z Madagaskaru">
+    <meta property="og:description" content="Wspieramy dzieci i misjonarzy na Madagaskarze. Każde dziecko zasługuje na edukację i lepszą przyszłość.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="images/children3.jpg">
     <title>Fundacja Misja MADA - Pomoc dla dzieci z Madagaskaru</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
+
     <!-- Navigation -->
-    <nav class="navbar" id="navbar">
+    <nav class="navbar" id="navbar" role="navigation" aria-label="Nawigacja główna">
         <div class="container">
             <div class="nav-brand">Fundacja Misja MADA</div>
             <ul class="nav-menu" id="nav-menu">
@@ -24,302 +36,361 @@
                 <li><a href="#gallery" class="nav-link">Galeria</a></li>
                 <li><a href="#contact" class="nav-link">Kontakt</a></li>
             </ul>
-            <div class="hamburger" id="hamburger">
+            <button class="hamburger" 
+                    id="hamburger" 
+                    role="button" 
+                    aria-label="Otwórz menu nawigacji" 
+                    aria-controls="nav-menu" 
+                    aria-expanded="false"
+                    type="button">
                 <span></span>
                 <span></span>
                 <span></span>
-            </div>
+            </button>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section id="home" class="hero">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1 class="hero-title">Fundacja Misja MADA</h1>
-            <p class="hero-subtitle">Wspieramy dzieci i misjonarzy na Madagaskarze</p>
-            <a href="#contact" class="btn btn-primary">Wesprzyj nas</a>
-        </div>
-        <div class="scroll-indicator">
-            <div class="mouse"></div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="about" class="about">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Kim jesteśmy</h2>
-                <div class="title-underline"></div>
+    <!-- Main content wrapper -->
+    <main id="main-content">
+        <!-- Hero Section -->
+        <section id="home" class="hero" aria-label="Sekcja powitalna">
+            <div class="hero-overlay" aria-hidden="true"></div>
+            <div class="hero-content">
+                <h1 class="hero-title">Fundacja Misja MADA</h1>
+                <p class="hero-subtitle">Wspieramy dzieci i misjonarzy na Madagaskarze</p>
+                <a href="#contact" class="btn btn-primary">Wesprzyj nas</a>
             </div>
-            <div class="about-content">
-                <div class="about-text">
-                    <p>Fundacja Misja MADA to organizacja pozarządowa z siedzibą w Toruniu, która powstała z potrzeby serca, aby nieść pomoc dzieciom i społecznościom na Madagaskarze.</p>
-                    <p>Współpracujemy z Siostrami Małymi Misjonarkami Miłosierdzia, wspierając ich działalność misyjną w najuboższych regionach Madagaskaru, szczególnie w Antsirabé. Nasza fundacja powstała z przekonania, że każde dziecko zasługuje na dostęp do edukacji, godne warunki życia i szansę na lepszą przyszłość.</p>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <div class="stat-number" data-target="100">100+</div>
-                            <div class="stat-label">Dzieci wspartych</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number" data-target="5">5+</div>
-                            <div class="stat-label">Projektów zrealizowanych</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number" data-target="3">3+</div>
-                            <div class="stat-label">Ośrodki misyjne</div>
+            <div class="scroll-indicator" aria-hidden="true">
+                <div class="mouse"></div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="about" aria-labelledby="about-title">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="about-title" class="section-title">Kim jesteśmy</h2>
+                    <div class="title-underline" aria-hidden="true"></div>
+                </div>
+                <div class="about-content">
+                    <div class="about-text">
+                        <p>Fundacja Misja MADA to organizacja pozarządowa z siedzibą w Toruniu, która powstała z potrzeby serca, aby nieść pomoc dzieciom i społecznościom na Madagaskarze.</p>
+                        <p>Współpracujemy z Siostrami Małymi Misjonarkami Miłosierdzia, wspierając ich działalność misyjną w najuboższych regionach Madagaskaru, szczególnie w Antsirabé. Nasza fundacja powstała z przekonania, że każde dziecko zasługuje na dostęp do edukacji, godne warunki życia i szansę na lepszą przyszłość.</p>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-number" data-target="100" aria-label="Ponad 100">100+</div>
+                                <div class="stat-label">Dzieci wspartych</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" data-target="5" aria-label="Ponad 5">5+</div>
+                                <div class="stat-label">Projektów zrealizowanych</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" data-target="3" aria-label="Ponad 3">3+</div>
+                                <div class="stat-label">Ośrodki misyjne</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Mission Section -->
-    <section id="mission" class="mission">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Nasza Misja</h2>
-                <div class="title-underline"></div>
+        <!-- Mission Section -->
+        <section id="mission" class="mission" aria-labelledby="mission-title">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="mission-title" class="section-title">Nasza Misja</h2>
+                    <div class="title-underline" aria-hidden="true"></div>
+                </div>
+                <div class="mission-grid">
+                    <article class="mission-card">
+                        <div class="mission-icon" aria-hidden="true">🎒</div>
+                        <h3>Edukacja</h3>
+                        <p>Zapewniamy dzieciom dostęp do edukacji, dostarczając przybory szkolne, plecaki i materiały dydaktyczne niezbędne do nauki.</p>
+                    </article>
+                    <article class="mission-card">
+                        <div class="mission-icon" aria-hidden="true">🍽️</div>
+                        <h3>Wyżywienie</h3>
+                        <p>Organizujemy posiłki dla niedożywionych dzieci oraz prowadzimy edukację żywieniową w społecznościach lokalnych.</p>
+                    </article>
+                    <article class="mission-card">
+                        <div class="mission-icon" aria-hidden="true">🏥</div>
+                        <h3>Opieka medyczna</h3>
+                        <p>Wspieramy dostęp do podstawowej opieki medycznej oraz dostarczamy środki higieniczne i suplementy dla dzieci.</p>
+                    </article>
+                    <article class="mission-card">
+                        <div class="mission-icon" aria-hidden="true">⛪</div>
+                        <h3>Wsparcie misjonarzy</h3>
+                        <p>Pomagamy Siostrom Małym Misjonarkom Miłosierdzia w ich codziennej pracy z najbardziej potrzebującymi dziećmi.</p>
+                    </article>
+                </div>
             </div>
-            <div class="mission-grid">
-                <div class="mission-card">
-                    <div class="mission-icon">🎒</div>
-                    <h3>Edukacja</h3>
-                    <p>Zapewniamy dzieciom dostęp do edukacji, dostarczając przybory szkolne, plecaki i materiały dydaktyczne niezbędne do nauki.</p>
-                </div>
-                <div class="mission-card">
-                    <div class="mission-icon">🍽️</div>
-                    <h3>Wyżywienie</h3>
-                    <p>Organizujemy posiłki dla niedożywionych dzieci oraz prowadzimy edukację żywieniową w społecznościach lokalnych.</p>
-                </div>
-                <div class="mission-card">
-                    <div class="mission-icon">🏥</div>
-                    <h3>Opieka medyczna</h3>
-                    <p>Wspieramy dostęp do podstawowej opieki medycznej oraz dostarczamy środki higieniczne i suplementy dla dzieci.</p>
-                </div>
-                <div class="mission-card">
-                    <div class="mission-icon">⛪</div>
-                    <h3>Wsparcie misjonarzy</h3>
-                    <p>Pomagamy Siostrom Małym Misjonarkom Miłosierdzia w ich codziennej pracy z najbardziej potrzebującymi dziećmi.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Projects Section -->
-    <section id="projects" class="projects">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Aktualne Projekty</h2>
-                <div class="title-underline"></div>
-            </div>
-            <div class="project-featured">
-                <div class="project-image" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('images/children3.jpg');">
-                    <div class="project-badge">Aktywny projekt</div>
+        <!-- Projects Section -->
+        <section id="projects" class="projects" aria-labelledby="projects-title">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="projects-title" class="section-title">Aktualne Projekty</h2>
+                    <div class="title-underline" aria-hidden="true"></div>
                 </div>
-                <div class="project-content">
-                    <h3>Plecak Marzeń - zbiórka dla dzieci z Madagaskaru</h3>
-                    <p class="project-description">
-                        Madagaskar to piękny kraj, którego mieszkańcy zmagają się z ubóstwem. 
-                        Wspieramy misjonarzy, by mogli nieść nadzieję dla dzieci z Antsirabé. 
-                        Zbiórka finansuje plecaki wypełnione przyborami szkolnymi, odzież, zabawki, 
-                        jedzenie oraz zapewnia dzieciom możliwość nauki i uczestnictwa w zajęciach 
-                        sportowo-rekreacyjnych.
+                <article class="project-featured">
+                    <div class="project-image" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('images/children3.jpg');" role="img" aria-label="Klasa pełna uśmiechniętych dzieci na Madagaskarze">
+                        <div class="project-badge">Aktywny projekt</div>
+                    </div>
+                    <div class="project-content">
+                        <h3>Plecak Marzeń - zbiórka dla dzieci z Madagaskaru</h3>
+                        <p class="project-description">
+                            Madagaskar to piękny kraj, którego mieszkańcy zmagają się z ubóstwem. 
+                            Wspieramy misjonarzy, by mogli nieść nadzieję dla dzieci z Antsirabé. 
+                            Zbiórka finansuje plecaki wypełnione przyborami szkolnymi, odzież, zabawki, 
+                            jedzenie oraz zapewnia dzieciom możliwość nauki i uczestnictwa w zajęciach 
+                            sportowo-rekreacyjnych.
+                        </p>
+                        <div class="project-details">
+                            <h4>Co obejmuje nasza pomoc?</h4>
+                            <ul class="project-list">
+                                <li>✓ Zakup plecaków wypełnionych przyborami szkolnymi</li>
+                                <li>✓ Organizacja zajęć muzyczno-edukacyjnych dla dzieci</li>
+                                <li>✓ Zajęcia sportowo-rekreacyjne (np. piłka nożna)</li>
+                                <li>✓ Warsztaty wielofunkcyjne rozwijające talenty</li>
+                                <li>✓ Zabawy i gry edukacyjne</li>
+                                <li>✓ Wsparcie w nauce czytania i pisania</li>
+                            </ul>
+                        </div>
+                        <div class="project-info">
+                            <div class="info-item">
+                                <strong>Cel zbiórki:</strong> 350 dzieci w Antsirabé
+                            </div>
+                            <div class="info-item">
+                                <strong>Koszt wsparcia jednego dziecka:</strong> 70 zł miesięcznie
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="why-help">
+                    <h3>👋 Dlaczego im pomagamy?</h3>
+                    <p>
+                        Projekt skierowany jest do dzieci muzułmańskich, które nie mają możliwości uczestniczenia 
+                        w organizacji katolickiej (szkoła) oraz dzieci chrześcijańskich wykluczonych przez rodziny. 
+                        Chcemy pomóc w walce o lepsze życie i wyposażyć je w rzeczy niezbędne dla każdego dziecka. 
+                        Każde dziecko zasługuje na radość, edukację i szansę na lepszą przyszłość.
                     </p>
-                    <div class="project-details">
-                        <h4>Co obejmuje nasza pomoc?</h4>
-                        <ul class="project-list">
-                            <li>✓ Zakup plecaków wypełnionych przyborami szkolnymi</li>
-                            <li>✓ Organizacja zajęć muzyczno-edukacyjnych dla dzieci</li>
-                            <li>✓ Zajęcia sportowo-rekreacyjne (np. piłka nożna)</li>
-                            <li>✓ Warsztaty wielofunkcyjne rozwijające talenty</li>
-                            <li>✓ Zabawy i gry edukacyjne</li>
-                            <li>✓ Wsparcie w nauce czytania i pisania</li>
-                        </ul>
-                    </div>
-                    <div class="project-info">
-                        <div class="info-item">
-                            <strong>Cel zbiórki:</strong> 350 dzieci w Antsirabé
-                        </div>
-                        <div class="info-item">
-                            <strong>Koszt wsparcia jednego dziecka:</strong> 70 zł miesięcznie
-                        </div>
-                    </div>
-                </div>
-            </div>
+                </article>
 
-            <div class="why-help">
-                <h3>👋 Dlaczego im pomagamy?</h3>
-                <p>
-                    Projekt skierowany jest do dzieci muzułmańskich, które nie mają możliwości uczestniczenia 
-                    w organizacji katolickiej (szkoła) oraz dzieci chrześcijańskich wykluczonych przez rodziny. 
-                    Chcemy pomóc w walce o lepsze życie i wyposażyć je w rzeczy niezbędne dla każdego dziecka. 
-                    Każde dziecko zasługuje na radość, edukację i szansę na lepszą przyszłość.
-                </p>
-            </div>
+                <article class="why-help">
+                    <h3>🎁 Dlaczego nie zbieramy rzeczy w Polsce?</h3>
+                    <p>
+                        Zakup plecaków, przyborów szkolnych i zabawek w Polsce oraz wysyłka do Madagaskaru 
+                        kosztowałaby 350-400 zł za jedną paczkę dla dziecka. Naszym celem jest zebranie kwoty, 
+                        którą przeznaczymy bezpośrednio na zakupy w Madagaskarze, gdzie ceny są znacznie niższe, 
+                        a wsparcie może objąć więcej potrzebujących dzieci.
+                    </p>
+                </article>
 
-            <div class="why-help">
-                <h3>🎁 Dlaczego nie zbieramy rzeczy w Polsce?</h3>
-                <p>
-                    Zakup plecaków, przyborów szkolnych i zabawek w Polsce oraz wysyłka do Madagaskaru 
-                    kosztowałaby 350-400 zł za jedną paczkę dla dziecka. Naszym celem jest zebranie kwoty, 
-                    którą przeznaczymy bezpośrednio na zakupy w Madagaskarze, gdzie ceny są znacznie niższe, 
-                    a wsparcie może objąć więcej potrzebujących dzieci.
-                </p>
+                <article class="why-help">
+                    <h3>✈️ Nasza misja na miejscu</h3>
+                    <p>
+                        W sierpniu 2025 roku pojedziemy na Madagaskar do Antsirabé. Chcemy tam zorganizować 
+                        wspaniały dzień dla dzieci, gdzie zostaną zapewnione różnego rodzaju atrakcje - 
+                        od zajęć sportowych, przez warsztaty edukacyjne, po wspólną zabawę i posiłki. 
+                        Obecnie zbieramy środki, aby wyprawić się w tę podniosłą misję i wesprzeć misjonarzy 
+                        pracujących z tymi dziećmi na co dzień.
+                    </p>
+                </article>
             </div>
+        </section>
 
-            <div class="why-help">
-                <h3>✈️ Nasza misja na miejscu</h3>
-                <p>
-                    W sierpniu 2025 roku pojedziemy na Madagaskar do Antsirabé. Chcemy tam zorganizować 
-                    wspaniały dzień dla dzieci, gdzie zostaną zapewnione różnego rodzaju atrakcje - 
-                    od zajęć sportowych, przez warsztaty edukacyjne, po wspólną zabawę i posiłki. 
-                    Obecnie zbieramy środki, aby wyprawić się w tę podniosłą misję i wesprzeć misjonarzy 
-                    pracujących z tymi dziećmi na co dzień.
-                </p>
+        <!-- Gallery Section -->
+        <section id="gallery" class="gallery-section" aria-labelledby="gallery-title">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="gallery-title" class="section-title">Dzieci z Madagaskaru</h2>
+                    <div class="title-underline" aria-hidden="true"></div>
+                    <p class="section-subtitle">Poznaj uśmiechnięte twarze dzieci, którym pomagamy w Antsirabé</p>
+                </div>
+                <div class="photo-gallery">
+                    <figure class="gallery-item">
+                        <img src="images/children1.jpg" 
+                             alt="Dwie uśmiechnięte dziewczynki z plecakami szkolnymi na tle czerwonej ziemi w Antsirabé" 
+                             loading="lazy" 
+                             width="1200" 
+                             height="800">
+                        <figcaption class="gallery-caption">Radość z nowych plecaków szkolnych</figcaption>
+                    </figure>
+                    <figure class="gallery-item">
+                        <img src="images/children2.jpg" 
+                             alt="Grupa dzieci podczas zajęć edukacyjnych przy drewnianym stole z zeszytami i kredkami" 
+                             loading="lazy" 
+                             width="1200" 
+                             height="800">
+                        <figcaption class="gallery-caption">Wspólna nauka i rozwój talentów</figcaption>
+                    </figure>
+                    <figure class="gallery-item">
+                        <img src="images/children6.jpg" 
+                             alt="Klasa pełna uśmiechniętych dzieci w niebieskich mundurkach szkolnych siedzących w ławkach" 
+                             loading="lazy" 
+                             width="1200" 
+                             height="800">
+                        <figcaption class="gallery-caption">Radość z edukacji pomimo trudności</figcaption>
+                    </figure>
+                    <figure class="gallery-item">
+                        <img src="images/children4.jpg" 
+                             alt="Trzej chłopcy z piłką do koszykówki na placu zabaw w Antsirabé" 
+                             loading="lazy" 
+                             width="1200" 
+                             height="800">
+                        <figcaption class="gallery-caption">Zajęcia sportowo-rekreacyjne</figcaption>
+                    </figure>
+                    <figure class="gallery-item">
+                        <img src="images/children5.jpg" 
+                             alt="Chłopiec w zielonej koszulce skupiony na nauce pisania z ołówkiem w ręku" 
+                             loading="lazy" 
+                             width="1200" 
+                             height="800">
+                        <figcaption class="gallery-caption">Nauka pisania - ważny krok w edukacji</figcaption>
+                    </figure>
+                    <figure class="gallery-item">
+                        <img src="images/children7.jpg" 
+                             alt="Trójka uśmiechniętych dzieci w mundurkach szkolnych przytulających się na zewnątrz" 
+                             loading="lazy" 
+                             width="1200" 
+                             height="800">
+                        <figcaption class="gallery-caption">Uśmiech mimo codziennych trudności</figcaption>
+                    </figure>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Gallery Section -->
-    <section id="gallery" class="gallery-section">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Dzieci z Madagaskaru</h2>
-                <div class="title-underline"></div>
-                <p class="section-subtitle">Poznaj uśmiechnięte twarze dzieci, którym pomagamy w Antsirabé</p>
-            </div>
-            <div class="photo-gallery">
-                <div class="gallery-item">
-                    <img src="images/children1.jpg" alt="Uśmiechnięte dziewczynki z plecakami w Antsirabé" loading="lazy">
-                    <div class="gallery-caption">Radość z nowych plecaków szkolnych</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="images/children2.jpg" alt="Dzieci podczas zajęć edukacyjnych na Madagaskarze" loading="lazy">
-                    <div class="gallery-caption">Wspólna nauka i rozwój talentów</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="images/children6.jpg" alt="Klasa pełna uśmiechniętych dzieci" loading="lazy">
-                    <div class="gallery-caption">Radość z edukacji pomimo trudności</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="images/children4.jpg" alt="Chłopcy z piłką nożną w Antsirabé" loading="lazy">
-                    <div class="gallery-caption">Zajęcia sportowo-rekreacyjne</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="images/children5.jpg" alt="Dziecko skupione na nauce pisania" loading="lazy">
-                    <div class="gallery-caption">Nauka pisania - ważny krok w edukacji</div>
-                </div>
-                <div class="gallery-item">
-                    <img src="images/children7.jpg" alt="Trójka uśmiechniętych dzieci z Madagaskaru" loading="lazy">
-                    <div class="gallery-caption">Uśmiech mimo codziennych trudności</div>
+        <!-- Madagascar Info Section -->
+        <section class="madagascar-info" aria-labelledby="madagascar-title">
+            <div class="container">
+                <div class="info-content">
+                    <h2 id="madagascar-title">Madagaskar - piękno i trudności</h2>
+                    <p>
+                        Madagaskar to wyspa położona na południowym wschodzie Afryki, czwarta co do wielkości 
+                        wyspa świata. To miejsce niezwykłej bioróżnorodności, ale także kraj zmagający się 
+                        z ekstremalnym ubóstwem. Większość dzieci nie ma dostępu do edukacji, cierpią 
+                        z powodu niedożywienia i braku podstawowej opieki medycznej. Antsirabé, gdzie prowadzimy 
+                        nasze działania, to miasto w centralnym Madagaskarze, gdzie wiele rodzin żyje 
+                        poniżej granicy ubóstwa. Dzięki Twojemu wsparciu możemy zmienić ich życie na lepsze.
+                    </p>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Madagascar Info Section -->
-    <section class="madagascar-info">
-        <div class="container">
-            <div class="info-content">
-                <h3>Madagaskar - piękno i trudności</h3>
-                <p>
-                    Madagaskar to wyspa położona na południowym wschodzie Afryki, czwarta co do wielkości 
-                    wyspa świata. To miejsce niezwykłej bioróżnorodności, ale także kraj zmagający się 
-                    z ekstremalnym ubóstwem. Większość dzieci nie ma dostępu do edukacji, cierpią 
-                    z powodu niedożywienia i braku podstawowej opieki medycznej. Antsirabé, gdzie prowadzimy 
-                    nasze działania, to miasto w centralnym Madagaskarze, gdzie wiele rodzin żyje 
-                    poniżej granicy ubóstwa. Dzięki Twojemu wsparciu możemy zmienić ich życie na lepsze.
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section id="contact" class="contact">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Kontakt</h2>
-                <div class="title-underline"></div>
-            </div>
-            <div class="contact-grid">
-                <div class="contact-info">
-                    <div class="contact-item">
-                        <div class="contact-icon">📍</div>
-                        <div>
-                            <h4>Adres</h4>
-                            <p>Szosa Chełmińska 271 A<br>87-100 Toruń, Polska</p>
+        <!-- Contact Section -->
+        <section id="contact" class="contact" aria-labelledby="contact-title">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="contact-title" class="section-title">Kontakt</h2>
+                    <div class="title-underline" aria-hidden="true"></div>
+                </div>
+                <div class="contact-grid">
+                    <div class="contact-info">
+                        <address class="contact-item">
+                            <div class="contact-icon" aria-hidden="true">📍</div>
+                            <div>
+                                <h3>Adres</h3>
+                                <p>Szosa Chełmińska 271 A<br>87-100 Toruń, Polska</p>
+                            </div>
+                        </address>
+                        <div class="contact-item">
+                            <div class="contact-icon" aria-hidden="true">📧</div>
+                            <div>
+                                <h3>Email</h3>
+                                <p><a href="mailto:fundacjamada@gmail.com">fundacjamada@gmail.com</a></p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon" aria-hidden="true">🏦</div>
+                            <div>
+                                <h3>Dane organizacji</h3>
+                                <p>
+                                    <strong>KRS:</strong> 0001099359<br>
+                                    <strong>NIP:</strong> 9562392375<br>
+                                    <strong>REGON:</strong> 528347054
+                                </p>
+                            </div>
+                        </div>
+                        <div class="social-links">
+                            <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" 
+                               target="_blank" 
+                               rel="noopener noreferrer" 
+                               class="social-link" 
+                               aria-label="Odwiedź naszą stronę Facebook - Misja MADA">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                </svg>
+                            </a>
                         </div>
                     </div>
-                    <div class="contact-item">
-                        <div class="contact-icon">📧</div>
-                        <div>
-                            <h4>Email</h4>
-                            <p>fundacjamada@gmail.com</p>
-                        </div>
+                    <div class="contact-form-container">
+                        <form class="contact-form" 
+                              id="contact-form" 
+                              method="post" 
+                              action="#" 
+                              novalidate
+                              aria-label="Formularz kontaktowy">
+                            <div class="form-group">
+                                <input type="text" 
+                                       id="name" 
+                                       name="name" 
+                                       required 
+                                       aria-required="true"
+                                       autocomplete="name">
+                                <label for="name">Imię i nazwisko</label>
+                            </div>
+                            <div class="form-group">
+                                <input type="email" 
+                                       id="email" 
+                                       name="email" 
+                                       required 
+                                       aria-required="true"
+                                       autocomplete="email">
+                                <label for="email">Email</label>
+                            </div>
+                            <div class="form-group">
+                                <textarea id="message" 
+                                          name="message" 
+                                          rows="5" 
+                                          required 
+                                          aria-required="true"></textarea>
+                                <label for="message">Wiadomość</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Wyślij wiadomość</button>
+                            <div id="form-status" role="status" aria-live="polite" class="form-status"></div>
+                        </form>
                     </div>
-                    <div class="contact-item">
-                        <div class="contact-icon">🏦</div>
-                        <div>
-                            <h4>Dane organizacji</h4>
-                            <p>
-                                KRS: 0001099359<br>
-                                NIP: 9562392375<br>
-                                REGON: 528347054
-                            </p>
-                        </div>
-                    </div>
-                    <div class="social-links">
-                        <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" class="social-link" aria-label="Facebook Misja MADA">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                            </svg>
-                        </a>
-                    </div>
-                </div>
-                <div class="contact-form-container">
-                    <form class="contact-form" id="contact-form">
-                        <div class="form-group">
-                            <input type="text" id="name" required>
-                            <label for="name">Imię i nazwisko</label>
-                        </div>
-                        <div class="form-group">
-                            <input type="email" id="email" required>
-                            <label for="email">Email</label>
-                        </div>
-                        <div class="form-group">
-                            <textarea id="message" rows="5" required></textarea>
-                            <label for="message">Wiadomość</label>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Wyślij wiadomość</button>
-                    </form>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h4>Fundacja Misja MADA</h4>
+                    <h3>Fundacja Misja MADA</h3>
                     <p>Działamy na rzecz ośrodków misyjnych i misjonarzy w kraju i za granicą, 
                     niosąc pomoc najbardziej potrzebującym dzieciom na Madagaskarze, szczególnie w regionie Antsirabé.</p>
                 </div>
                 <div class="footer-section">
-                    <h4>Szybkie linki</h4>
-                    <ul>
-                        <li><a href="#about">O nas</a></li>
-                        <li><a href="#mission">Nasza misja</a></li>
-                        <li><a href="#projects">Projekty</a></li>
-                        <li><a href="#gallery">Galeria</a></li>
-                        <li><a href="#contact">Kontakt</a></li>
-                    </ul>
+                    <h3>Szybkie linki</h3>
+                    <nav aria-label="Nawigacja stopki">
+                        <ul>
+                            <li><a href="#about">O nas</a></li>
+                            <li><a href="#mission">Nasza misja</a></li>
+                            <li><a href="#projects">Projekty</a></li>
+                            <li><a href="#gallery">Galeria</a></li>
+                            <li><a href="#contact">Kontakt</a></li>
+                        </ul>
+                    </nav>
                 </div>
                 <div class="footer-section">
-                    <h4>Wesprzyj nas</h4>
+                    <h3>Wesprzyj nas</h3>
                     <p>Każda pomoc się liczy. Możesz wesprzeć nasze działania poprzez:</p>
                     <ul>
                         <li>Wpłatę na zbiórki (70 zł/mies. = jedno dziecko)</li>
