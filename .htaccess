@@ -1,0 +1,4 @@
+# Fundacja Misja MADA - konfiguracja serwera (Apache/LiteSpeed)
+
+# Własna strona błędu 404 (ścieżka absolutna - działa spod dowolnego adresu)
+ErrorDocument 404 /404.html
