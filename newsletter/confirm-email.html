@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<title>Potwierdź zapis do newslettera - Fundacja Misja MADA</title>
+<!--
+  Szablon maila double opt-in (newsletter). subscribe.php wczytuje ten plik
+  i podmienia {{CONFIRM_URL}} na link z tokenem. Mozna swobodnie edytowac HTML.
+-->
+<style>
+  body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table { border-collapse: collapse !important; }
+  img { border: 0; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+  a { text-decoration: none; }
+  @media only screen and (max-width: 600px) {
+    .nl-container { width: 100% !important; }
+    .nl-pad { padding-left: 26px !important; padding-right: 26px !important; }
+    .nl-h1 { font-size: 26px !important; line-height: 32px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#efe4dc;">
+
+  <!-- Preheader (ukryty podgląd w skrzynce) -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#efe4dc;">
+    Potwierdź swój adres e-mail jednym kliknięciem, aby zapisać się do newslettera Fundacji Misja MADA.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#efe4dc" style="background-color:#efe4dc;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+
+        <!-- ══════════ KONTENER 600px ══════════ -->
+        <table role="presentation" class="nl-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#faf5ee; border-radius:16px; overflow:hidden;">
+
+          <!-- HEADER / LOGO -->
+          <tr>
+            <td align="center" bgcolor="#2a1a0e" style="background-color:#2a1a0e; padding:24px 30px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" style="font-family:Georgia,'Times New Roman',serif; color:#faf5ee; font-size:19px; font-weight:bold; letter-spacing:.5px;">
+                    Fundacja&nbsp;Misja&nbsp;MADA
+                  </td>
+                  <td align="right" style="font-family:Arial,Helvetica,sans-serif; color:#c99d66; font-size:11px; letter-spacing:2px; text-transform:uppercase;">
+                    Newsletter
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ZŁOTY PASEK -->
+          <tr><td style="height:4px; background-color:#c99d66; line-height:4px; font-size:4px;">&nbsp;</td></tr>
+
+          <!-- TREŚĆ -->
+          <tr>
+            <td class="nl-pad" style="padding:44px 48px 0 48px;">
+              <p style="margin:0 0 10px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#c99d66; font-weight:bold;">
+                Jeszcze jeden krok
+              </p>
+              <h1 class="nl-h1" style="margin:0 0 18px 0; font-family:Georgia,'Times New Roman',serif; font-size:30px; line-height:36px; color:#422918; font-weight:bold;">
+                Potwierdź swój zapis do newslettera
+              </h1>
+              <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:26px; color:#3c2913;">
+                Dziękujemy za chęć dołączenia do grona naszych Przyjaciół! Aby dokończyć zapis i zacząć otrzymywać comiesięczne wieści z naszych działań w Polsce i na Madagaskarze, prosimy o potwierdzenie adresu e-mail.
+              </p>
+            </td>
+          </tr>
+
+          <!-- PRZYCISK (bulletproof) -->
+          <tr>
+            <td class="nl-pad" align="center" style="padding:14px 48px 8px 48px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#c99d66" style="background-color:#c99d66; border-radius:999px;">
+                    <a href="{{CONFIRM_URL}}" style="display:inline-block; padding:16px 40px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:#2a1a0e; border-radius:999px;">
+                      Tak, potwierdzam zapis →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- LINK ZAPASOWY -->
+          <tr>
+            <td class="nl-pad" style="padding:18px 48px 0 48px;">
+              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:21px; color:#6b5a4a;">
+                Jeśli przycisk nie działa, skopiuj i wklej ten adres do przeglądarki:<br />
+                <a href="{{CONFIRM_URL}}" style="color:#422918; word-break:break-all;">{{CONFIRM_URL}}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- SEPARATOR -->
+          <tr>
+            <td class="nl-pad" style="padding:30px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #e6d9c8; line-height:1px; font-size:1px;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+
+          <!-- INFO -->
+          <tr>
+            <td class="nl-pad" style="padding:22px 48px 40px 48px;">
+              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:21px; color:#6b5a4a;">
+                Jeśli to nie Ty zapisywałeś/aś się do naszego newslettera - po prostu zignoruj tę wiadomość, nie podejmiemy żadnych dalszych działań. Bez potwierdzenia nie dodamy Twojego adresu do listy.
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td bgcolor="#2a1a0e" style="background-color:#2a1a0e; padding:30px 48px;">
+              <p style="margin:0 0 14px 0; font-family:Georgia,'Times New Roman',serif; font-size:16px; color:#faf5ee; font-weight:bold;">
+                Fundacja Misja MADA
+              </p>
+              <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:21px; color:#c9b8a6;">
+                ul. Szosa Chełmińska 271A, 87-100 Toruń<br />
+                <a href="mailto:kontakt@misjamada.pl" style="color:#c99d66;">kontakt@misjamada.pl</a> &middot; tel. 604 181 301
+              </p>
+              <p style="margin:0;">
+                <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" style="font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#c99d66; font-weight:bold;">Facebook: Misja MADA</a>
+                &nbsp;&middot;&nbsp;
+                <a href="https://misjamada.pl" style="font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#c99d66; font-weight:bold;">misjamada.pl</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /KONTENER -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
