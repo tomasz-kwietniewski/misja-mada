@@ -10,7 +10,7 @@
      ORAZ formularz kontaktowy (różnią się polem `type` w JSON).
      Patrz: assets/google-apps-script.gs + DEPLOY-FORMULARZ.md.
   ──────────────────────────────────────────────────────────── */
-  const SUBMIT_URL = '';  // np. 'https://script.google.com/macros/s/AKfy...../exec'
+  const SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbz_x1eI5yH3tT8xLxSpNL_Y1c-Td56oFEqdYO4s1DV_UT3VYE6g8GnR6sEvW6Mcdavm/exec';
   window.MADA_SUBMIT_URL = SUBMIT_URL;  // udostępniamy globalnie dla Kontakt.html
 
   function init() {
