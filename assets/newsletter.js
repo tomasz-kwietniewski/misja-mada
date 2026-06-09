@@ -157,7 +157,7 @@
           <div class="am-consents" style="margin-top: 18px;">
             <label class="am-check">
               <input type="checkbox" name="zgoda_rodo" />
-              <span>Wyrażam zgodę na otrzymywanie newslettera od Fundacji Misja MADA zgodnie z <a href="Polityka prywatności.html" target="_blank" rel="noopener">Polityką prywatności</a>. Mogę wypisać się w&nbsp;każdej chwili.</span>
+              <span>Wyrażam zgodę na otrzymywanie newslettera od Fundacji Misja MADA zgodnie z <a href="polityka-prywatnosci.html" target="_blank" rel="noopener">Polityką prywatności</a>. Mogę wypisać się w&nbsp;każdej chwili.</span>
             </label>
           </div>
 

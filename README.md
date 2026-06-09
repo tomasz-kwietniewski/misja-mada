@@ -7,7 +7,7 @@ skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzeb
 
 ## Jak uruchomić (test)
 1. Wgraj CAŁĄ zawartość tego folderu na serwer (FTP / panel hostingu).
-2. Wejdź na adres — `index.html` przekieruje na „Strona Główna.html".
+2. Wejdź na adres — `index.html` przekieruje na „strona-glowna.html".
 3. `robots.txt` blokuje indeksowanie. **Przed produkcją usuń `robots.txt`.**
 
 > Wymaga internetu: mapa Madagaskaru (D3 + Natural Earth) i fonty Google ładują się z CDN.
@@ -15,18 +15,18 @@ skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzeb
 ## Struktura (uporządkowana)
 ```
 / (root)
-├── Strona Główna.html        — strona główna
-├── Co robimy.html            — projekty (Adopcja Serca, Atelier, Centrum Edukacyjne, Wolontariat)
-├── O nas.html                — fundacja, założyciele, obszary działań, dokumenty, partnerzy
-├── Wydarzenia.html           — wyróżnione + nadchodzące + ostatnie archiwalne
-├── Wydarzenie.html           — szablon pojedynczego wpisu (czyta ?id= z wydarzenia-data.js)
-├── Archiwum wydarzeń.html    — szachownica z filtrami (rok/kategoria) + paginacja (9/stronę)
-├── Kontakt.html              — formularz kontaktowy + dane + newsletter
-├── Polityka prywatności.html
-├── Regulamin serwisu.html
-├── Regulamin Adopcja Serca.html
-├── Oświadczenie o wizerunku.html
-├── Newsletter.html           — szablon e-mail (do wklejenia w MailerLite jako Custom HTML)
+├── strona-glowna.html        — strona główna
+├── co-robimy.html            — projekty (Adopcja Serca, Atelier, Centrum Edukacyjne, Wolontariat)
+├── o-nas.html                — fundacja, założyciele, obszary działań, dokumenty, partnerzy
+├── wydarzenia.html           — wyróżnione + nadchodzące + ostatnie archiwalne
+├── wydarzenie.html           — szablon pojedynczego wpisu (czyta ?id= z wydarzenia-data.js)
+├── archiwum-wydarzen.html    — szachownica z filtrami (rok/kategoria) + paginacja (9/stronę)
+├── kontakt.html              — formularz kontaktowy + dane + newsletter
+├── polityka-prywatnosci.html
+├── regulamin-serwisu.html
+├── regulamin-adopcja-serca.html
+├── oswiadczenie-o-wizerunku.html
+├── newsletter.html           — szablon e-mail (do wklejenia w MailerLite jako Custom HTML)
 ├── index.html / robots.txt   — przekierowanie + blokada indeksowania (test)
 ├── assets/                   — CSS, JS, dane, skrypt backendu, mapa SVG
 │   ├── site.css
@@ -81,7 +81,7 @@ darowizna „co miesiąc") — PayU recurring/tokenizacja. Ustaw `window.MADA_PA
 ### 2. Formularze Adopcja + Kontakt — `assets/google-apps-script.gs`
 Gotowy skrypt (double opt-in dla Adopcji, osobny arkusz dla Kontaktu). Instrukcja w
 `DEPLOY-FORMULARZ.md`. Ustaw `window.MADA_SUBMIT_URL`. E-mail fundacji: **kontakt@misjamada.pl**.
-- **Kontakt** (`Kontakt.html`): pola **imię, nazwisko, e-mail, temat, treść** + zgoda RODO.
+- **Kontakt** (`kontakt.html`): pola **imię, nazwisko, e-mail, temat, treść** + zgoda RODO.
   Payload: `{ type:'kontakt', imie, nazwisko, email, temat, tresc }`. Apps Script (`handleKontakt`)
   wysyła e-mail do fundacji z `Reply-To` = e-mail nadawcy (bez double opt-in).
 

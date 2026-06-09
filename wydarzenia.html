@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>Archiwum wydarzeń - Fundacja Misja MADA</title>
+<title>Wydarzenia - Fundacja Misja MADA</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,205 +11,245 @@
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
-   ARCHIWUM WYDARZEŃ - szachownica miniaturek
+   WYDARZENIA - style specyficzne
    ═══════════════════════════════════════════════════════════════ */
 
-/* Pasek filtrów (rok + kategoria) - opcjonalny dla CMS */
-.archive-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 0 0 40px;
-  padding: 18px 22px;
-  background: var(--creamDk);
-  border-radius: 12px;
-}
-.archive-toolbar .group {
-  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-}
-.archive-toolbar .group-label {
-  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--brown); opacity: .55; font-weight: 700;
-  margin-right: 6px;
-}
-.archive-toolbar .chip {
-  font-family: var(--font-body);
-  font-size: 13.5px; font-weight: 500;
-  color: var(--brown);
-  background: white;
-  border: 1px solid var(--rule);
-  padding: 7px 14px; border-radius: 999px;
-  cursor: pointer;
-  transition: all .15s;
-}
-.archive-toolbar .chip:hover { background: var(--pinkBeige); border-color: var(--pinkBeige); }
-.archive-toolbar .chip.active {
-  background: var(--brown); color: var(--cream);
-  border-color: var(--brown);
-}
-
-.archive-count {
-  font-size: 13px; color: var(--brown); opacity: .55;
-}
-
-/* Grid - szachownica miniaturek 3 kolumny */
-.archive-grid {
+/* FEATURED - najważniejsze nadchodzące wydarzenie */
+.featured {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
-}
-.archive-card {
-  background: white;
-  border-radius: 14px;
+  grid-template-columns: 0.8fr 1fr;
+  background: var(--creamDk);
+  border-radius: 18px;
   overflow: hidden;
-  display: flex; flex-direction: column;
-  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 12px 32px -24px rgba(66,41,24,.18);
-  text-decoration: none;
-  color: inherit;
-  transition: transform .2s, box-shadow .25s;
+  min-height: 320px;
+  align-items: stretch;
 }
-.archive-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 24px 48px -28px rgba(66,41,24,.3);
+.featured .photo { overflow: hidden; position: relative; }
+.featured .photo img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
-.archive-card .photo {
-  aspect-ratio: 4/3;
-  overflow: hidden;
-  position: relative;
+.featured .text {
+  padding: 36px 44px;
+  display: flex; flex-direction: column; justify-content: center;
 }
-.archive-card .photo img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  transition: transform .4s;
+.featured .badge {
+  display: inline-block;
+  background: var(--gold); color: var(--brownDk);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .15em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 999px;
+  margin-bottom: 18px; align-self: flex-start;
 }
-.archive-card:hover .photo img { transform: scale(1.05); }
-.archive-card .year-tag {
-  position: absolute; top: 14px; left: 14px;
-  background: rgba(20, 12, 6, .72);
-  color: var(--cream);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px; letter-spacing: .04em;
-  padding: 4px 10px;
-  border-radius: 999px;
-  backdrop-filter: blur(4px);
+.featured h2 {
+  font-size: 36px; line-height: 1.1;
+  margin-bottom: 14px;
 }
-.archive-card .body {
-  padding: 22px 24px 26px;
-  flex: 1; display: flex; flex-direction: column;
+.featured h2 a {
+  color: inherit; text-decoration: none;
 }
-.archive-card .meta {
-  font-size: 11.5px; letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--gold); font-weight: 700;
-  margin-bottom: 10px;
-  display: flex; gap: 10px; align-items: center;
+.featured h2 a:hover { color: var(--gold); }
+.featured .feat-info {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
 }
-.archive-card .meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--gold); }
-.archive-card h3 {
-  font-family: var(--font-head);
-  font-size: 19px;
-  color: var(--brown);
-  line-height: 1.3;
-  margin: 0 0 10px;
+.featured .feat-info-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 14px; color: #3c2913; line-height: 1.45;
 }
-.archive-card p {
-  font-size: 14px; color: #4a3a2c;
-  line-height: 1.55;
-  margin: 0 0 14px;
-  flex: 1;
+.featured .feat-info-row svg { color: var(--gold); flex-shrink: 0; margin-top: 2px; }
+.featured .feat-info-row b { color: var(--brown); font-weight: 600; }
+.featured .meta {
+  font-size: 13px; color: var(--brown);
+  opacity: .7; margin-bottom: 16px;
+  display: flex; gap: 14px; flex-wrap: wrap;
 }
-.archive-card .read {
-  font-size: 13.5px;
-  color: var(--brown);
-  font-weight: 600;
+.featured .meta span:not(:first-child)::before {
+  content: '·'; margin-right: 14px; opacity: .6;
 }
-.archive-card .read::after { content: ' →'; }
+.featured p {
+  font-size: 15.5px; color: #3c2913;
+  margin-bottom: 22px; line-height: 1.6;
+}
+.featured .more {
+  color: var(--brown); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 4px;
+}
 
-/* Sekcja rocznika */
-.year-section { margin-bottom: 56px; }
-.year-section .year-head {
-  display: flex; align-items: baseline; gap: 18px;
+/* NADCHODZĄCE WYDARZENIA - 3 kafelki z datą i godziną */
+.upcoming-head {
+  display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 24px;
-  padding-bottom: 12px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--rule);
 }
-.year-section .year-head h2 {
+.upcoming-head h2 {
   font-family: var(--font-head);
   font-size: 30px;
   color: var(--brown);
   margin: 0;
 }
-.year-section .year-head .count {
-  font-size: 12.5px; color: var(--brown); opacity: .55;
-  letter-spacing: .04em;
-}
-
-/* Paginacja */
-.archive-pagination {
-  display: flex; justify-content: center; align-items: center;
-  gap: 6px;
-  margin-top: 56px;
-}
-.archive-pagination[hidden] { display: none !important; }
-.archive-pagination .page-btn {
-  min-width: 38px; height: 38px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: white;
-  border: 1px solid var(--rule);
-  color: var(--brown);
-  border-radius: 999px;
+.upcoming-head .more-link {
   font-size: 13.5px; font-weight: 600;
+  color: var(--brown);
   text-decoration: none;
-  padding: 0 14px;
+  padding: 8px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
   transition: all .15s;
 }
-.archive-pagination .page-btn:hover { background: var(--pinkBeige); }
-.archive-pagination .page-btn.active {
+.upcoming-head .more-link:hover {
   background: var(--brown); color: var(--cream);
   border-color: var(--brown);
 }
-.archive-pagination .page-btn[disabled] {
-  opacity: .35;
-  cursor: not-allowed;
+.upcoming-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.upcoming-card[hidden] { display: none !important; }
+@keyframes upcoming-fade-in {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes upcoming-fade-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(-10px) scale(.96); }
+}
+.upcoming-card.is-entering { animation: upcoming-fade-in .5s cubic-bezier(.2,.7,.3,1) both; }
+.upcoming-card.is-leaving  { animation: upcoming-fade-out .35s ease both; }
+.upcoming-card {
+  background: white;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 24px 26px 26px;
+  display: flex; flex-direction: column; gap: 14px;
+  transition: transform .2s, box-shadow .25s, border-color .2s;
+}
+.upcoming-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--gold);
+  box-shadow: 0 16px 36px -20px rgba(66,41,24,.22);
+}
+.upcoming-date {
+  display: flex; align-items: baseline; gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.upcoming-date .day {
+  font-family: var(--font-head);
+  font-size: 38px; line-height: 1;
+  color: var(--brown); font-weight: 700;
+}
+.upcoming-date .my {
+  font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--gold); font-weight: 700;
+}
+.upcoming-time {
+  font-size: 13px; color: var(--brown); opacity: .7;
+  display: flex; align-items: center; gap: 8px;
+}
+.upcoming-time svg { display: block; flex-shrink: 0; }
+.upcoming-card h3 {
+  font-family: var(--font-head);
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--brown);
+  margin: 0;
+}
+.upcoming-card .where {
+  font-size: 13px; color: var(--brown); opacity: .68;
+  display: flex; align-items: center; gap: 8px;
+}
+.upcoming-card .where svg { display: block; flex-shrink: 0; }
+
+/* ARCHIWUM - 3 kafle ze zdjęciem + przycisk "starsze" */
+.archive-section { padding-top: 0; }
+.archive-head {
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.archive-head h2 {
+  font-family: var(--font-head);
+  font-size: 30px;
+  color: var(--brown);
+  margin: 0;
+}
+.archive-head p {
+  font-size: 14px; color: var(--brown); opacity: .65;
+  margin: 4px 0 0;
+}
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+.event-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 12px 32px -24px rgba(66,41,24,.18);
+  transition: transform .2s;
+}
+.event-card:hover { transform: translateY(-3px); }
+.event-card .photo { aspect-ratio: 4/3; overflow: hidden; }
+.event-card .photo img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .4s;
+}
+.event-card:hover .photo img { transform: scale(1.05); }
+.event-card .body { padding: 22px 24px 26px; flex: 1; display: flex; flex-direction: column; }
+.event-card .meta {
+  font-size: 12px; letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold); font-weight: 700;
+  margin-bottom: 8px;
+}
+.event-card h3 {
+  font-size: 19px; line-height: 1.3;
+  margin-bottom: 8px;
+}
+.event-card p {
+  font-size: 14px; color: #4a3a2c;
+  line-height: 1.55; margin: 0 0 14px;
+  flex: 1;
+}
+.event-card .read {
+  font-size: 13.5px; color: var(--brown);
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
-  .archive-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 620px) {
-  .archive-grid { grid-template-columns: 1fr; }
-  .archive-toolbar { flex-direction: column; align-items: flex-start; }
-  /* Compact paginacja: w wąskich widokach - same strzałki bez tekstu */
-  .archive-pagination { flex-wrap: wrap; gap: 8px; }
-  .archive-pagination .page-btn { padding: 0 12px; }
-  .archive-pagination .page-btn:first-child,
-  .archive-pagination .page-btn:last-child {
-    font-size: 0;
-    padding: 0;
-    width: 38px;
-  }
-  .archive-pagination .page-btn:first-child::before { content: '←'; font-size: 16px; }
-  .archive-pagination .page-btn:last-child::before  { content: '→'; font-size: 16px; }
+  .featured { grid-template-columns: 1fr; min-height: 0; }
+  .featured .photo { aspect-ratio: 16/10; }
+  .featured .text { padding: 32px 24px; }
+  .featured h2 { font-size: 26px; }
+  .upcoming-grid, .events-grid { grid-template-columns: 1fr; }
+  .upcoming-head { flex-direction: column; gap: 12px; align-items: flex-start; }
 }
 </style>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
 
-<!-- ═══ NAV (zunifikowany) ═══════════════════════════════════════ -->
+<!-- ═══ NAV ═══════════════════════════════════════════════════ -->
 <nav class="main-nav">
   <div class="nav-inner">
-    <a href="Strona Główna.html" class="nav-logo">
+    <a href="strona-glowna.html" class="nav-logo">
       <img src="media/logo-kolor.png" alt="Fundacja Misja MADA" />
     </a>
     <ul class="nav-links">
-      <li><a href="Strona Główna.html">Strona główna</a></li>
-      <li><a href="Co robimy.html">Co robimy?</a></li>
-      <li><a href="O nas.html">O nas</a></li>
-      <li><a href="Wydarzenia.html" class="active">Wydarzenia</a></li>
-      <li><a href="Kontakt.html">Kontakt</a></li>
+      <li><a href="strona-glowna.html">Strona główna</a></li>
+      <li><a href="co-robimy.html">Co robimy?</a></li>
+      <li><a href="o-nas.html">O nas</a></li>
+      <li><a href="wydarzenia.html" class="active">Wydarzenia</a></li>
+      <li><a href="kontakt.html">Kontakt</a></li>
     </ul>
     <div class="nav-actions">
       <button type="button" class="nav-action nav-search" aria-label="Szukaj na stronie" title="Szukaj (Ctrl+K)">
@@ -224,150 +264,113 @@
         </svg>
       </a>
     </div>
-    <a href="Strona Główna.html#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
+    <a href="#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
   </div>
 </nav>
 
 <!-- ═══ PAGE HERO ═══════════════════════════════════════════════ -->
-<section class="page-hero" id="main-content">
+<section id="main-content" class="page-hero">
   <div class="container">
-    <div class="breadcrumbs">
-      <a href="Strona Główna.html">Strona główna</a> ·
-      <a href="Wydarzenia.html">Wydarzenia</a> ·
-      Archiwum
-    </div>
-    <h1>Archiwum wydarzeń</h1>
-    <p class="lead">Pełen przegląd dotychczasowych wydarzeń fundacji - relacje z wyjazdów misyjnych, kiermasze, prelekcje w szkołach. Wybierz rok lub kategorię, aby zawęzić listę.</p>
+    <div class="breadcrumbs"><a href="strona-glowna.html">Strona główna</a> · Wydarzenia</div>
+    <h1>Z życia fundacji</h1>
+    <p class="lead">Nadchodzące wydarzenia, kiermasze, relacje z misji, spotkania w szkołach. Tutaj dzielimy się tym, co dzieje się między Polską a Madagaskarem.</p>
   </div>
 </section>
 
-<!-- ═══ TOOLBAR (rok + kategoria) ═══════════════════════════════ -->
+<!-- ═══ FEATURED - najważniejsze nadchodzące wydarzenie ═════════ -->
 <section class="section" style="padding-top: 48px; padding-bottom: 0;">
   <div class="container">
-
-    <div class="archive-toolbar">
-      <div class="group">
-        <span class="group-label">Rok</span>
-        <button class="chip active" data-year="all">Wszystkie</button>
-        <button class="chip" data-year="2026">2026</button>
+    <article class="featured">
+      <div class="photo">
+        <img src="media/lezajsk-2026.jpg" alt="Misyjny kiermasz - rękodzieło z Madagaskaru" />
       </div>
-      <div class="group">
-        <span class="group-label">Kategoria</span>
-        <button class="chip active" data-cat="all">Wszystkie</button>
-        <button class="chip" data-cat="misja">Wyjazdy misyjne</button>
-        <button class="chip" data-cat="kiermasz">Kiermasze</button>
-        <button class="chip" data-cat="szkola">Szkoły</button>
-        <button class="chip" data-cat="fundacja">Życie fundacji</button>
+      <div class="text">
+        <span class="badge">★ Nadchodzące - wyróżnione</span>
+        <h2><a href="wydarzenie.html?id=lezajsk-2026">„Razem dla Misji" - spotkanie misyjne w Leżajsku</a></h2>
+        <div class="feat-info">
+          <div class="feat-info-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span><b>Kiedy?</b> Niedziela, 26 lipca 2026</span>
+          </div>
+          <div class="feat-info-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span><b>Msze Święte:</b> 7:00, 8:30, 10:00, 11:30, 16:00, 18:00</span>
+          </div>
+          <div class="feat-info-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span><b>Gdzie?</b> Parafia Św. Trójcy w Leżajsku, Rynek 35</span>
+          </div>
+        </div>
+        <p>Czas pełen świadectwa, inspirujących historii oraz spotkania z misjami prowadzonymi na Madagaskarze. Po Mszach Świętych zapraszamy na misyjny kiermasz z rękodziełem prosto z Madagaskaru.</p>
+        <a href="wydarzenie.html?id=lezajsk-2026" class="more">Czytaj więcej →</a>
       </div>
-    </div>
-
-    <div class="archive-count" id="archive-count">
-      <span id="visible-count">6</span> wydarzeń · zaktualizowane 1 czerwca 2026
-    </div>
-
+    </article>
   </div>
 </section>
 
-<!-- ═══ ARCHIWUM - szachownica miniaturek ═══════════════════════ -->
-<section class="section" style="padding-top: 36px;">
+<!-- ═══ NADCHODZĄCE WYDARZENIA (data-driven; ukryte gdy brak) ═══ -->
+<section class="section" id="upcoming-section" style="padding-top: 80px; padding-bottom: 32px;" hidden>
   <div class="container">
-
-    <!-- ROK 2026 -->
-    <div class="year-section">
-      <div class="year-head">
-        <h2>2026</h2>
-        <span class="count">6 wydarzeń</span>
-      </div>
-      <div class="archive-grid">
-
-        <a href="Wydarzenie.html?id=wieczory-sw-antoniego-2026" class="archive-card" data-year="2026" data-cat="misja">
-          <div class="photo">
-            <img src="media/antoni-a.jpg" alt="Wieczory u św. Antoniego" />
-            <span class="year-tag">2026</span>
-          </div>
-          <div class="body">
-            <div class="meta">19 maja 2026 <span class="dot"></span> Świadectwo</div>
-            <h3>„Wieczory u św. Antoniego" - świadectwo z Madagaskaru</h3>
-            <p>Gościem wieczoru był Radosław Grodzki, Prezes Fundacji, ze świadectwem „Eucharystia na Madagaskarze".</p>
-            <span class="read">Czytaj relację</span>
-          </div>
-        </a>
-
-        <a href="Wydarzenie.html?id=siedlce-2026" class="archive-card" data-year="2026" data-cat="misja">
-          <div class="photo">
-            <img src="media/siedlce-5.jpg" alt="Akcja misyjna w Siedlcach" />
-            <span class="year-tag">2026</span>
-          </div>
-          <div class="body">
-            <div class="meta">26 kwietnia 2026 <span class="dot"></span> Akcja misyjna</div>
-            <h3>Spotkanie misyjne w Siedlcach</h3>
-            <p>Prelekcja z pokazem zdjęć oraz zbiórka na Centrum Edukacyjne - zebrano 13 403,32 zł.</p>
-            <span class="read">Czytaj relację</span>
-          </div>
-        </a>
-
-        <a href="Wydarzenie.html?id=londyn-2026" class="archive-card" data-year="2026" data-cat="misja">
-          <div class="photo">
-            <img src="media/londyn-6.jpg" alt="Akcja misyjna w Londynie" />
-            <span class="year-tag">2026</span>
-          </div>
-          <div class="body">
-            <div class="meta">22 marca 2026 <span class="dot"></span> Akcja zagraniczna</div>
-            <h3>Akcja Wielkopostna - pierwsza akcja zagraniczna</h3>
-            <p>Zbiórka wśród Polonii w Londynie na rozbudowę Centrum - zebrano ok. 13 530,00 zł.</p>
-            <span class="read">Czytaj relację</span>
-          </div>
-        </a>
-
-        <a href="Wydarzenie.html?id=grodzisk-prelekcja-2026" class="archive-card" data-year="2026" data-cat="misja">
-          <div class="photo">
-            <img src="media/grodzisk-1.jpg" alt="Prelekcja w Grodzisku Mazowieckim" />
-            <span class="year-tag">2026</span>
-          </div>
-          <div class="body">
-            <div class="meta">15 lutego 2026 <span class="dot"></span> Prelekcja</div>
-            <h3>„Zakochaj się w misjach" - prelekcja w Grodzisku Mazowieckim</h3>
-            <p>Wspólnie z inną rodziną misyjną opowiadaliśmy o misjach - od Kazachstanu po Madagaskar.</p>
-            <span class="read">Czytaj relację</span>
-          </div>
-        </a>
-
-        <a href="Wydarzenie.html?id=grodzisk-bierzmowanie-2026" class="archive-card" data-year="2026" data-cat="szkola">
-          <div class="photo">
-            <img src="media/bierzmowanie-1.jpg" alt="Spotkanie z młodzieżą" />
-            <span class="year-tag">2026</span>
-          </div>
-          <div class="body">
-            <div class="meta">7 lutego 2026 <span class="dot"></span> Spotkanie z młodzieżą</div>
-            <h3>Spotkanie z młodzieżą przed Bierzmowaniem</h3>
-            <p>O Darach Ducha Świętego i misjach - z młodzieżą z Parafii św. Anny w Grodzisku Mazowieckim.</p>
-            <span class="read">Czytaj relację</span>
-          </div>
-        </a>
-
-        <a href="Wydarzenie.html?id=klodzko-2026" class="archive-card" data-year="2026" data-cat="misja">
-          <div class="photo">
-            <img src="media/klodzko-1.jpg" alt="Akcja misyjna w Kłodzku" />
-            <span class="year-tag">2026</span>
-          </div>
-          <div class="body">
-            <div class="meta">4 stycznia 2026 <span class="dot"></span> Akcja misyjna</div>
-            <h3>Akcja misyjna w Kłodzku</h3>
-            <p>Pierwsza akcja na rzecz Madagaskaru w tym roku - świadectwo na 7 Mszach. Zebrano 11 262,00 zł + 70 €.</p>
-            <span class="read">Czytaj relację</span>
-          </div>
-        </a>
-
-      </div>
+    <div class="upcoming-head">
+      <h2>Nadchodzące wydarzenia</h2>
+      <a href="#" class="more-link upcoming-toggle" id="upcoming-toggle" data-state="closed" hidden>Zobacz kolejne →</a>
     </div>
-
-    <!-- Paginacja - generowana dynamicznie; ukryta gdy wszystko mieści się na 1 stronie -->
-    <div class="archive-pagination" id="archive-pagination" hidden></div>
-
+    <div class="upcoming-grid" id="upcoming-grid"></div>
+    <div class="upcoming-toggle-mobile-wrap" hidden>
+      <a href="#" class="more-link upcoming-toggle" data-state="closed">Zobacz kolejne →</a>
+    </div>
   </div>
 </section>
 
-<!-- ═══ WESPRZYJ NAS ═════════════════════════════════════════════ -->
+<!-- ═══ ARCHIWUM (3 ostatnie wpisy) ═══════════════════════════ -->
+<section class="section archive-section" id="archiwum" style="padding-top: 64px;">
+  <div class="container">
+    <div class="archive-head">
+      <h2>Archiwum wydarzeń</h2>
+      <p>Relacje, kiermasze, podsumowania spotkań z lat ubiegłych.</p>
+    </div>
+
+    <div class="events-grid">
+
+      <a href="wydarzenie.html?id=wieczory-sw-antoniego-2026" class="event-card">
+        <div class="photo"><img src="media/antoni-a.jpg" alt="Wieczory u św. Antoniego" /></div>
+        <div class="body">
+          <div class="meta">19 maja 2026 · Świadectwo misyjne</div>
+          <h3>„Wieczory u św. Antoniego" - świadectwo z Madagaskaru</h3>
+          <p>Gościem wieczoru był Radosław Grodzki, Prezes Fundacji Misja MADA, ze świadectwem „Eucharystia na Madagaskarze".</p>
+          <span class="read">Czytaj więcej →</span>
+        </div>
+      </a>
+
+      <a href="wydarzenie.html?id=siedlce-2026" class="event-card">
+        <div class="photo"><img src="media/siedlce-5.jpg" alt="Akcja misyjna w Siedlcach" /></div>
+        <div class="body">
+          <div class="meta">26 kwietnia 2026 · Akcja misyjna</div>
+          <h3>Spotkanie misyjne z Fundacją Misja MADA w Siedlcach</h3>
+          <p>Opowieści o misjach na każdej Mszy Św., prelekcja z pokazem zdjęć oraz zbiórka na Centrum Edukacyjne - zebrano 13 403,32 zł.</p>
+          <span class="read">Czytaj więcej →</span>
+        </div>
+      </a>
+
+      <a href="wydarzenie.html?id=londyn-2026" class="event-card">
+        <div class="photo"><img src="media/londyn-6.jpg" alt="Akcja misyjna w Londynie" /></div>
+        <div class="body">
+          <div class="meta">22 marca 2026 · Akcja zagraniczna</div>
+          <h3>Akcja Wielkopostna - pierwsza zagraniczna akcja misyjna</h3>
+          <p>Zbiórka na rozbudowę Centrum Edukacyjnego wśród Polonii w Londynie - zebrano ok. 13 530,00 zł.</p>
+          <span class="read">Czytaj więcej →</span>
+        </div>
+      </a>
+
+    </div>
+
+    <div style="text-align: center; margin-top: 48px;">
+      <a href="archiwum-wydarzen.html" class="btn btn-outline">Zobacz starsze wpisy</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ WESPRZYJ NAS - 5 form wsparcia z rozwijanym panelem ═══════════ -->
 <section class="wesprzyj-section" id="wesprzyj">
   <div class="container">
     <div class="ws-head">
@@ -426,7 +429,7 @@
           <p>Już <strong>70&nbsp;zł miesięcznie</strong> pokrywa edukację, codzienny ciepły posiłek, mundurek szkolny i podstawową opiekę medyczną konkretnego dziecka. Pomoc trafia bezpośrednio do Sióstr Małych Misjonarek Miłosierdzia (Sióstr Orionistek) w Itaosy.</p>
         </div>
         <div class="ws-cta">
-          <a href="Co robimy.html#adopcja" class="btn btn-gold">Zobacz program →</a>
+          <a href="co-robimy.html#adopcja" class="btn btn-gold">Zobacz program →</a>
           <a href="#" class="btn btn-ghost-light">Zostań rodzicem adopcyjnym</a>
         </div>
       </article>
@@ -473,7 +476,7 @@
         </div>
         <div class="ws-cta">
           <a href="mailto:kontakt@misjamada.pl?subject=Wolontariat" class="btn btn-gold">Napisz do nas →</a>
-          <a href="Co robimy.html#wolontariat" class="btn btn-ghost-light">Wolontariat na Madagaskarze</a>
+          <a href="co-robimy.html#wolontariat" class="btn btn-ghost-light">Wolontariat na Madagaskarze</a>
         </div>
       </article>
     </div>
@@ -483,7 +486,6 @@
 
 <script>
 (function() {
-  // tabs
   const cards = document.querySelectorAll('.ws-card');
   const panels = document.querySelectorAll('.ws-panel');
   cards.forEach(card => {
@@ -501,87 +503,6 @@
       });
     });
   });
-
-  // archive filters (year + category) + paginacja (auto-hide gdy 1 strona)
-  const yearChips = document.querySelectorAll('.archive-toolbar [data-year]');
-  const catChips = document.querySelectorAll('.archive-toolbar [data-cat]');
-  const items = Array.from(document.querySelectorAll('.archive-card'));
-  const yearSections = document.querySelectorAll('.year-section');
-  const visibleCount = document.getElementById('visible-count');
-  const pager = document.getElementById('archive-pagination');
-  const PAGE_SIZE = 9;
-
-  let activeYear = 'all';
-  let activeCat = 'all';
-  let page = 1;
-
-  function matched() {
-    return items.filter(function (it) {
-      return (activeYear === 'all' || it.dataset.year === activeYear) &&
-             (activeCat  === 'all' || it.dataset.cat  === activeCat);
-    });
-  }
-
-  function applyFilter() {
-    const list = matched();
-    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
-    if (page > totalPages) page = totalPages;
-    const start = (page - 1) * PAGE_SIZE;
-    const end = start + PAGE_SIZE;
-
-    items.forEach(function (it) { it.style.display = 'none'; });
-    list.forEach(function (it, i) { it.style.display = (i >= start && i < end) ? '' : 'none'; });
-
-    yearSections.forEach(function (sec) {
-      const hasVisible = Array.from(sec.querySelectorAll('.archive-card')).some(function (c) { return c.style.display !== 'none'; });
-      sec.style.display = hasVisible ? '' : 'none';
-    });
-    if (visibleCount) visibleCount.textContent = list.length;
-    renderPager(totalPages);
-  }
-
-  function renderPager(totalPages) {
-    if (!pager) return;
-    if (totalPages <= 1) { pager.setAttribute('hidden', ''); pager.innerHTML = ''; return; }
-    pager.removeAttribute('hidden');
-    let html = '';
-    html += '<a href="#" class="page-btn" data-go="prev"' + (page === 1 ? ' disabled aria-disabled="true"' : '') + '>← Poprzednia</a>';
-    for (let p = 1; p <= totalPages; p++) {
-      html += '<a href="#" class="page-btn' + (p === page ? ' active' : '') + '" data-go="' + p + '">' + p + '</a>';
-    }
-    html += '<a href="#" class="page-btn" data-go="next"' + (page === totalPages ? ' disabled aria-disabled="true"' : '') + '>Następna →</a>';
-    pager.innerHTML = html;
-    pager.querySelectorAll('.page-btn').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (btn.hasAttribute('disabled')) return;
-        const go = btn.dataset.go;
-        if (go === 'prev') page = Math.max(1, page - 1);
-        else if (go === 'next') page = Math.min(totalPages, page + 1);
-        else page = parseInt(go, 10);
-        applyFilter();
-        const grid = document.querySelector('.archive-grid');
-        if (grid) window.scrollTo({ top: grid.getBoundingClientRect().top + window.pageYOffset - 120, behavior: 'smooth' });
-      });
-    });
-  }
-
-  yearChips.forEach(c => c.addEventListener('click', () => {
-    yearChips.forEach(x => x.classList.remove('active'));
-    c.classList.add('active');
-    activeYear = c.dataset.year;
-    page = 1;
-    applyFilter();
-  }));
-  catChips.forEach(c => c.addEventListener('click', () => {
-    catChips.forEach(x => x.classList.remove('active'));
-    c.classList.add('active');
-    activeCat = c.dataset.cat;
-    page = 1;
-    applyFilter();
-  }));
-
-  applyFilter();
 })();
 </script>
 
@@ -676,21 +597,21 @@
       <div>
         <h4>Na skróty</h4>
         <ul>
-          <li><a href="Strona Główna.html">Strona główna</a></li>
-          <li><a href="Co robimy.html">Co robimy?</a></li>
-          <li><a href="O nas.html">O nas</a></li>
-          <li><a href="Wydarzenia.html">Wydarzenia</a></li>
-          <li><a href="Kontakt.html">Kontakt</a></li>
+          <li><a href="strona-glowna.html">Strona główna</a></li>
+          <li><a href="co-robimy.html">Co robimy?</a></li>
+          <li><a href="o-nas.html">O nas</a></li>
+          <li><a href="wydarzenia.html">Wydarzenia</a></li>
+          <li><a href="kontakt.html">Kontakt</a></li>
         </ul>
       </div>
 
       <div>
         <h4>Informacje</h4>
         <ul>
-          <li><a href="O nas.html#dokumenty">Statut fundacji</a></li>
-          <li><a href="O nas.html#dokumenty">Sprawozdania</a></li>
-          <li><a href="Polityka prywatności.html">Polityka prywatności</a></li>
-          <li><a href="#">Regulamin</a></li>
+          <li><a href="o-nas.html#dokumenty">Statut fundacji</a></li>
+          <li><a href="o-nas.html#dokumenty">Sprawozdania</a></li>
+          <li><a href="polityka-prywatnosci.html">Polityka prywatności</a></li>
+          <li><a href="regulamin-serwisu.html">Regulamin</a></li>
         </ul>
         <h4 style="margin-top: 26px;">Partnerzy</h4>
         <ul>
@@ -734,11 +655,62 @@
 })();
 </script>
 
+<script>
+/* Nadchodzące wydarzenia - render z window.MADA_EVENTS.
+   Pokazuje TYLKO nadchodzące wydarzenia inne niż wyróżnione.
+   Gdy brak takich wydarzeń - cała sekcja pozostaje ukryta. */
+(function () {
+  var all = (window.MADA_EVENTS || []);
+  var items = all.filter(function (e) { return e.status === 'nadchodzace' && !e.featured; });
+  items.sort(function (a, b) { return (a.dateISO || '').localeCompare(b.dateISO || ''); });
+
+  var section = document.getElementById('upcoming-section');
+  var grid = document.getElementById('upcoming-grid');
+  if (!section || !grid) return;
+  if (!items.length) { section.setAttribute('hidden', ''); return; }
+
+  var PL_M = ['STY','LUT','MAR','KWI','MAJ','CZE','LIP','SIE','WRZ','PAŹ','LIS','GRU'];
+  var INITIAL = 3;
+  function card(e, extra) {
+    var d = e.dateISO ? new Date(e.dateISO) : null;
+    var day = d ? String(d.getDate()).padStart(2, '0') : '';
+    var my = d ? (PL_M[d.getMonth()] + '\u00A0' + d.getFullYear()) : '';
+    var when = e.dateLabel || '';
+    var time = (e.masze ? '' : '');
+    return '<a class="upcoming-card' + (extra ? ' upcoming-extra' : '') + '" href="wydarzenie.html?id=' + e.id + '"' + (extra ? ' hidden' : '') + '>' +
+      '<div class="upcoming-date"><span class="day">' + day + '</span><span class="my">' + my + '</span></div>' +
+      '<div class="upcoming-time"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' + when + '</div>' +
+      '<h3>' + (e.title || '') + '</h3>' +
+      '<div class="where"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' + (e.place || '') + '</div>' +
+    '</a>';
+  }
+  grid.innerHTML = items.map(function (e, i) { return card(e, i >= INITIAL); }).join('');
+  section.removeAttribute('hidden');
+
+  // Toggle „Zobacz kolejne" tylko gdy jest więcej niż INITIAL
+  var extras = grid.querySelectorAll('.upcoming-extra');
+  var toggles = document.querySelectorAll('.upcoming-toggle');
+  if (extras.length) {
+    toggles.forEach(function (t) { t.removeAttribute('hidden'); if (t.parentElement.classList.contains('upcoming-toggle-mobile-wrap')) t.parentElement.removeAttribute('hidden'); });
+    var open = false;
+    toggles.forEach(function (t) {
+      t.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        open = !open;
+        extras.forEach(function (c) { if (open) c.removeAttribute('hidden'); else c.setAttribute('hidden', ''); });
+        toggles.forEach(function (x) { x.textContent = open ? 'Pokaż mniej ←' : 'Zobacz kolejne →'; });
+      });
+    });
+  }
+})();
+</script>
+
 <script src="assets/site-nav.js" defer></script>
 <script src="assets/site-a11y.js" defer></script>
-<script src="assets/site-search.js" defer></script>
 <script src="assets/adopcja-form.js" defer></script>
 <script src="assets/darowizna.js" defer></script>
+<script src="assets/newsletter.js" defer></script>
+<script src="assets/site-search.js" defer></script>
 
 <script src="assets/i18n-dict.js" defer></script>
 <script src="assets/i18n-dict-fr.js" defer></script>

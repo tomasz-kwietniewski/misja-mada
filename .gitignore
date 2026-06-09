@@ -4,8 +4,9 @@
 /Fundacja Misja MADA.zip
 /docs_robocze_stare.zip
 
-# ── Ustawienia lokalne Claude Code ───────────────────────────
+# ── Ustawienia lokalne Claude Code / narzędzia ───────────────
 .claude/
+.playwright-mcp/
 
 # ── Pliki robocze - zostają lokalnie, NIE trafiają na GitHub ──
 # (na repo ma być tylko czysta produkcja + README.md)

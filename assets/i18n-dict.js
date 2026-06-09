@@ -505,7 +505,7 @@ window.MADA_I18N = {
   "7 lutego 2026": "7 February 2026",
   "4 stycznia 2026": "4 January 2026",
 
-  // Widok pojedynczego wydarzenia (Wydarzenie.html - dynamiczne)
+  // Widok pojedynczego wydarzenia (wydarzenie.html - dynamiczne)
   "← Wróć do wydarzeń": "← Back to events",
   "Galeria": "Gallery",
   "Chcesz wziąć udział lub dowiedzieć się więcej?": "Want to take part or learn more?",

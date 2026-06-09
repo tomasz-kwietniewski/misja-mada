@@ -288,7 +288,7 @@
             </div>
 
             <div class="dar-consents">
-              <label class="dar-check"><input type="checkbox" name="zgoda_regulamin" required /> <span>Akceptuję <a href="Regulamin serwisu.html" target="_blank" rel="noopener">Regulamin Serwisu</a> oraz <a href="Polityka prywatności.html" target="_blank" rel="noopener">Politykę prywatności</a>.</span></label>
+              <label class="dar-check"><input type="checkbox" name="zgoda_regulamin" required /> <span>Akceptuję <a href="regulamin-serwisu.html" target="_blank" rel="noopener">Regulamin Serwisu</a> oraz <a href="polityka-prywatnosci.html" target="_blank" rel="noopener">Politykę prywatności</a>.</span></label>
               <label class="dar-check"><input type="checkbox" name="zgoda_dane" required /> <span>Wyrażam zgodę na przetwarzanie moich danych osobowych w celu realizacji darowizny.</span></label>
             </div>
 

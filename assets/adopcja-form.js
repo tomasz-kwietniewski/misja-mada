@@ -11,7 +11,7 @@
      Patrz: assets/google-apps-script.gs + DEPLOY-FORMULARZ.md.
   ──────────────────────────────────────────────────────────── */
   const SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbz_x1eI5yH3tT8xLxSpNL_Y1c-Td56oFEqdYO4s1DV_UT3VYE6g8GnR6sEvW6Mcdavm/exec';
-  window.MADA_SUBMIT_URL = SUBMIT_URL;  // udostępniamy globalnie dla Kontakt.html
+  window.MADA_SUBMIT_URL = SUBMIT_URL;  // udostępniamy globalnie dla kontakt.html
 
   function init() {
     // 1) Podpinamy modal do każdego "Zostań rodzicem adopcyjnym"
@@ -367,15 +367,15 @@
           <div class="am-consents">
             <label class="am-check am-field">
               <input type="checkbox" name="zgoda_regulamin" value="1" />
-              <span>Akceptuję <a href="Regulamin Adopcja Serca.html" target="_blank" rel="noopener">regulamin</a> programu Adopcja Serca.</span>
+              <span>Akceptuję <a href="regulamin-adopcja-serca.html" target="_blank" rel="noopener">regulamin</a> programu Adopcja Serca.</span>
             </label>
             <label class="am-check am-field">
               <input type="checkbox" name="zgoda_wizerunek" value="1" />
-              <span>Akceptuję <a href="Oświadczenie o wizerunku.html" target="_blank" rel="noopener">oświadczenie o&nbsp;wykorzystaniu wizerunku dziecka</a>.</span>
+              <span>Akceptuję <a href="oswiadczenie-o-wizerunku.html" target="_blank" rel="noopener">oświadczenie o&nbsp;wykorzystaniu wizerunku dziecka</a>.</span>
             </label>
             <label class="am-check am-field">
               <input type="checkbox" name="zgoda_rodo" value="1" />
-              <span>Wyrażam zgodę na przetwarzanie moich danych osobowych przez Fundację Misja MADA zgodnie z <a href="Polityka prywatności.html" target="_blank" rel="noopener">Polityką prywatności</a>.</span>
+              <span>Wyrażam zgodę na przetwarzanie moich danych osobowych przez Fundację Misja MADA zgodnie z <a href="polityka-prywatnosci.html" target="_blank" rel="noopener">Polityką prywatności</a>.</span>
             </label>
           </div>
 
