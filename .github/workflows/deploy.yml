@@ -22,18 +22,35 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy przez rsync/SSH
-        uses: easingthemes/ssh-deploy@v5
-        with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           REMOTE_HOST: h57.seohost.pl
           REMOTE_USER: srv84712
           REMOTE_PORT: "57185"
-          SOURCE: "./"
           TARGET: /home/srv84712/domains/misjamada.pl/public_html/
-          # -r rekurencyjnie, -l linki, -t czasy, -z kompresja, -v szczegóły, --delete lustro
-          ARGS: "-rltzv --delete"
-          # Wykluczenia: NIE wysyłamy i NIE kasujemy na serwerze.
-          # /data/  -> dane wydarzeń edytowane przez CMS (pakiet 5)
-          # /cgi-bin/, *.shtml, /.well-known/ -> infrastruktura serwera SEO Host
-          # reszta -> pliki wewnętrzne repo (nie część publicznej strony)
-          EXCLUDE: "/.git/, /.github/, /.gitignore, /.gitattributes, /docs/, /screenshots/, /data/, /cgi-bin/, /.well-known/, /README.md, /DEPLOY-FORMULARZ.md, /CLAUDE.md, /.claude/, *.shtml"
+        run: |
+          set -euo pipefail
+          # Klucz prywatny z sekretu -> plik (bezpiecznie, przez zmienną env)
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # -r rekurencyjnie, -l linki, -t czasy, -z kompresja, -v szczegóły, --delete lustro.
+          # Wykluczenia: NIE wysyłamy ani NIE kasujemy na serwerze:
+          #   /data/        -> dane wydarzeń edytowane przez CMS (pakiet 5)
+          #   /cgi-bin/, *.shtml, /.well-known/ -> infrastruktura serwera SEO Host
+          #   reszta        -> pliki wewnętrzne repo (nie część publicznej strony)
+          rsync -rltzv --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${REMOTE_PORT} -o StrictHostKeyChecking=accept-new" \
+            --exclude='/.git/' \
+            --exclude='/.github/' \
+            --exclude='/.gitignore' \
+            --exclude='/.gitattributes' \
+            --exclude='/README.md' \
+            --exclude='/data/' \
+            --exclude='/cgi-bin/' \
+            --exclude='/.well-known/' \
+            --exclude='*.shtml' \
+            ./ "${REMOTE_USER}@${REMOTE_HOST}:${TARGET}"
+
+          rm -f ~/.ssh/deploy_key
