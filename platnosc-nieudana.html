@@ -2,11 +2,9 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8" />
-<title>Dziękujemy za wsparcie - Fundacja Misja MADA</title>
+<title>Płatność nieudana - Fundacja Misja MADA</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
-<!-- PayU dokleja ?error=... przy nieudanej/anulowanej platnosci -> przekieruj na strone bledu -->
-<script>if (new URLSearchParams(location.search).get('error')) { location.replace('platnosc-nieudana.html'); }</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -106,20 +104,20 @@
 </nav>
 
 <section class="status-section" id="main-content">
-  <div class="status-card ok">
+  <div class="status-card fail">
     <div class="status-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
     </div>
-    <span class="status-eyebrow">Płatność przyjęta</span>
-    <h1>Dziękujemy za Twoje wsparcie!</h1>
-    <p class="lead">Twoja darowizna na rzecz Fundacji Misja MADA została przyjęta do realizacji. Potwierdzenie płatności otrzymasz e-mailem od PayU.</p>
-    <p class="status-note">Dzięki Tobie pomagamy dzieciom na Madagaskarze 🤍</p>
+    <span class="status-eyebrow">Płatność nieudana</span>
+    <h1>Płatność nie została zakończona</h1>
+    <p class="lead">Coś poszło nie tak i Twoja wpłata nie została zrealizowana. Nie pobrano żadnych środków z Twojego konta. Możesz spróbować ponownie - to zajmie tylko chwilę.</p>
+    <p class="status-note">Twoje wsparcie wciąż wiele znaczy 🤍</p>
     <div class="status-actions">
-      <a href="Strona Główna.html" class="btn btn-primary">Wróć na stronę główną</a>
-      <a href="Co robimy.html" class="btn btn-outline">Zobacz nasze projekty</a>
+      <a href="Strona Główna.html#wesprzyj" class="btn btn-primary">Spróbuj ponownie</a>
+      <a href="Strona Główna.html" class="btn btn-outline">Wróć na stronę główną</a>
     </div>
     <div class="status-help">
-      Masz pytanie dotyczące wpłaty? Napisz do nas na <a href="mailto:kontakt@misjamada.pl">kontakt@misjamada.pl</a>.
+      Problem się powtarza? Możesz też wesprzeć nas zwykłym przelewem (dane konta znajdziesz w stopce) lub napisać na <a href="mailto:kontakt@misjamada.pl">kontakt@misjamada.pl</a>.
     </div>
   </div>
 </section>
