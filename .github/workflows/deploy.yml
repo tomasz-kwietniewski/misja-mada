@@ -49,6 +49,7 @@ jobs:
             --exclude='/README.md' \
             --exclude='/data/' \
             --exclude='/payu/secret/' \
+            --exclude='/newsletter/secret/' \
             --exclude='/cgi-bin/' \
             --exclude='/.well-known/' \
             --exclude='*.shtml' \

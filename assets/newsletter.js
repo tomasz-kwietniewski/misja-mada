@@ -15,6 +15,9 @@
 (function () {
   'use strict';
 
+  // Backend zapisu na newsletter (MailerLite) - endpoint na własnej domenie.
+  window.MADA_NEWSLETTER_URL = 'https://misjamada.pl/newsletter/subscribe.php';
+
   function init() {
     const triggers = document.querySelectorAll('[data-newsletter-open]');
     if (!triggers.length) return;
@@ -87,28 +90,29 @@
       submitBtn.textContent = 'Zapisuję…';
 
       const payload = {
-        type: 'newsletter',
         imie: imie.value.trim(),
         email: email.value.trim(),
         zgoda_rodo: !!rodo.checked,
       };
-      const SUBMIT_URL = window.MADA_SUBMIT_URL || '';
+      const NEWSLETTER_URL = window.MADA_NEWSLETTER_URL || '';
 
       try {
-        if (SUBMIT_URL) {
-          await fetch(SUBMIT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload),
-          });
+        if (!NEWSLETTER_URL) throw new Error('no-endpoint');
+        const res = await fetch(NEWSLETTER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data && data.error ? data.error : 'Wystąpił błąd. Spróbuj ponownie.');
         }
         form.style.display = 'none';
         successPane.style.display = '';
       } catch (err) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Zapisz się →';
-        showError(email, 'Wystąpił błąd. Spróbuj ponownie.');
+        showError(email, (err && err.message && err.message !== 'no-endpoint') ? err.message : 'Wystąpił błąd. Spróbuj ponownie.');
       }
     });
   }
