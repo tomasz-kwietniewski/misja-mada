@@ -7,7 +7,7 @@ skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzeb
 
 ## Jak uruchomić (test)
 1. Wgraj CAŁĄ zawartość tego folderu na serwer (FTP / panel hostingu).
-2. Wejdź na adres — `index.html` przekieruje na „strona-glowna.html".
+2. Wejdź na adres — `index.html` przekieruje na „index.html".
 3. `robots.txt` blokuje indeksowanie. **Przed produkcją usuń `robots.txt`.**
 
 > Wymaga internetu: mapa Madagaskaru (D3 + Natural Earth) i fonty Google ładują się z CDN.
@@ -15,7 +15,7 @@ skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzeb
 ## Struktura (uporządkowana)
 ```
 / (root)
-├── strona-glowna.html        — strona główna
+├── index.html        — strona główna
 ├── co-robimy.html            — projekty (Adopcja Serca, Atelier, Centrum Edukacyjne, Wolontariat)
 ├── o-nas.html                — fundacja, założyciele, obszary działań, dokumenty, partnerzy
 ├── wydarzenia.html           — wyróżnione + nadchodzące + ostatnie archiwalne

@@ -20,7 +20,7 @@ function nl_error_page($title, $msg) {
        . '<div style="max-width:560px;margin:12vh auto;background:#fff;border-radius:18px;padding:48px 40px;text-align:center;box-shadow:0 18px 50px rgba(66,41,24,.10);">'
        . '<h1 style="font-family:var(--font-head,Georgia,serif);color:var(--brown,#422918);font-size:28px;margin:0 0 14px;">' . $t . '</h1>'
        . '<p style="color:#5a4836;line-height:1.65;margin:0 0 26px;">' . $m . '</p>'
-       . '<a href="/strona-glowna.html" class="btn btn-primary" style="text-decoration:none;">Wróć na stronę główną</a>'
+       . '<a href="/index.html" class="btn btn-primary" style="text-decoration:none;">Wróć na stronę główną</a>'
        . '</div></body></html>';
     exit;
 }
