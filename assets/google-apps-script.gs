@@ -14,29 +14,13 @@
  *      - wyświetla użytkownikowi stronę z podziękowaniem
  *
  *  ─── INSTRUKCJA WDROŻENIA ──────────────────────────────────────
- *  1) Otwórz Google Drive → New → Google Sheets. Nazwij arkusz
- *     "Adopcja Serca - zgłoszenia".
- *  2) W pierwszym wierszu wpisz nagłówki kolumn:
- *       A: token
- *       B: status
- *       C: ts_received
- *       D: ts_verified
- *       E: imie
- *       F: nazwisko
- *       G: email
- *       H: telefon
- *       I: adres
- *       J: forma
- *       K: okres
- *       L: czestotliwosc
- *       M: zgoda_regulamin
- *       N: zgoda_wizerunek
- *       O: zgoda_rodo
- *  3) Extensions → Apps Script → wklej cały TEN plik
- *  4) Zmień u góry stałe:
- *       FOUNDATION_EMAIL
- *       FOUNDATION_NAME
- *  5) Deploy → New deployment
+ *  1) Otwórz Google Drive → New → Google Sheets. Utwórz PUSTY arkusz
+ *     (nazwa dowolna, np. "Misja MADA - formularze"). NIE trzeba ręcznie
+ *     tworzyć nagłówków - skrypt sam założy zakładki "Adopcja Serca"
+ *     i "Newsletter" z nagłówkami przy pierwszym zgłoszeniu.
+ *  2) Extensions → Apps Script → wklej cały TEN plik
+ *  3) (opcjonalnie) Zmień u góry stałe FOUNDATION_EMAIL / FOUNDATION_NAME
+ *  4) Deploy → New deployment
  *       Type: Web app
  *       Execute as: Me (kontakt@misjamada.pl)
  *       Who has access: Anyone
@@ -52,6 +36,40 @@ const FOUNDATION_EMAIL = 'kontakt@misjamada.pl';
 const FOUNDATION_NAME  = 'Fundacja Misja MADA';
 const SITE_URL         = 'https://misjamada.pl';
 
+// Nazwy zakładek (skrypt tworzy je automatycznie z nagłówkami przy pierwszym użyciu).
+const SHEET_ADOPCJA    = 'Adopcja Serca';
+const SHEET_NEWSLETTER = 'Newsletter';
+
+const HEADERS_ADOPCJA = [
+  'token', 'status', 'ts_received', 'ts_verified', 'imie', 'nazwisko', 'email',
+  'telefon', 'adres', 'forma', 'okres', 'czestotliwosc',
+  'zgoda_regulamin', 'zgoda_wizerunek', 'zgoda_rodo',
+];
+const HEADERS_NEWSLETTER = ['ts', 'imie', 'email', 'zgoda_rodo'];
+
+/**
+ * Zwraca zakładkę o danej nazwie; jeśli nie istnieje (lub jest pusta),
+ * tworzy ją i wstawia wiersz nagłówków. Dzięki temu konfiguracja po stronie
+ * fundacji to po prostu "utwórz pusty arkusz" - resztę robi skrypt.
+ */
+function getOrCreateSheet(name, headers) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 /**
  * Endpoint POST - odbiera zgłoszenie z formularza na stronie.
  * Dispatch po polu `type`:
@@ -62,50 +80,56 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
 
-    if (data.type === 'kontakt') {
-      return handleKontakt(data);
-    }
-    return handleAdopcja(data);
+    if (data.type === 'kontakt')    return handleKontakt(data);
+    if (data.type === 'newsletter') return handleNewsletter(data);
+    return handleAdopcja(data);  // brak type lub type='adopcja' -> double opt-in
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonOut({ ok: false, error: err.toString() });
   }
 }
 
 function handleAdopcja(data) {
-    const token = Utilities.getUuid().replace(/-/g, '');
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    const ts = new Date();
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  const token = Utilities.getUuid().replace(/-/g, '');
+  const ts = new Date();
 
-    sheet.appendRow([
-      token,
-      'pending',
-      ts,
-      '', // ts_verified - puste do potwierdzenia
-      data.imie || '',
-      data.nazwisko || '',
-      data.email || '',
-      data.telefon || '',
-      data.adres || '',
-      data.formaLabel || '',
-      data.okres || '',
-      data.czestotliwosc || '',
-      data.zgoda_regulamin ? 'TAK' : '',
-      data.zgoda_wizerunek ? 'TAK' : '',
-      data.zgoda_rodo ? 'TAK' : '',
-    ]);
+  sheet.appendRow([
+    token,
+    'pending',
+    ts,
+    '', // ts_verified - puste do potwierdzenia
+    data.imie || '',
+    data.nazwisko || '',
+    data.email || '',
+    data.telefon || '',
+    data.adres || '',
+    data.formaLabel || '',
+    data.okres || '',
+    data.czestotliwosc || '',
+    data.zgoda_regulamin ? 'TAK' : '',
+    data.zgoda_wizerunek ? 'TAK' : '',
+    data.zgoda_rodo ? 'TAK' : '',
+  ]);
 
-    sendConfirmationEmail(data, token);
+  sendConfirmationEmail(data, token);
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true }))
-      .setMimeType(ContentService.MimeType.JSON);
+  return jsonOut({ ok: true });
 }
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true }))
-      .setMimeType(ContentService.MimeType.JSON);
+/* ────────── Newsletter (rozwiązanie pomostowe do czasu MailerLite) ── */
+function handleNewsletter(data) {
+  const email = String(data.email || '').trim();
+  if (!email) return jsonOut({ ok: false, error: 'missing-email' });
+
+  const sheet = getOrCreateSheet(SHEET_NEWSLETTER, HEADERS_NEWSLETTER);
+  sheet.appendRow([
+    new Date(),
+    String(data.imie || '').trim(),
+    email,
+    data.zgoda_rodo ? 'TAK' : '',
+  ]);
+
+  return jsonOut({ ok: true });
 }
 
 /* ────────── Formularz kontaktowy ────────────────────────────── */
@@ -152,7 +176,7 @@ function doGet(e) {
   const token = e.parameter.confirm;
   if (!token) return htmlError('Brak tokenu potwierdzenia.');
 
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const tokenCol = headers.indexOf('token');
