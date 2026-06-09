@@ -170,8 +170,8 @@
           <div class="nm-icon" aria-hidden="true" style="background: var(--gold); color: var(--brownDk);">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <h2>Dziękujemy!</h2>
-          <p>Twój adres e-mail został zapisany. Wkrótce dostaniesz od&nbsp;nas pierwszą wiadomość.</p>
+          <h2>Sprawdź skrzynkę!</h2>
+          <p>Wysłaliśmy do Ciebie e-mail z linkiem potwierdzającym. Kliknij w&nbsp;niego, aby dokończyć zapis na newsletter. Sprawdź też folder <em>spam</em>.</p>
           <button type="button" class="btn btn-primary" onclick="document.getElementById('newsletter-modal').classList.remove('is-open'); document.body.classList.remove('drawer-open');">Zamknij</button>
         </div>
       </div>

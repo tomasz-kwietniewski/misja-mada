@@ -56,3 +56,27 @@ function ml_client_ip() {
     }
     return isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
 }
+
+define('NL_SITE_BASE', 'https://misjamada.pl');
+
+/** Dodaje (upsert) subskrybenta do MailerLite jako ACTIVE, w skonfigurowanej grupie. */
+function ml_add_subscriber($email, $name, $ip = '') {
+    $now = gmdate('Y-m-d H:i:s');
+    $payload = [
+        'email'       => $email,
+        'fields'      => ['name' => mb_substr($name, 0, 100)],
+        'status'      => 'active',   // my juz zweryfikowalismy e-mail -> omija double opt-in MailerLite
+        'opted_in_at' => $now,
+    ];
+    if ($ip !== '') { $payload['ip_address'] = $ip; $payload['optin_ip'] = $ip; }
+    if (MAILERLITE_GROUP_ID !== '') { $payload['groups'] = [MAILERLITE_GROUP_ID]; }
+    return ml_request('POST', '/subscribers', $payload);
+}
+
+/** Ścieżka pliku zgłoszenia oczekującego dla danego tokenu (token sanityzowany do hex). */
+function nl_pending_path($token) {
+    $dir = __DIR__ . '/../data/newsletter-pending';
+    if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+    $safe = preg_replace('/[^a-f0-9]/', '', strtolower($token));
+    return $dir . '/' . $safe . '.json';
+}
