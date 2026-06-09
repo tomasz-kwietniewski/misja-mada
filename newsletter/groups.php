@@ -23,3 +23,21 @@ try {
 } catch (Exception $e) {
     echo 'EXCEPTION: ' . $e->getMessage() . "\n";
 }
+
+// ?sub=email -> pokaz status i grupy konkretnego subskrybenta
+$sub = isset($_GET['sub']) ? $_GET['sub'] : '';
+if ($sub !== '') {
+    try {
+        list($c2, $r2) = ml_request('GET', '/subscribers/' . rawurlencode($sub), null);
+        echo "\n--- subscriber: $sub (HTTP $c2) ---\n";
+        if (isset($r2['data'])) {
+            echo 'status: ' . $r2['data']['status'] . "\n";
+            $gids = array_map(function ($g) { return $g['id']; }, isset($r2['data']['groups']) ? $r2['data']['groups'] : []);
+            echo 'groups: ' . json_encode($gids) . "\n";
+        } else {
+            echo json_encode($r2, JSON_UNESCAPED_UNICODE) . "\n";
+        }
+    } catch (Exception $e) {
+        echo 'EXCEPTION(sub): ' . $e->getMessage() . "\n";
+    }
+}
