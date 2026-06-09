@@ -1,0 +1,33 @@
+# ── Wielkie archiwa robocze - NIGDY do repo ──────────────────
+*.zip
+# (jawnie, dla pewności)
+/Fundacja Misja MADA.zip
+/docs_robocze_stare.zip
+
+# ── Ustawienia lokalne Claude Code ───────────────────────────
+.claude/
+
+# ── Pliki robocze - zostają lokalnie, NIE trafiają na GitHub ──
+# (na repo ma być tylko czysta produkcja + README.md)
+/docs/
+/screenshots/
+/CLAUDE.md
+/DEPLOY-FORMULARZ.md
+
+# ── Dane edytowane na serwerze przez CMS (pakiet 5) ──────────
+# Nie wersjonujemy - źródłem prawdy dla wydarzeń jest serwer.
+/data/
+
+# ── Sekrety (gdyby kiedyś pojawiły się lokalnie) ─────────────
+*.key
+*.pem
+secret*
+.env
+.env.*
+
+# ── Systemowe / tymczasowe ───────────────────────────────────
+Thumbs.db
+.DS_Store
+desktop.ini
+*.log
+*.tmp

@@ -1,0 +1,12 @@
+# Normalizacja końców linii: w repo zawsze LF
+* text=auto eol=lf
+
+# Pliki binarne - bez normalizacji
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.pdf  binary
+*.mp4  binary
+*.ico  binary

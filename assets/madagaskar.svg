@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 700" fill="none">
+  
+  <defs>
+    <linearGradient id="islandFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e4c89d"></stop>
+      <stop offset="55%" stop-color="#c99d66"></stop>
+      <stop offset="100%" stop-color="#a37840"></stop>
+    </linearGradient>
+    <radialGradient id="centralRidge" cx="0.5" cy="0.5" r="0.42">
+      <stop offset="0%" stop-color="#6e4520" stop-opacity="0.28"></stop>
+      <stop offset="70%" stop-color="#6e4520" stop-opacity="0.0"></stop>
+    </radialGradient>
+  </defs>
+
+  
+  <polygon id="madagaskar" points="&#xA;    202,39&#xA;    207,51&#xA;    215,60&#xA;    213,78&#xA;    224,105&#xA;    229,148&#xA;    232,178&#xA;    237,210&#xA;    231,230&#xA;    220,250&#xA;    210,280&#xA;    206,293&#xA;    205,320&#xA;    206,330&#xA;    199,360&#xA;    191,395&#xA;    188,412&#xA;    174,474&#xA;    164,517&#xA;    158,550&#xA;    152,575&#xA;    140,605&#xA;    134,653&#xA;    110,678&#xA;    79,680&#xA;    50,668&#xA;    43,638&#xA;    34,575&#xA;    28,530&#xA;    25,499&#xA;    32,460&#xA;    52,430&#xA;    60,403&#xA;    50,370&#xA;    45,325&#xA;    52,285&#xA;    60,250&#xA;    59,238&#xA;    75,232&#xA;    114,216&#xA;    140,200&#xA;    164,177&#xA;    172,152&#xA;    177,120&#xA;    185,95&#xA;    191,70&#xA;    197,51&#xA;  " fill="url(#islandFill)" stroke="#422918" stroke-width="2" stroke-linejoin="round"></polygon>
+
+  
+  <use href="#madagaskar" fill="url(#centralRidge)" stroke="none"></use>
+
+  
+
+  
+  <g>
+    <circle cx="208" cy="60" r="3.5" fill="#422918"></circle>
+    <line x1="212" y1="60" x2="240" y2="48" stroke="#422918" stroke-width="0.7" opacity="0.55"></line>
+    <text x="244" y="51" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="11" fill="#422918">Antsiranana</text>
+  </g>
+
+  
+  <g>
+    <circle cx="118" cy="218" r="3" fill="#422918"></circle>
+    <line x1="114" y1="218" x2="64" y2="212" stroke="#422918" stroke-width="0.7" opacity="0.55"></line>
+    <text x="6" y="216" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="11" fill="#422918">Mahajanga</text>
+  </g>
+
+  
+  <g>
+    <circle cx="200" cy="332" r="3.5" fill="#422918"></circle>
+    <line x1="204" y1="332" x2="226" y2="332" stroke="#422918" stroke-width="0.7" opacity="0.55"></line>
+    <text x="230" y="336" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="11" fill="#422918">Toamasina</text>
+  </g>
+
+  
+  <g>
+    <circle cx="149" cy="367" r="6.5" fill="none" stroke="#422918" stroke-width="1.6"></circle>
+    <circle cx="149" cy="367" r="2" fill="#422918"></circle>
+    <text x="163" y="370" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="12" font-weight="700" fill="#422918">Antananarywa</text>
+    <text x="163" y="384" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="9" letter-spacing="0.14em" fill="#7a4f24">★ STOLICA</text>
+  </g>
+
+  
+  <g>
+    <circle cx="143" cy="372" r="5" fill="#422918"></circle>
+    <circle cx="143" cy="372" r="2.5" fill="#c99d66"></circle>
+    <line x1="138" y1="374" x2="100" y2="410" stroke="#422918" stroke-width="0.9" stroke-dasharray="3 3"></line>
+    <text x="14" y="414" font-family="&#39;Libre Caslon Text&#39;, serif" font-size="15" font-weight="700" fill="#422918">Itaosy</text>
+    <text x="14" y="429" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="9" letter-spacing="0.12em" fill="#7a4f24">NASZA MISJA</text>
+  </g>
+
+  
+  <g>
+    <circle cx="42" cy="573" r="3.5" fill="#422918"></circle>
+    <line x1="38" y1="573" x2="16" y2="573" stroke="#422918" stroke-width="0.7" opacity="0.55"></line>
+    <text x="-2" y="578" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="11" fill="#422918">Toliara</text>
+  </g>
+
+  
+  <g>
+    <circle cx="130" cy="650" r="3.5" fill="#422918"></circle>
+    <line x1="130" y1="654" x2="130" y2="676" stroke="#422918" stroke-width="0.7" opacity="0.55"></line>
+    <text x="130" y="692" text-anchor="middle" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="11" fill="#422918">Tôlanaro</text>
+  </g>
+
+  
+
+  
+  <text x="260" y="380" font-family="&#39;Libre Caslon Text&#39;, serif" font-style="italic" font-size="12" letter-spacing="0.16em" fill="#7a4f24" transform="rotate(90 260 380)" text-anchor="middle">Ocean Indyjski</text>
+
+  
+  <text x="10" y="330" font-family="&#39;Libre Caslon Text&#39;, serif" font-style="italic" font-size="10" letter-spacing="0.14em" fill="#7a4f24" transform="rotate(-90 10 330)" text-anchor="middle">Kanał Mozambicki</text>
+
+  
+  <g transform="translate(252 660)">
+    <circle r="17" fill="none" stroke="#422918" stroke-width="1" opacity="0.45"></circle>
+    <line x1="0" y1="-17" x2="0" y2="17" stroke="#422918" stroke-width="0.7" opacity="0.45"></line>
+    <line x1="-17" y1="0" x2="17" y2="0" stroke="#422918" stroke-width="0.7" opacity="0.45"></line>
+    <polygon points="0,-17 -3.5,0 0,-2 3.5,0" fill="#c99d66" stroke="#422918" stroke-width="0.5"></polygon>
+    <text x="0" y="-21" text-anchor="middle" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-size="9" font-weight="700" fill="#422918">N</text>
+  </g>
+</svg>

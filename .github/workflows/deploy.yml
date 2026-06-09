@@ -1,0 +1,39 @@
+name: Deploy na SEO Host
+
+# Automatyczny deploy strony na hosting SEO Host po każdym pushu do main.
+# Można też uruchomić ręcznie (workflow_dispatch).
+# Klucz prywatny SSH jest w sekrecie repo: SSH_PRIVATE_KEY.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Nie pozwalamy na równoległe deploye (kolejny czeka, nie przerywa trwającego).
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deploy przez rsync/SSH
+        uses: easingthemes/ssh-deploy@v5
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_HOST: h57.seohost.pl
+          REMOTE_USER: srv84712
+          REMOTE_PORT: "57185"
+          SOURCE: "./"
+          TARGET: /home/srv84712/domains/misjamada.pl/public_html/
+          # -r rekurencyjnie, -l linki, -t czasy, -z kompresja, -v szczegóły, --delete lustro
+          ARGS: "-rltzv --delete"
+          # Wykluczenia: NIE wysyłamy i NIE kasujemy na serwerze.
+          # /data/  -> dane wydarzeń edytowane przez CMS (pakiet 5)
+          # /cgi-bin/, *.shtml, /.well-known/ -> infrastruktura serwera SEO Host
+          # reszta -> pliki wewnętrzne repo (nie część publicznej strony)
+          EXCLUDE: "/.git/, /.github/, /.gitignore, /.gitattributes, /docs/, /screenshots/, /data/, /cgi-bin/, /.well-known/, /README.md, /DEPLOY-FORMULARZ.md, /CLAUDE.md, /.claude/, *.shtml"

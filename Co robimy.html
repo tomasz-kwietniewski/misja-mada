@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<title>Co robimy? - Fundacja Misja MADA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CO ROBIMY - style specyficzne
+   ═══════════════════════════════════════════════════════════════ */
+
+/* sticky sub-nav z linkami do projektów */
+.sub-nav {
+  position: sticky; top: 106px; z-index: 50;
+  background: var(--cream);
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 0;
+}
+.sub-nav-inner {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; align-items: center;
+  padding: 0;
+}
+.sub-nav a {
+  font-size: 14px; font-weight: 500;
+  color: var(--brown); opacity: .72;
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  line-height: 1;
+  transition: all .15s;
+}
+  padding: 8px 16px; border-radius: 999px;
+  transition: all .15s;
+}
+.sub-nav a:hover { opacity: 1; background: var(--pinkBeige); }
+
+/* sekcja projektu */
+.project-section {
+  padding: 56px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.project-section:nth-child(even) { background: var(--creamDk); }
+
+/* ═══ PROJEKT ZREALIZOWANY (Studnia) ═══ */
+.project-done {
+  padding: 72px 0 80px;
+  background:
+    linear-gradient(180deg, var(--brownDk) 0%, var(--brownDk) 340px, transparent 340px),
+    var(--creamDk);
+  border-bottom: 1px solid var(--rule);
+}
+.done-head { text-align: center; max-width: 820px; margin: 0 auto 40px; }
+.done-badge {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: var(--gold); color: var(--brownDk);
+  font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  padding: 8px 18px; border-radius: 999px; margin-bottom: 24px;
+}
+.done-badge svg { width: 16px; height: 16px; }
+.done-head h2 { font-size: 46px; line-height: 1.06; color: var(--cream); margin-bottom: 14px; }
+.done-head .done-loc {
+  font-size: 16px; color: var(--goldPale); letter-spacing: .02em;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.done-hero {
+  max-width: 1060px; margin: 0 auto 0;
+  aspect-ratio: 16/9; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 30px 70px -30px rgba(0,0,0,.55);
+}
+.done-hero img { width: 100%; height: 100%; object-fit: cover; }
+
+.done-body { max-width: 760px; margin: 44px auto 0; }
+.done-body p { font-size: 17px; line-height: 1.7; color: #3c2913; margin-bottom: 18px; text-wrap: pretty; }
+.done-body p.done-thanks {
+  font-family: var(--font-head); font-size: 22px; line-height: 1.4;
+  color: var(--brown); margin-top: 28px; text-align: center; font-style: italic;
+}
+
+.done-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  max-width: 760px; margin: 36px auto;
+}
+.done-stat {
+  background: var(--cream); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 24px 20px; text-align: center;
+}
+.done-stat .num { font-family: var(--font-head); font-size: 34px; font-weight: 700; color: var(--brown); line-height: 1; }
+.done-stat .lbl { font-size: 13px; color: #6b5a4a; margin-top: 8px; line-height: 1.4; }
+
+/* galeria zrealizowanego projektu */
+.done-gallery {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  max-width: 1060px; margin: 40px auto 0;
+}
+.done-gallery img {
+  width: 100%; aspect-ratio: 4/5; object-fit: cover;
+  border-radius: 10px; cursor: pointer; transition: transform .2s, opacity .2s;
+}
+.done-gallery img:hover { transform: scale(.985); opacity: .9; }
+
+/* filmy */
+.done-films { max-width: 1060px; margin: 40px auto 0; }
+.done-films-head { text-align: center; margin-bottom: 20px; }
+.done-films-head h3 { font-size: 26px; color: var(--brown); margin-bottom: 6px; }
+.done-films-head p { font-size: 14px; color: #6b5a4a; }
+.done-films-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.done-film {
+  border-radius: 14px; overflow: hidden; background: #000;
+  box-shadow: 0 16px 40px -24px rgba(0,0,0,.5);
+}
+.done-film video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; background: #000; }
+
+/* lightbox studnia */
+.studnia-lb {
+  position: fixed; inset: 0; z-index: 260; display: none;
+  background: rgba(20,12,6,.94); align-items: center; justify-content: center; padding: 4vh 3vw;
+}
+.studnia-lb.is-open { display: flex; }
+.studnia-lb img { max-width: 92vw; max-height: 88vh; border-radius: 10px; }
+.studnia-lb .slb-close, .studnia-lb .slb-arrow {
+  position: absolute; background: rgba(250,245,238,.12); border: 1px solid rgba(250,245,238,.3);
+  color: var(--cream); cursor: pointer; border-radius: 999px;
+  width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center;
+}
+.studnia-lb .slb-close { top: 20px; right: 20px; }
+.studnia-lb .slb-arrow { top: 50%; transform: translateY(-50%); }
+.studnia-lb .slb-arrow.prev { left: 16px; }
+.studnia-lb .slb-arrow.next { right: 16px; }
+.studnia-lb .slb-arrow:hover, .studnia-lb .slb-close:hover { background: rgba(250,245,238,.25); }
+
+@media (max-width: 760px) {
+  .project-done { background: linear-gradient(180deg, var(--brownDk) 0%, var(--brownDk) 260px, transparent 260px), var(--creamDk); padding: 48px 0 56px; }
+  .done-head h2 { font-size: 32px; }
+  .done-gallery { grid-template-columns: repeat(2, 1fr); }
+  .done-stats { grid-template-columns: 1fr; gap: 12px; }
+  .done-films-grid { grid-template-columns: 1fr; }
+  .done-film video { aspect-ratio: 9/16; max-height: 70vh; }
+}
+
+.project-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: center;
+}
+.project-row.reverse { direction: rtl; }
+.project-row.reverse > * { direction: ltr; }
+
+.project-photo {
+  aspect-ratio: 4/5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.project-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+.project-text .eyebrow { display: block; margin-bottom: 16px; }
+.project-text h2 {
+  font-size: 50px; line-height: 1.05;
+  margin-bottom: 24px;
+}
+.project-text p {
+  font-size: 17px; color: #3c2913;
+  margin-bottom: 16px; line-height: 1.65;
+  text-wrap: pretty;
+}
+.project-text ul {
+  list-style: none;
+  margin: 16px 0 24px;
+}
+.project-text ul li {
+  font-size: 16px; color: #3c2913;
+  padding: 8px 0 8px 30px;
+  position: relative;
+  line-height: 1.55;
+}
+.project-text ul li::before {
+  content: '→';
+  position: absolute; left: 0;
+  color: var(--gold);
+  font-weight: 700;
+}
+.project-cta { display: flex; gap: 12px; margin-top: 12px; }
+
+/* highlight box (np. 70 zł) */
+.highlight-box {
+  background: var(--brown);
+  color: var(--cream);
+  border-radius: 14px;
+  padding: 36px;
+  margin: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.highlight-box .price {
+  font-family: var(--font-head);
+  font-size: 64px; line-height: 1;
+  font-weight: 700;
+  color: var(--cream);
+}
+.highlight-box .price small {
+  display: block;
+  font-size: 13px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--gold);
+  margin-top: 8px; font-family: var(--font-body);
+}
+.highlight-box .price-desc {
+  font-size: 15.5px;
+  color: rgba(250,245,238,.85);
+  line-height: 1.55;
+}
+
+/* karty co obejmuje */
+.coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin: 40px 0 8px;
+}
+.coverage-card {
+  background: white;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 26px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.coverage-card .ic {
+  width: 52px; height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--pinkBeige, #efe5d6);
+  color: var(--brown);
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+.coverage-card .ic svg { display: block; }
+.coverage-card h4 {
+  font-family: var(--font-head);
+  font-size: 17px; color: var(--brown);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+.coverage-card p {
+  font-size: 13px;
+  color: #4a3a2c; line-height: 1.55;
+  margin: 0;
+}
+
+/* meta stats inline */
+.stats-inline {
+  display: flex; gap: 56px; margin: 28px 0;
+  padding-top: 24px; border-top: 1px solid var(--rule);
+  justify-content: center; text-align: center;
+}
+.stats-inline > div { display: flex; flex-direction: column; align-items: center; }
+.stats-inline div .num {
+  font-family: var(--font-head);
+  font-size: 38px; color: var(--brown);
+  line-height: 1; font-weight: 700;
+}
+.stats-inline div .lbl {
+  font-size: 12.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--brown);
+  opacity: .7; margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+  .project-row { grid-template-columns: 1fr; gap: 36px; }
+  .project-row.reverse { direction: ltr; }
+  .project-text h2 { font-size: 36px; }
+  .coverage-grid { grid-template-columns: repeat(2, 1fr); }
+  .highlight-box { flex-direction: column; align-items: flex-start; }
+  .sub-nav { top: 78px; }
+}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
+
+<!-- ═══ NAV ═══════════════════════════════════════════════════ -->
+<nav class="main-nav">
+  <div class="nav-inner">
+    <a href="Strona Główna.html" class="nav-logo">
+      <img src="media/logo-kolor.png" alt="Fundacja Misja MADA" />
+    </a>
+    <ul class="nav-links">
+      <li><a href="Strona Główna.html">Strona główna</a></li>
+      <li><a href="Co robimy.html" class="active">Co robimy?</a></li>
+      <li><a href="O nas.html">O nas</a></li>
+      <li><a href="Wydarzenia.html">Wydarzenia</a></li>
+      <li><a href="Kontakt.html">Kontakt</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button type="button" class="nav-action nav-search" aria-label="Szukaj na stronie" title="Szukaj (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.3-4.3"/>
+        </svg>
+      </button>
+      <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" class="nav-action" aria-label="Facebook Fundacji" title="Facebook">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/>
+        </svg>
+      </a>
+    </div>
+    <a href="#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
+  </div>
+</nav>
+
+<!-- ═══ PAGE HERO ═══════════════════════════════════════════════ -->
+<section id="main-content" class="page-hero">
+  <div class="container">
+    <div class="breadcrumbs"><a href="Strona Główna.html">Strona główna</a> · Co robimy?</div>
+    <h1>Cztery projekty,<br />jedna misja.</h1>
+    <p class="lead">Nasze działania koncentrują się na realnej zmianie życia dzieci i rodzin na Madagaskarze. Wspieramy edukację, walczymy z głodem, budujemy infrastrukturę edukacyjną i zapraszamy do bezpośredniego zaangażowania.</p>
+  </div>
+</section>
+
+<!-- ═══ SUB-NAV ═════════════════════════════════════════════════ -->
+<nav class="sub-nav">
+  <div class="container">
+    <div class="sub-nav-inner">
+      <a href="#adopcja">Adopcja Serca</a>
+      <a href="#atelier">Atelier Nadziei</a>
+      <a href="#centrum">Centrum Edukacyjne</a>
+      <a href="#wolontariat">Wolontariat</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ ADOPCJA SERCA ═══════════════════════════════════════════ -->
+<section class="project-section" id="adopcja">
+  <div class="container">
+    <div class="project-row">
+      <div class="project-photo">
+        <img src="media/Adopcja_Serca_chlopiec.jpg" alt="Dziecko w Centrum Orione" />
+      </div>
+      <div class="project-text">
+        <span class="eyebrow">Projekt główny · Edukacja</span>
+        <h2>Adopcja Serca</h2>
+        <p>Adopcja Serca to forma długoterminowej pomocy dzieciom żyjącym w ubogich krajach misyjnych. Polega na regularnym wsparciu finansowym i duchowym przez darczyńcę lub rodzinę z innego kraju. To nie adopcja w sensie prawnym, lecz symboliczne „objęcie wsparciem" konkretnego dziecka z Madagaskaru.</p>
+        <p>Program realizujemy w Centrum Edukacyjnym św. Alojzego Orione w Itaosy. Historia jest dla nas szczególna - to z naszej własnej Adopcji Serca narodziła się Fundacja Misja MADA.</p>
+
+        <div class="highlight-box">
+          <div class="price">
+            70 zł
+            <small>miesięcznie</small>
+          </div>
+          <div class="price-desc">
+            Tyle wystarcza, aby całkowicie odmienić los jednego dziecka. Środki trafiają bezpośrednio do Sióstr Misjonarek na Madagaskarze i są wydawane na konkretne dziecko.
+          </div>
+        </div>
+
+        <div class="project-cta">
+          <a href="#wesprzyj" class="btn btn-gold">Zostań rodzicem adopcyjnym</a>
+          <a href="Regulamin Adopcja Serca.html" class="btn btn-outline">Regulamin Adopcji Serca</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- co obejmuje wsparcie -->
+    <h3 style="font-size: 28px; color: var(--brown); margin: 80px 0 8px; text-align: center;">Co obejmuje miesięczne wsparcie</h3>
+    <p style="text-align: center; color: #4a3a2c; max-width: 620px; margin: 0 auto 0;">Twoje 70 zł pokrywa wszystkie podstawowe potrzeby edukacyjne i życiowe dziecka.</p>
+
+    <div class="coverage-grid">
+      <div class="coverage-card">
+        <div class="ic">
+          <!-- Graduation cap (Opłaty szkolne) -->
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12 16 6l14 6-14 6L2 12z" fill="#c99d66" fill-opacity="0.35"/>
+            <path d="M8 14.5v6c0 1.5 3.5 3 8 3s8-1.5 8-3v-6"/>
+            <path d="M28 12.5v6"/>
+            <circle cx="28" cy="20" r="1.2" fill="#422918" stroke="none"/>
+          </svg>
+        </div>
+        <h4>Opłaty szkolne</h4>
+        <p>Roczne wpisowe i miesięczne czesne, zapewniające ciągłość edukacji.</p>
+      </div>
+
+      <div class="coverage-card">
+        <div class="ic">
+          <!-- Backpack (Wyprawka) -->
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 8c0-2 2.3-3.5 5-3.5S21 6 21 8"/>
+            <rect x="6" y="8" width="20" height="19" rx="4" fill="#c99d66" fill-opacity="0.35"/>
+            <path d="M10 14h12v6h-12z" fill="#faf5ee"/>
+            <path d="M10 17h12"/>
+          </svg>
+        </div>
+        <h4>Wyprawka</h4>
+        <p>Zeszyty, długopisy, plecak, fartuszek - wszystko, czego potrzeba w szkole.</p>
+      </div>
+
+      <div class="coverage-card">
+        <div class="ic">
+          <!-- Bowl with steam (Wyżywienie) -->
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 7c0 1-1.5 1.5-1.5 3S10 11.5 10 13"/>
+            <path d="M16 6c0 1-1.5 1.5-1.5 3S16 10.5 16 12"/>
+            <path d="M22 7c0 1-1.5 1.5-1.5 3S22 11.5 22 13"/>
+            <path d="M4 16h24a12 12 0 0 1-12 11A12 12 0 0 1 4 16z" fill="#c99d66" fill-opacity="0.4"/>
+            <path d="M2 16h28"/>
+          </svg>
+        </div>
+        <h4>Wyżywienie</h4>
+        <p>Ciepły, pożywny posiłek wydawany codziennie w Centrum. Często jest to jedyny pełnowartościowy posiłek dla dziecka w ciągu dnia.</p>
+      </div>
+
+      <div class="coverage-card">
+        <div class="ic">
+          <!-- Medical heart cross (Opieka i zdrowie) -->
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 27S4 19 4 12a6 6 0 0 1 11-3.4A6 6 0 0 1 26 12c0 1.2-.3 2.4-.9 3.5" fill="#c99d66" fill-opacity="0.35"/>
+            <path d="M16 15v8"/>
+            <path d="M12 19h8"/>
+          </svg>
+        </div>
+        <h4>Opieka i zdrowie</h4>
+        <p>Podstawowa opieka medyczna i leki dla dzieci z programu.</p>
+      </div>
+
+      <div class="coverage-card">
+        <div class="ic">
+          <!-- Gift box (Prezenty świąteczne) -->
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="13" width="22" height="14" rx="1.5" fill="#c99d66" fill-opacity="0.35"/>
+            <rect x="3" y="9" width="26" height="5" rx="1" fill="#c99d66" fill-opacity="0.55"/>
+            <path d="M16 9v18"/>
+            <path d="M16 9c-1.5-3-5-3-5-1s2 2 5 1z"/>
+            <path d="M16 9c1.5-3 5-3 5-1s-2 2-5 1z"/>
+          </svg>
+        </div>
+        <h4>Prezenty świąteczne</h4>
+        <p>Okazjonalne prezenty z okazji świąt Bożego Narodzenia - chwila radości dla każdego dziecka w programie.</p>
+      </div>
+    </div>
+
+    <div class="stats-inline">
+      <div><div class="num">130+</div><div class="lbl">Dzieci w programie</div></div>
+      <div><div class="num">275</div><div class="lbl">w Centrum Orione</div></div>
+      <div><div class="num">2024</div><div class="lbl">Początek programu</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ATELIER NADZIEI ═════════════════════════════════════════ -->
+<section class="project-section" id="atelier">
+  <div class="container">
+    <div class="project-row reverse">
+      <div class="project-photo">
+        <img src="media/Atelier_Nadziei_2.jpg" alt="Atelier Nadziei - pracownia w Itaosy" />
+      </div>
+      <div class="project-text">
+        <span class="eyebrow">Projekt · Rozwój zawodowy</span>
+        <h2>Atelier Nadziei</h2>
+        <p>Pracownia krawiecka utworzona przy Centrum Edukacyjnym w Itaosy, prowadzona przez Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki). Powstała z myślą nie tylko o dzieciach, ale przede wszystkim o ich rodzicach i starszej młodzieży.</p>
+        <p>Celem pracowni jest nauka praktycznego zawodu oraz wsparcie w budowaniu samodzielności ekonomicznej najuboższych rodzin i lokalnej społeczności. Uczestnicy poznają podstawy zawodu krawca/krawcowej oraz tajniki rękodzielnictwa, co w przyszłości może stać się dla nich źródłem utrzymania.</p>
+
+        <p style="font-weight: 600; color: var(--brown);">Powstające produkty trafiają na sprzedaż na pobliskie targi, co pozwala:</p>
+        <ul>
+          <li>dawać najuboższym rodzinom realne źródło dochodu,</li>
+          <li>wspierać codzienne funkcjonowanie rodzin wielodzietnych,</li>
+          <li>rozwijać przedsiębiorczość i odpowiedzialność za własną pracę,</li>
+          <li>wzmacniać niezależność ekonomiczną kobiet i młodzieży.</li>
+        </ul>
+
+        <p>Aktualnie w pracowni pracują Siostry Misjonarki oraz osoby świeckie. Fundacja Misja MADA współfinansuje działania Atelier oraz wspiera zatrudnienie osób świeckich na miejscu.</p>
+
+        <div class="project-cta">
+          <a href="#wesprzyj" class="btn btn-primary" data-darowizna-open data-cel="atelier">Wesprzyj Atelier</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CENTRUM EDUKACYJNE ═══════════════════════════════════════ -->
+<section class="project-section" id="centrum">
+  <div class="container">
+    <div class="project-row">
+      <div class="project-photo">
+        <img src="media/Centrum_Edukacyjne.jpg" alt="Centrum Edukacyjne św. Alojzego Orione w Itaosy" />
+      </div>
+      <div class="project-text">
+        <span class="eyebrow">Projekt · Infrastruktura edukacyjna</span>
+        <h2>Centrum Edukacyjne&nbsp;w Itaosy</h2>
+        <p>Centrum Edukacyjne św. Alojzego Orione w Itaosy to placówka edukacyjna prowadzona przez Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki) niedaleko stolicy Madagaskaru. Placówka działa nieprzerwanie <strong>od 3 stycznia 1989 roku</strong> - prawie 40 lat służy najuboższym!</p>
+        <p>W Centrum Siostry pracują z dziećmi z rodzin, których codzienność jest bardzo trudna. Rodzin malgaskich często nie stać, by wysłać dzieci do szkoły, kupić ubrania, przybory szkolne, a nawet codziennie nakarmić.</p>
+        <p>Placówka działa jak świetlica zgodnie z francuskim systemem edukacji. W południe wszystkie dzieci otrzymują jeden ciepły posiłek, co w warunkach malgaskich ma ogromne znaczenie. W wolnym czasie dzieci uczestniczą w zajęciach i aktywnościach rozwijających ich talenty.</p>
+
+        <p style="font-weight: 600; color: var(--brown);">Obecnie kluczowym kierunkiem rozwoju Centrum jest jego <em>rozbudowa</em>:</p>
+        <ul>
+          <li>tworzenie nowych sal lekcyjnych,</li>
+          <li>doposażenie istniejących przestrzeni edukacyjnych,</li>
+          <li>poprawa warunków nauki dla większej liczby dzieci,</li>
+          <li>przygotowanie miejsca pobytu i pracy dla wolontariuszy z Polski.</li>
+        </ul>
+
+        <p>Fundacja Misja MADA podczas kiermaszów i zbiórek gromadzi środki na rozbudowę Centrum. To projekt długofalowy - łączymy edukację, pomoc humanitarną i zaangażowanie wolontariackie w jedno dzieło solidarności.</p>
+
+        <div class="stats-inline">
+          <div><div class="num">275</div><div class="lbl">dzieci dziennie</div></div>
+          <div><div class="num">1989</div><div class="lbl">rok założenia</div></div>
+          <div><div class="num">40</div><div class="lbl">lat służby</div></div>
+        </div>
+
+        <div class="project-cta">
+          <a href="#wesprzyj" class="btn btn-primary" data-darowizna-open data-cel="centrum">Wesprzyj rozbudowę</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ WOLONTARIAT ═════════════════════════════════════════════ -->
+<section class="project-section" id="wolontariat">
+  <div class="container">
+    <div class="project-row reverse">
+      <div class="project-photo">
+        <img src="media/Wolontariat_3.jpg" alt="Wolontariat misyjny - wolontariusz z dziećmi w Centrum" />
+      </div>
+      <div class="project-text">
+        <span class="eyebrow">Projekt · Zaangażowanie</span>
+        <h2>Wolontariat</h2>
+        <p>Wolontariat w Fundacji Misja MADA to zaproszenie do realnego zaangażowania w pomoc misyjną i edukacyjną - zarówno w Polsce, jak i bezpośrednio na misjach zagranicznych.</p>
+
+        <h3 style="font-size: 24px; color: var(--brown); margin: 24px 0 12px;">Wolontariat lokalny</h3>
+        <p>Każda osoba, która chce się zaangażować, może włączyć się w działania Fundacji na miejscu, czyli w Polsce. Wolontariusze wspierają nas m.in. poprzez:</p>
+        <ul>
+          <li>udział w kiermaszach i akcjach charytatywnych,</li>
+          <li>pomoc w organizacji zbiórek oraz wydarzeń fundacyjnych,</li>
+          <li>prowadzenie lub współprowadzenie lekcji w szkołach i przedszkolach,</li>
+          <li>wsparcie działań promocyjnych i informacyjnych Fundacji.</li>
+        </ul>
+
+        <h3 style="font-size: 24px; color: var(--brown); margin: 32px 0 12px;">Wolontariat misyjny</h3>
+        <p>Dla osób, które chcą się jeszcze bardziej zaangażować i mają pragnienie wyjazdu na misje, istnieje możliwość uczestnictwa w wolontariacie misyjnym na Madagaskarze. Program realizujemy we współpracy z Fundacją Salvatti, która prowadzi Pallotyński Wolontariat Misyjny.</p>
+        <p>Program obejmuje półroczne przygotowanie w formie kursu - formację duchową, merytoryczną i praktyczną - tak aby wolontariusze mogli świadomie i odpowiedzialnie uczestniczyć w pracy misyjnej.</p>
+
+        <a href="https://salvatti.pl/" target="_blank" rel="noopener" class="partner-badge" title="Strona partnera - Fundacja Salvatti">
+          <img src="media/partner-salvatti-round.png" alt="Pallotyńska Fundacja Misyjna Salvatti.pl" />
+          <div>
+            <span class="badge-label">Partner programu</span>
+            <span class="badge-name">Pallotyńska Fundacja Misyjna <b>Salvatti.pl</b></span>
+          </div>
+        </a>
+
+        <div class="project-cta" style="margin-top: 24px;">
+          <a href="mailto:kontakt@misjamada.pl" class="btn btn-primary">Zgłoś się do wolontariatu</a>
+          <a href="https://salvatti.pl/wyjazd-na-wolontariat/" target="_blank" rel="noopener" class="btn btn-outline">Pallotyński Wolontariat Misyjny ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PROJEKT ZREALIZOWANY · Studnia w Miandrivazo ═══════════════ -->
+<section class="project-done" id="studnia">
+  <div class="container">
+    <div class="done-head">
+      <span class="done-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+        Projekt zrealizowany · 2025
+      </span>
+      <h2>Studnia w Miandrivazo na Madagaskarze</h2>
+      <span class="done-loc">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Miandrivazo, zachodni Madagaskar · ok. 390 km od stolicy
+      </span>
+    </div>
+
+    <div class="done-hero">
+      <img src="media/studnia-7.jpg" alt="Siostry Małe Misjonarki Miłosierdzia cieszą się z pierwszej czystej wody ze studni" />
+    </div>
+
+    <div class="done-body">
+      <p>Miandrivazo to miasto położone w zachodniej części Madagaskaru, około 390 km od stolicy. W tym regionie, od czerwca do grudnia temperatury sięgają 40°C, a nawet 43°C, co powoduje ogromną suszę i ciągły brak dostępu do wody. Mieszkańcy często korzystają więc z wody pobliskiej rzeki, Mahajilo, która niestety jest mocno zanieczyszczona i nie nadaje się do picia. To powoduje wiele poważnych chorób u dorosłych oraz u dzieci.</p>
+
+      <p>To właśnie w tym miejscu Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki) w styczniu 2023 r. otworzyły Centrum Medyczne Św. Alojzego Orione (Centre Medical Saint Louis Orione) - centrum medyczne, które działało bez dostępu do bieżącej wody.</p>
+
+      <p>W czasie naszego pobytu na Madagaskarze wraz z Siostrami odwiedziliśmy tę miejscowość oraz nowo wybudowany szpital. Od samego początku swojej działalności Siostry przyjęły tam tysiące chorych i potrzebujących osób. Jednak największą trudnością był zwyczajnie brak czystej wody - dla szpitala, dla pacjentów oraz dla mieszkańców. Dlatego właśnie pierwszą potrzebą zgłoszoną przez Siostry była budowa studni dla tego szpitala.</p>
+
+      <div class="done-stats">
+        <div class="done-stat"><div class="num">~100&nbsp;000 zł</div><div class="lbl">koszt całego projektu</div></div>
+        <div class="done-stat"><div class="num">5000 l</div><div class="lbl">pojemność zbiornika na wodę</div></div>
+        <div class="done-stat"><div class="num">kwiecień 2025</div><div class="lbl">powstanie studni</div></div>
+      </div>
+
+      <p>Powstał projekt budowy studni oraz instalacji zbiornika o pojemności 5000 litrów. Koszt całego projektu wyniósł prawie 100 000,00 zł. Dla nas - jako nowej fundacji - była to ogromna kwota do pozyskania, zatem dołączyliśmy do wspólnej akcji i współpracowaliśmy w tym zakresie ze Stowarzyszeniem MISEVI Polska oraz Salezjańskim Wolontariatem Misyjnym Młodzi Światu.</p>
+
+      <p>Zbiórkę na studnię rozpoczęliśmy jesienią 2024 roku, a dzięki ogromnemu wsparciu i wysiłkom wielu osób udało się sprawnie i szybko zebrać całą potrzebną kwotę. Studnia powstała w kwietniu 2025 roku!</p>
+
+      <p class="done-thanks">Dziękujemy, że mogliśmy być częścią tego wspaniałego projektu!</p>
+    </div>
+
+    <div class="done-gallery" id="studnia-gallery">
+      <img src="media/studnia-1.jpg" alt="Siostry cieszą się z pierwszej czystej wody przy odwiercie" data-i="0" />
+      <img src="media/studnia-2.jpg" alt="Dziecko pod strumieniem czystej wody ze studni" data-i="1" />
+      <img src="media/studnia-3.jpg" alt="Siostra napełnia zbiornik wodą ze studni" data-i="2" />
+      <img src="media/studnia-4.jpg" alt="Robotnicy montują rurę studni głębinowej" data-i="3" />
+      <img src="media/studnia-5.jpg" alt="Wiercenie studni przy Centrum Medycznym - prace zespołu" data-i="4" />
+      <img src="media/studnia-6.jpg" alt="Mieszkanka korzysta z bieżącej, czystej wody" data-i="5" />
+    </div>
+
+    <div class="done-films">
+      <div class="done-films-head">
+        <h3>Z budowy studni</h3>
+        <p>Archiwalne nagrania z miejsca prac - prosto z Madagaskaru.</p>
+      </div>
+      <div class="done-films-grid">
+        <div class="done-film">
+          <video controls preload="metadata" playsinline poster="media/studnia-5.jpg">
+            <source src="media/studnia-film-1.mp4" type="video/mp4" />
+            Twoja przeglądarka nie obsługuje odtwarzania wideo.
+          </video>
+        </div>
+        <div class="done-film">
+          <video controls preload="metadata" playsinline poster="media/studnia-4.jpg">
+            <source src="media/studnia-film-2.mp4" type="video/mp4" />
+            Twoja przeglądarka nie obsługuje odtwarzania wideo.
+          </video>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- lightbox galerii studni -->
+<div class="studnia-lb" id="studnia-lb" aria-hidden="true" role="dialog" aria-label="Galeria projektu Studnia">
+  <button type="button" class="slb-close" id="slb-close" aria-label="Zamknij">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+  </button>
+  <button type="button" class="slb-arrow prev" id="slb-prev" aria-label="Poprzednie">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <img id="slb-img" src="" alt="" />
+  <button type="button" class="slb-arrow next" id="slb-next" aria-label="Następne">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+  </button>
+</div>
+
+<script>
+(function () {
+  var grid = document.getElementById('studnia-gallery');
+  var lb = document.getElementById('studnia-lb');
+  if (!grid || !lb) return;
+  var imgs = Array.prototype.slice.call(grid.querySelectorAll('img'));
+  var srcs = imgs.map(function (i) { return i.getAttribute('src'); });
+  var alts = imgs.map(function (i) { return i.getAttribute('alt'); });
+  var lbImg = document.getElementById('slb-img');
+  var cur = 0;
+  function show(i) { cur = (i + srcs.length) % srcs.length; lbImg.src = srcs[cur]; lbImg.alt = alts[cur]; }
+  function open(i) { show(i); lb.classList.add('is-open'); lb.setAttribute('aria-hidden', 'false'); document.documentElement.style.overflow = 'hidden'; }
+  function close() { lb.classList.remove('is-open'); lb.setAttribute('aria-hidden', 'true'); document.documentElement.style.overflow = ''; }
+  grid.addEventListener('click', function (e) { var t = e.target.closest('img[data-i]'); if (t) open(parseInt(t.getAttribute('data-i'), 10)); });
+  document.getElementById('slb-close').addEventListener('click', close);
+  document.getElementById('slb-prev').addEventListener('click', function (e) { e.stopPropagation(); show(cur - 1); });
+  document.getElementById('slb-next').addEventListener('click', function (e) { e.stopPropagation(); show(cur + 1); });
+  lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (!lb.classList.contains('is-open')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') show(cur - 1);
+    else if (e.key === 'ArrowRight') show(cur + 1);
+  });
+})();
+</script>
+
+<!-- ═══ WESPRZYJ NAS - 5 form wsparcia z rozwijanym panelem ═══════════ -->
+<section class="wesprzyj-section" id="wesprzyj">
+  <div class="container">
+    <div class="ws-head">
+      <span class="eyebrow" style="color: var(--gold);">Wesprzyj nas</span>
+      <h2>Razem możemy więcej!</h2>
+      <p>Twoje wsparcie pozwala nam kontynuować misję i nieść realną pomoc tam, gdzie jest ona najbardziej potrzebna. Wybierz formę, która Ci odpowiada - każda ma znaczenie.</p>
+    </div>
+
+    <div class="ws-grid" role="tablist">
+      <button type="button" class="ws-card is-active" data-target="adopcja" role="tab" aria-selected="true">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <h3>Adopcja Serca</h3>
+        <p>Wesprzyj konkretne dziecko - tylko 70&nbsp;zł/mies.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="darowizna" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5h4.5a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3H15"/></svg>
+        </div>
+        <h3>Darowizna</h3>
+        <p>Jednorazowo, dowolna kwota.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="biznes" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>
+        </div>
+        <h3>Partner Biznesowy</h3>
+        <p>CSR Twojej firmy.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="edu" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/></svg>
+        </div>
+        <h3>Partner Edukacyjny</h3>
+        <p>Szkoły i przedszkola.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="wolontariat" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 21v-1.5A4.5 4.5 0 0 1 7.5 15h3A4.5 4.5 0 0 1 15 19.5V21"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 13.5h2A3.5 3.5 0 0 1 21 17v1"/></svg>
+        </div>
+        <h3>Wolontariat</h3>
+        <p>W Polsce i na Madagaskarze.</p>
+      </button>
+    </div>
+
+    <div class="ws-panels">
+      <article class="ws-panel is-active" data-id="adopcja" role="tabpanel">
+        <div class="ws-panel-body">
+          <h3>Adopcja Serca</h3>
+          <p>Dołącz do naszego programu <strong>Adopcja Serca</strong> i daj szansę na naukę w szkole jednemu z dzieci na Madagaskarze.</p>
+          <p>Już <strong>70&nbsp;zł miesięcznie</strong> pokrywa edukację, codzienny ciepły posiłek, mundurek szkolny i podstawową opiekę medyczną konkretnego dziecka. Pomoc trafia bezpośrednio do Sióstr Małych Misjonarek Miłosierdzia (Sióstr Orionistek) w Itaosy.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="Co robimy.html#adopcja" class="btn btn-gold">Zobacz program →</a>
+          <a href="#" class="btn btn-ghost-light">Zostań rodzicem adopcyjnym</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="darowizna" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Darowizna</h3>
+          <p>Możesz wesprzeć nasze działania <strong>jednorazową darowizną o dowolnej kwocie</strong>. Każda złotówka ma znaczenie!</p>
+          <p>Wpłatę możesz wykonać bezpośrednio na konto fundacji - numery kont PLN, EUR i GBP znajdziesz w stopce strony.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="#kontakt" class="btn btn-gold">Numery kont</a>
+          <a href="#" class="btn btn-ghost-light" title="Bramka płatności - wkrótce">Płatność online</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="biznes" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Partner Biznesowy</h3>
+          <p>Jeśli chcesz przyłączyć się do naszych działań w ramach polityki <strong>CSR</strong> swojej firmy, zapraszamy do kontaktu.</p>
+          <p>Podczas spotkania przedstawimy nasze propozycje i porozmawiamy o możliwościach współpracy, która przyniesie konkretne cele finansowe lub rzeczowe naszej fundacji, a Twojej firmie nowe spojrzenie na Madagaskar, edukację i dożywianie dzieci.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Partner%20Biznesowy" class="btn btn-gold">Napisz do nas →</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="edu" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Partner Edukacyjny</h3>
+          <p>Zapraszamy do współpracy <strong>szkoły i przedszkola</strong>, które chciałyby włączyć się w działania na rzecz edukacji dzieci na Madagaskarze. Możecie zostać opiekunem konkretnych dzieci, przystępując do programu <em>Adopcja Serca</em>.</p>
+          <p>Współpracę wzmocnimy organizując u Was spotkania i prezentacje ukazujące życie naszych podopiecznych. Przygotujemy zajęcia edukacyjne o kulturze i życiu na Madagaskarze - pokażemy zabawki, stroje i rzeczy użytkowe. Takie zajęcia pozwolą uczniom zbliżyć się do afrykańskich rówieśników!</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Partner%20Edukacyjny" class="btn btn-gold">Zaproś nas do szkoły →</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="wolontariat" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Wolontariat</h3>
+          <p>Jeśli masz ochotę przyłączyć się do naszej pracy <strong>w Polsce</strong> lub <strong>wyjechać na misje</strong>, napisz do nas. W zależności od bieżących potrzeb porozmawiamy, jak możesz nam pomóc.</p>
+          <p>Jeśli interesuje Cię wolontariat na Madagaskarze - prowadzimy go we współpracy z Fundacją Salvatti. Szczegóły na podstronie wolontariatu.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Wolontariat" class="btn btn-gold">Napisz do nas →</a>
+          <a href="Co robimy.html#wolontariat" class="btn btn-ghost-light">Wolontariat na Madagaskarze</a>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<script>
+(function() {
+  const cards = document.querySelectorAll('.ws-card');
+  const panels = document.querySelectorAll('.ws-panel');
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      const target = card.dataset.target;
+      cards.forEach(c => {
+        const on = c === card;
+        c.classList.toggle('is-active', on);
+        c.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panels.forEach(p => {
+        const on = p.dataset.id === target;
+        p.classList.toggle('is-active', on);
+        if (on) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
+      });
+    });
+  });
+})();
+</script>
+
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<footer class="site-footer" id="kontakt">
+  <div class="container">
+    <div class="footer-grid">
+
+      <div>
+        <div class="footer-brand">
+          <img src="media/logo-biale.png" alt="Fundacja Misja MADA" />
+          <p>Fundacja Misja MADA<br />ul. Szosa Chełmińska 271A<br />87-100 Toruń, Polska</p>
+          <p>e-mail: <a href="mailto:kontakt@misjamada.pl" style="color: var(--gold); text-decoration: none;">kontakt@misjamada.pl</a><br />tel.: 604 181 301&nbsp;/&nbsp;690 623 252</p>
+          <p style="margin-top: 10px;">
+            <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 8px; color: var(--cream); text-decoration: none; opacity: .85; font-size: 13.5px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
+              Facebook: Misja MADA
+            </a>
+          </p>
+          <div class="foot-meta">
+            KRS: 0001099359<br />
+            NIP: 9562392375<br />
+            REGON: 528347054
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Konta bankowe</h4>
+
+        <div class="iban-row">
+          <b>PLN</b>
+          <span class="iban">70 1090 1056 0000 0001 5832 5871</span>
+          <button class="copy-btn" data-copy="70 1090 1056 0000 0001 5832 5871" aria-label="Kopiuj numer konta PLN">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>EUR</b>
+          <span class="iban">49 1090 1056 0000 0001 6067 9663</span>
+          <button class="copy-btn" data-copy="49 1090 1056 0000 0001 6067 9663" aria-label="Kopiuj numer konta EUR">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>GBP</b>
+          <span class="iban">34 1090 1056 0000 0001 6645 4246</span>
+          <button class="copy-btn" data-copy="34 1090 1056 0000 0001 6645 4246" aria-label="Kopiuj numer konta GBP">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <!-- DANE DO PRZELEWU - Odbiorca / Adres / Tytuł -->
+        <div class="transfer-block">
+          <span class="label">Dane do przelewu</span>
+
+          <div class="field">
+            <span class="field-label">Odbiorca</span>
+            <div class="field-row">
+              <span class="text">Fundacja Misja MADA</span>
+              <button class="copy-btn" data-copy="Fundacja Misja MADA" aria-label="Kopiuj nazwę odbiorcy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Adres</span>
+            <div class="field-row">
+              <span class="text">ul. Szosa Chełmińska 271A<br/>87-100 Toruń</span>
+              <button class="copy-btn" data-copy="ul. Szosa Chełmińska 271A, 87-100 Toruń" aria-label="Kopiuj adres">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field title">
+            <span class="field-label">Tytuł przelewu</span>
+            <div class="field-row">
+              <span class="text">Darowizna na cele statutowe</span>
+              <button class="copy-btn" data-copy="Darowizna na cele statutowe" aria-label="Kopiuj tytuł przelewu">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Na skróty</h4>
+        <ul>
+          <li><a href="Strona Główna.html">Strona główna</a></li>
+          <li><a href="Co robimy.html">Co robimy?</a></li>
+          <li><a href="O nas.html">O nas</a></li>
+          <li><a href="Wydarzenia.html">Wydarzenia</a></li>
+          <li><a href="Kontakt.html">Kontakt</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Informacje</h4>
+        <ul>
+          <li><a href="O nas.html#dokumenty">Statut fundacji</a></li>
+          <li><a href="O nas.html#dokumenty">Sprawozdania</a></li>
+          <li><a href="Polityka prywatności.html">Polityka prywatności</a></li>
+          <li><a href="Regulamin serwisu.html">Regulamin</a></li>
+        </ul>
+        <h4 style="margin-top: 26px;">Partnerzy</h4>
+        <ul>
+          <li><a href="https://salvatti.pl/" target="_blank" rel="noopener">Fundacja Salvatti</a></li>
+          <li><a href="https://www.misevi.pl/" target="_blank" rel="noopener">Stowarzyszenie MISEVI</a></li>
+          <li><a href="https://www.suoredonorione.org/" target="_blank" rel="noopener">Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 Fundacja Misja MADA · Wszelkie prawa zastrzeżone</span>
+      <span>Toruń · Itaosy · Antananarywa</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ COPY TO CLIPBOARD ═════════════════════════════════════ -->
+<script>
+(function() {
+  const checkIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    const original = btn.innerHTML;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = btn.dataset.copy;
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      btn.classList.add('copied');
+      btn.innerHTML = checkIcon;
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1600);
+    });
+  });
+})();
+</script>
+
+<script src="assets/site-nav.js" defer></script>
+<script src="assets/site-a11y.js" defer></script>
+<script src="assets/adopcja-form.js" defer></script>
+<script src="assets/darowizna.js" defer></script>
+<script src="assets/newsletter.js" defer></script>
+<script src="assets/site-search.js" defer></script>
+
+<script src="assets/i18n-dict.js" defer></script>
+<script src="assets/i18n-dict-fr.js" defer></script>
+<script src="assets/i18n.js" defer></script>
+</body>
+</html>

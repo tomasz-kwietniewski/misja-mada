@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<title>Wydarzenia - Fundacja Misja MADA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   WYDARZENIA - style specyficzne
+   ═══════════════════════════════════════════════════════════════ */
+
+/* FEATURED - najważniejsze nadchodzące wydarzenie */
+.featured {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr;
+  background: var(--creamDk);
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: 320px;
+  align-items: stretch;
+}
+.featured .photo { overflow: hidden; position: relative; }
+.featured .photo img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.featured .text {
+  padding: 36px 44px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.featured .badge {
+  display: inline-block;
+  background: var(--gold); color: var(--brownDk);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .15em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 999px;
+  margin-bottom: 18px; align-self: flex-start;
+}
+.featured h2 {
+  font-size: 36px; line-height: 1.1;
+  margin-bottom: 14px;
+}
+.featured h2 a {
+  color: inherit; text-decoration: none;
+}
+.featured h2 a:hover { color: var(--gold); }
+.featured .feat-info {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.featured .feat-info-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 14px; color: #3c2913; line-height: 1.45;
+}
+.featured .feat-info-row svg { color: var(--gold); flex-shrink: 0; margin-top: 2px; }
+.featured .feat-info-row b { color: var(--brown); font-weight: 600; }
+.featured .meta {
+  font-size: 13px; color: var(--brown);
+  opacity: .7; margin-bottom: 16px;
+  display: flex; gap: 14px; flex-wrap: wrap;
+}
+.featured .meta span:not(:first-child)::before {
+  content: '·'; margin-right: 14px; opacity: .6;
+}
+.featured p {
+  font-size: 15.5px; color: #3c2913;
+  margin-bottom: 22px; line-height: 1.6;
+}
+.featured .more {
+  color: var(--brown); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 4px;
+}
+
+/* NADCHODZĄCE WYDARZENIA - 3 kafelki z datą i godziną */
+.upcoming-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.upcoming-head h2 {
+  font-family: var(--font-head);
+  font-size: 30px;
+  color: var(--brown);
+  margin: 0;
+}
+.upcoming-head .more-link {
+  font-size: 13.5px; font-weight: 600;
+  color: var(--brown);
+  text-decoration: none;
+  padding: 8px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  transition: all .15s;
+}
+.upcoming-head .more-link:hover {
+  background: var(--brown); color: var(--cream);
+  border-color: var(--brown);
+}
+.upcoming-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.upcoming-card[hidden] { display: none !important; }
+@keyframes upcoming-fade-in {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes upcoming-fade-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(-10px) scale(.96); }
+}
+.upcoming-card.is-entering { animation: upcoming-fade-in .5s cubic-bezier(.2,.7,.3,1) both; }
+.upcoming-card.is-leaving  { animation: upcoming-fade-out .35s ease both; }
+.upcoming-card {
+  background: white;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 24px 26px 26px;
+  display: flex; flex-direction: column; gap: 14px;
+  transition: transform .2s, box-shadow .25s, border-color .2s;
+}
+.upcoming-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--gold);
+  box-shadow: 0 16px 36px -20px rgba(66,41,24,.22);
+}
+.upcoming-date {
+  display: flex; align-items: baseline; gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.upcoming-date .day {
+  font-family: var(--font-head);
+  font-size: 38px; line-height: 1;
+  color: var(--brown); font-weight: 700;
+}
+.upcoming-date .my {
+  font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--gold); font-weight: 700;
+}
+.upcoming-time {
+  font-size: 13px; color: var(--brown); opacity: .7;
+  display: flex; align-items: center; gap: 8px;
+}
+.upcoming-time svg { display: block; flex-shrink: 0; }
+.upcoming-card h3 {
+  font-family: var(--font-head);
+  font-size: 19px;
+  line-height: 1.3;
+  color: var(--brown);
+  margin: 0;
+}
+.upcoming-card .where {
+  font-size: 13px; color: var(--brown); opacity: .68;
+  display: flex; align-items: center; gap: 8px;
+}
+.upcoming-card .where svg { display: block; flex-shrink: 0; }
+
+/* ARCHIWUM - 3 kafle ze zdjęciem + przycisk "starsze" */
+.archive-section { padding-top: 0; }
+.archive-head {
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.archive-head h2 {
+  font-family: var(--font-head);
+  font-size: 30px;
+  color: var(--brown);
+  margin: 0;
+}
+.archive-head p {
+  font-size: 14px; color: var(--brown); opacity: .65;
+  margin: 4px 0 0;
+}
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+.event-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 12px 32px -24px rgba(66,41,24,.18);
+  transition: transform .2s;
+}
+.event-card:hover { transform: translateY(-3px); }
+.event-card .photo { aspect-ratio: 4/3; overflow: hidden; }
+.event-card .photo img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .4s;
+}
+.event-card:hover .photo img { transform: scale(1.05); }
+.event-card .body { padding: 22px 24px 26px; flex: 1; display: flex; flex-direction: column; }
+.event-card .meta {
+  font-size: 12px; letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold); font-weight: 700;
+  margin-bottom: 8px;
+}
+.event-card h3 {
+  font-size: 19px; line-height: 1.3;
+  margin-bottom: 8px;
+}
+.event-card p {
+  font-size: 14px; color: #4a3a2c;
+  line-height: 1.55; margin: 0 0 14px;
+  flex: 1;
+}
+.event-card .read {
+  font-size: 13.5px; color: var(--brown);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .featured { grid-template-columns: 1fr; min-height: 0; }
+  .featured .photo { aspect-ratio: 16/10; }
+  .featured .text { padding: 32px 24px; }
+  .featured h2 { font-size: 26px; }
+  .upcoming-grid, .events-grid { grid-template-columns: 1fr; }
+  .upcoming-head { flex-direction: column; gap: 12px; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
+
+<!-- ═══ NAV ═══════════════════════════════════════════════════ -->
+<nav class="main-nav">
+  <div class="nav-inner">
+    <a href="Strona Główna.html" class="nav-logo">
+      <img src="media/logo-kolor.png" alt="Fundacja Misja MADA" />
+    </a>
+    <ul class="nav-links">
+      <li><a href="Strona Główna.html">Strona główna</a></li>
+      <li><a href="Co robimy.html">Co robimy?</a></li>
+      <li><a href="O nas.html">O nas</a></li>
+      <li><a href="Wydarzenia.html" class="active">Wydarzenia</a></li>
+      <li><a href="Kontakt.html">Kontakt</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button type="button" class="nav-action nav-search" aria-label="Szukaj na stronie" title="Szukaj (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.3-4.3"/>
+        </svg>
+      </button>
+      <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" class="nav-action" aria-label="Facebook Fundacji" title="Facebook">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/>
+        </svg>
+      </a>
+    </div>
+    <a href="#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
+  </div>
+</nav>
+
+<!-- ═══ PAGE HERO ═══════════════════════════════════════════════ -->
+<section id="main-content" class="page-hero">
+  <div class="container">
+    <div class="breadcrumbs"><a href="Strona Główna.html">Strona główna</a> · Wydarzenia</div>
+    <h1>Z życia fundacji</h1>
+    <p class="lead">Nadchodzące wydarzenia, kiermasze, relacje z misji, spotkania w szkołach. Tutaj dzielimy się tym, co dzieje się między Polską a Madagaskarem.</p>
+  </div>
+</section>
+
+<!-- ═══ FEATURED - najważniejsze nadchodzące wydarzenie ═════════ -->
+<section class="section" style="padding-top: 48px; padding-bottom: 0;">
+  <div class="container">
+    <article class="featured">
+      <div class="photo">
+        <img src="media/lezajsk-2026.jpg" alt="Misyjny kiermasz - rękodzieło z Madagaskaru" />
+      </div>
+      <div class="text">
+        <span class="badge">★ Nadchodzące - wyróżnione</span>
+        <h2><a href="Wydarzenie.html?id=lezajsk-2026">„Razem dla Misji" - spotkanie misyjne w Leżajsku</a></h2>
+        <div class="feat-info">
+          <div class="feat-info-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span><b>Kiedy?</b> Niedziela, 26 lipca 2026</span>
+          </div>
+          <div class="feat-info-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span><b>Msze Święte:</b> 7:00, 8:30, 10:00, 11:30, 16:00, 18:00</span>
+          </div>
+          <div class="feat-info-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span><b>Gdzie?</b> Parafia Św. Trójcy w Leżajsku, Rynek 35</span>
+          </div>
+        </div>
+        <p>Czas pełen świadectwa, inspirujących historii oraz spotkania z misjami prowadzonymi na Madagaskarze. Po Mszach Świętych zapraszamy na misyjny kiermasz z rękodziełem prosto z Madagaskaru.</p>
+        <a href="Wydarzenie.html?id=lezajsk-2026" class="more">Czytaj więcej →</a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ═══ NADCHODZĄCE WYDARZENIA (data-driven; ukryte gdy brak) ═══ -->
+<section class="section" id="upcoming-section" style="padding-top: 80px; padding-bottom: 32px;" hidden>
+  <div class="container">
+    <div class="upcoming-head">
+      <h2>Nadchodzące wydarzenia</h2>
+      <a href="#" class="more-link upcoming-toggle" id="upcoming-toggle" data-state="closed" hidden>Zobacz kolejne →</a>
+    </div>
+    <div class="upcoming-grid" id="upcoming-grid"></div>
+    <div class="upcoming-toggle-mobile-wrap" hidden>
+      <a href="#" class="more-link upcoming-toggle" data-state="closed">Zobacz kolejne →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ARCHIWUM (3 ostatnie wpisy) ═══════════════════════════ -->
+<section class="section archive-section" id="archiwum" style="padding-top: 64px;">
+  <div class="container">
+    <div class="archive-head">
+      <h2>Archiwum wydarzeń</h2>
+      <p>Relacje, kiermasze, podsumowania spotkań z lat ubiegłych.</p>
+    </div>
+
+    <div class="events-grid">
+
+      <a href="Wydarzenie.html?id=wieczory-sw-antoniego-2026" class="event-card">
+        <div class="photo"><img src="media/antoni-a.jpg" alt="Wieczory u św. Antoniego" /></div>
+        <div class="body">
+          <div class="meta">19 maja 2026 · Świadectwo misyjne</div>
+          <h3>„Wieczory u św. Antoniego" - świadectwo z Madagaskaru</h3>
+          <p>Gościem wieczoru był Radosław Grodzki, Prezes Fundacji Misja MADA, ze świadectwem „Eucharystia na Madagaskarze".</p>
+          <span class="read">Czytaj więcej →</span>
+        </div>
+      </a>
+
+      <a href="Wydarzenie.html?id=siedlce-2026" class="event-card">
+        <div class="photo"><img src="media/siedlce-5.jpg" alt="Akcja misyjna w Siedlcach" /></div>
+        <div class="body">
+          <div class="meta">26 kwietnia 2026 · Akcja misyjna</div>
+          <h3>Spotkanie misyjne z Fundacją Misja MADA w Siedlcach</h3>
+          <p>Opowieści o misjach na każdej Mszy Św., prelekcja z pokazem zdjęć oraz zbiórka na Centrum Edukacyjne - zebrano 13 403,32 zł.</p>
+          <span class="read">Czytaj więcej →</span>
+        </div>
+      </a>
+
+      <a href="Wydarzenie.html?id=londyn-2026" class="event-card">
+        <div class="photo"><img src="media/londyn-6.jpg" alt="Akcja misyjna w Londynie" /></div>
+        <div class="body">
+          <div class="meta">22 marca 2026 · Akcja zagraniczna</div>
+          <h3>Akcja Wielkopostna - pierwsza zagraniczna akcja misyjna</h3>
+          <p>Zbiórka na rozbudowę Centrum Edukacyjnego wśród Polonii w Londynie - zebrano ok. 13 530,00 zł.</p>
+          <span class="read">Czytaj więcej →</span>
+        </div>
+      </a>
+
+    </div>
+
+    <div style="text-align: center; margin-top: 48px;">
+      <a href="Archiwum wydarzeń.html" class="btn btn-outline">Zobacz starsze wpisy</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ WESPRZYJ NAS - 5 form wsparcia z rozwijanym panelem ═══════════ -->
+<section class="wesprzyj-section" id="wesprzyj">
+  <div class="container">
+    <div class="ws-head">
+      <span class="eyebrow" style="color: var(--gold);">Wesprzyj nas</span>
+      <h2>Razem możemy więcej!</h2>
+      <p>Twoje wsparcie pozwala nam kontynuować misję i nieść realną pomoc tam, gdzie jest ona najbardziej potrzebna. Wybierz formę, która Ci odpowiada - każda ma znaczenie.</p>
+    </div>
+
+    <div class="ws-grid" role="tablist">
+      <button type="button" class="ws-card is-active" data-target="adopcja" role="tab" aria-selected="true">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <h3>Adopcja Serca</h3>
+        <p>Wesprzyj konkretne dziecko - tylko 70&nbsp;zł/mies.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="darowizna" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><text x="12" y="15.6" text-anchor="middle" font-family="'Libre Caslon Text', Georgia, serif" font-size="9.5" font-weight="700" fill="currentColor" stroke="none">zł</text></svg>
+        </div>
+        <h3>Darowizna</h3>
+        <p>Jednorazowo, dowolna kwota.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="biznes" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>
+        </div>
+        <h3>Partner Biznesowy</h3>
+        <p>CSR Twojej firmy.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="edu" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/></svg>
+        </div>
+        <h3>Partner Edukacyjny</h3>
+        <p>Szkoły i przedszkola.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="wolontariat" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 21v-1.5A4.5 4.5 0 0 1 7.5 15h3A4.5 4.5 0 0 1 15 19.5V21"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 13.5h2A3.5 3.5 0 0 1 21 17v1"/></svg>
+        </div>
+        <h3>Wolontariat</h3>
+        <p>W Polsce i na Madagaskarze.</p>
+      </button>
+    </div>
+
+    <div class="ws-panels">
+      <article class="ws-panel is-active" data-id="adopcja" role="tabpanel">
+        <div class="ws-panel-body">
+          <h3>Adopcja Serca</h3>
+          <p>Dołącz do naszego programu <strong>Adopcja Serca</strong> i daj szansę na naukę w szkole jednemu z dzieci na Madagaskarze.</p>
+          <p>Już <strong>70&nbsp;zł miesięcznie</strong> pokrywa edukację, codzienny ciepły posiłek, mundurek szkolny i podstawową opiekę medyczną konkretnego dziecka. Pomoc trafia bezpośrednio do Sióstr Małych Misjonarek Miłosierdzia (Sióstr Orionistek) w Itaosy.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="Co robimy.html#adopcja" class="btn btn-gold">Zobacz program →</a>
+          <a href="#" class="btn btn-ghost-light">Zostań rodzicem adopcyjnym</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="darowizna" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Darowizna</h3>
+          <p>Możesz wesprzeć nasze działania <strong>jednorazową darowizną o dowolnej kwocie</strong>. Każda złotówka ma znaczenie!</p>
+          <p>Wpłatę możesz wykonać bezpośrednio na konto fundacji - numery kont PLN, EUR i GBP znajdziesz w stopce strony.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="#kontakt" class="btn btn-gold">Numery kont</a>
+          <a href="#" class="btn btn-ghost-light" title="Bramka płatności - wkrótce">Płatność online</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="biznes" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Partner Biznesowy</h3>
+          <p>Jeśli chcesz przyłączyć się do naszych działań w ramach polityki <strong>CSR</strong> swojej firmy, zapraszamy do kontaktu.</p>
+          <p>Podczas spotkania przedstawimy nasze propozycje i porozmawiamy o możliwościach współpracy, która przyniesie konkretne cele finansowe lub rzeczowe naszej fundacji, a Twojej firmie nowe spojrzenie na Madagaskar, edukację i dożywianie dzieci.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Partner%20Biznesowy" class="btn btn-gold">Napisz do nas →</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="edu" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Partner Edukacyjny</h3>
+          <p>Zapraszamy do współpracy <strong>szkoły i przedszkola</strong>, które chciałyby włączyć się w działania na rzecz edukacji dzieci na Madagaskarze. Możecie zostać opiekunem konkretnych dzieci, przystępując do programu <em>Adopcja Serca</em>.</p>
+          <p>Współpracę wzmocnimy organizując u Was spotkania i prezentacje ukazujące życie naszych podopiecznych. Przygotujemy zajęcia edukacyjne o kulturze i życiu na Madagaskarze - pokażemy zabawki, stroje i rzeczy użytkowe. Takie zajęcia pozwolą uczniom zbliżyć się do afrykańskich rówieśników!</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Partner%20Edukacyjny" class="btn btn-gold">Zaproś nas do szkoły →</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="wolontariat" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Wolontariat</h3>
+          <p>Jeśli masz ochotę przyłączyć się do naszej pracy <strong>w Polsce</strong> lub <strong>wyjechać na misje</strong>, napisz do nas. W zależności od bieżących potrzeb porozmawiamy, jak możesz nam pomóc.</p>
+          <p>Jeśli interesuje Cię wolontariat na Madagaskarze - prowadzimy go we współpracy z Fundacją Salvatti. Szczegóły na podstronie wolontariatu.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Wolontariat" class="btn btn-gold">Napisz do nas →</a>
+          <a href="Co robimy.html#wolontariat" class="btn btn-ghost-light">Wolontariat na Madagaskarze</a>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<script>
+(function() {
+  const cards = document.querySelectorAll('.ws-card');
+  const panels = document.querySelectorAll('.ws-panel');
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      const target = card.dataset.target;
+      cards.forEach(c => {
+        const on = c === card;
+        c.classList.toggle('is-active', on);
+        c.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panels.forEach(p => {
+        const on = p.dataset.id === target;
+        p.classList.toggle('is-active', on);
+        if (on) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
+      });
+    });
+  });
+})();
+</script>
+
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<footer class="site-footer" id="kontakt">
+  <div class="container">
+    <div class="footer-grid">
+
+      <div>
+        <div class="footer-brand">
+          <img src="media/logo-biale.png" alt="Fundacja Misja MADA" />
+          <p>Fundacja Misja MADA<br />ul. Szosa Chełmińska 271A<br />87-100 Toruń, Polska</p>
+          <p>e-mail: <a href="mailto:kontakt@misjamada.pl" style="color: var(--gold); text-decoration: none;">kontakt@misjamada.pl</a><br />tel.: 604 181 301&nbsp;/&nbsp;690 623 252</p>
+          <p style="margin-top: 10px;">
+            <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 8px; color: var(--cream); text-decoration: none; opacity: .85; font-size: 13.5px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
+              Facebook: Misja MADA
+            </a>
+          </p>
+          <div class="foot-meta">
+            KRS: 0001099359<br />
+            NIP: 9562392375<br />
+            REGON: 528347054
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Konta bankowe</h4>
+
+        <div class="iban-row">
+          <b>PLN</b>
+          <span class="iban">70 1090 1056 0000 0001 5832 5871</span>
+          <button class="copy-btn" data-copy="70 1090 1056 0000 0001 5832 5871" aria-label="Kopiuj numer konta PLN">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>EUR</b>
+          <span class="iban">49 1090 1056 0000 0001 6067 9663</span>
+          <button class="copy-btn" data-copy="49 1090 1056 0000 0001 6067 9663" aria-label="Kopiuj numer konta EUR">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>GBP</b>
+          <span class="iban">34 1090 1056 0000 0001 6645 4246</span>
+          <button class="copy-btn" data-copy="34 1090 1056 0000 0001 6645 4246" aria-label="Kopiuj numer konta GBP">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <!-- DANE DO PRZELEWU - Odbiorca / Adres / Tytuł -->
+        <div class="transfer-block">
+          <span class="label">Dane do przelewu</span>
+
+          <div class="field">
+            <span class="field-label">Odbiorca</span>
+            <div class="field-row">
+              <span class="text">Fundacja Misja MADA</span>
+              <button class="copy-btn" data-copy="Fundacja Misja MADA" aria-label="Kopiuj nazwę odbiorcy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Adres</span>
+            <div class="field-row">
+              <span class="text">ul. Szosa Chełmińska 271A<br/>87-100 Toruń</span>
+              <button class="copy-btn" data-copy="ul. Szosa Chełmińska 271A, 87-100 Toruń" aria-label="Kopiuj adres">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field title">
+            <span class="field-label">Tytuł przelewu</span>
+            <div class="field-row">
+              <span class="text">Darowizna na cele statutowe</span>
+              <button class="copy-btn" data-copy="Darowizna na cele statutowe" aria-label="Kopiuj tytuł przelewu">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Na skróty</h4>
+        <ul>
+          <li><a href="Strona Główna.html">Strona główna</a></li>
+          <li><a href="Co robimy.html">Co robimy?</a></li>
+          <li><a href="O nas.html">O nas</a></li>
+          <li><a href="Wydarzenia.html">Wydarzenia</a></li>
+          <li><a href="Kontakt.html">Kontakt</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Informacje</h4>
+        <ul>
+          <li><a href="O nas.html#dokumenty">Statut fundacji</a></li>
+          <li><a href="O nas.html#dokumenty">Sprawozdania</a></li>
+          <li><a href="Polityka prywatności.html">Polityka prywatności</a></li>
+          <li><a href="Regulamin serwisu.html">Regulamin</a></li>
+        </ul>
+        <h4 style="margin-top: 26px;">Partnerzy</h4>
+        <ul>
+          <li><a href="https://salvatti.pl/" target="_blank" rel="noopener">Fundacja Salvatti</a></li>
+          <li><a href="https://www.misevi.pl/" target="_blank" rel="noopener">Stowarzyszenie MISEVI</a></li>
+          <li><a href="https://www.suoredonorione.org/" target="_blank" rel="noopener">Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 Fundacja Misja MADA · Wszelkie prawa zastrzeżone</span>
+      <span>Toruń · Itaosy · Antananarywa</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ COPY TO CLIPBOARD ═════════════════════════════════════ -->
+<script>
+(function() {
+  const checkIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    const original = btn.innerHTML;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = btn.dataset.copy;
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      btn.classList.add('copied');
+      btn.innerHTML = checkIcon;
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1600);
+    });
+  });
+})();
+</script>
+
+<script>
+/* Nadchodzące wydarzenia - render z window.MADA_EVENTS.
+   Pokazuje TYLKO nadchodzące wydarzenia inne niż wyróżnione.
+   Gdy brak takich wydarzeń - cała sekcja pozostaje ukryta. */
+(function () {
+  var all = (window.MADA_EVENTS || []);
+  var items = all.filter(function (e) { return e.status === 'nadchodzace' && !e.featured; });
+  items.sort(function (a, b) { return (a.dateISO || '').localeCompare(b.dateISO || ''); });
+
+  var section = document.getElementById('upcoming-section');
+  var grid = document.getElementById('upcoming-grid');
+  if (!section || !grid) return;
+  if (!items.length) { section.setAttribute('hidden', ''); return; }
+
+  var PL_M = ['STY','LUT','MAR','KWI','MAJ','CZE','LIP','SIE','WRZ','PAŹ','LIS','GRU'];
+  var INITIAL = 3;
+  function card(e, extra) {
+    var d = e.dateISO ? new Date(e.dateISO) : null;
+    var day = d ? String(d.getDate()).padStart(2, '0') : '';
+    var my = d ? (PL_M[d.getMonth()] + '\u00A0' + d.getFullYear()) : '';
+    var when = e.dateLabel || '';
+    var time = (e.masze ? '' : '');
+    return '<a class="upcoming-card' + (extra ? ' upcoming-extra' : '') + '" href="Wydarzenie.html?id=' + e.id + '"' + (extra ? ' hidden' : '') + '>' +
+      '<div class="upcoming-date"><span class="day">' + day + '</span><span class="my">' + my + '</span></div>' +
+      '<div class="upcoming-time"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' + when + '</div>' +
+      '<h3>' + (e.title || '') + '</h3>' +
+      '<div class="where"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' + (e.place || '') + '</div>' +
+    '</a>';
+  }
+  grid.innerHTML = items.map(function (e, i) { return card(e, i >= INITIAL); }).join('');
+  section.removeAttribute('hidden');
+
+  // Toggle „Zobacz kolejne" tylko gdy jest więcej niż INITIAL
+  var extras = grid.querySelectorAll('.upcoming-extra');
+  var toggles = document.querySelectorAll('.upcoming-toggle');
+  if (extras.length) {
+    toggles.forEach(function (t) { t.removeAttribute('hidden'); if (t.parentElement.classList.contains('upcoming-toggle-mobile-wrap')) t.parentElement.removeAttribute('hidden'); });
+    var open = false;
+    toggles.forEach(function (t) {
+      t.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        open = !open;
+        extras.forEach(function (c) { if (open) c.removeAttribute('hidden'); else c.setAttribute('hidden', ''); });
+        toggles.forEach(function (x) { x.textContent = open ? 'Pokaż mniej ←' : 'Zobacz kolejne →'; });
+      });
+    });
+  }
+})();
+</script>
+
+<script src="assets/site-nav.js" defer></script>
+<script src="assets/site-a11y.js" defer></script>
+<script src="assets/adopcja-form.js" defer></script>
+<script src="assets/darowizna.js" defer></script>
+<script src="assets/newsletter.js" defer></script>
+<script src="assets/site-search.js" defer></script>
+
+<script src="assets/i18n-dict.js" defer></script>
+<script src="assets/i18n-dict-fr.js" defer></script>
+<script src="assets/i18n.js" defer></script>
+</body>
+</html>

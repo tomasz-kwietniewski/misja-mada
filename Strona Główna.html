@@ -1,0 +1,1633 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<title>Fundacja Misja MADA - Strona główna</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   STRONA GŁÓWNA - style specyficzne
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── HERO - pełna szerokość kontenera ─────────────────────── */
+.hero-wrap { background: var(--cream); padding: 48px 0 56px; }
+.hero {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 64px;
+}
+.hero-text h1 {
+  font-size: 68px; line-height: 1.04;
+  margin-bottom: 32px; font-weight: 700;
+}
+.hero-acronym {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 28px;
+}
+.hero-acronym .acro-row {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-family: var(--font-head);
+  line-height: 1.1;
+}
+.hero-acronym .cap {
+  color: var(--gold);
+  font-size: 40px;
+  font-weight: 700;
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: mada-cap-in 1.3s cubic-bezier(.2,.7,.3,1) both;
+  transition: transform .35s ease, text-shadow .35s ease, color .35s ease;
+}
+.hero-acronym .rest {
+  color: var(--brown);
+  font-size: 22px;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-10px);
+  clip-path: inset(0 100% 0 0);
+  animation: mada-rest-in 1.6s cubic-bezier(.2,.7,.3,1) both;
+  transition: letter-spacing .35s ease, color .35s ease, transform .35s ease;
+  will-change: clip-path, transform, opacity;
+}
+
+/* Po zakończeniu animacji wjazdu - delikatne podświetlenie na hover */
+.hero-acronym .acro-row:hover .cap {
+  transform: translateY(-2px) scale(1.05);
+  text-shadow: 0 6px 20px rgba(201,157,102,.45);
+  color: #d9ab74;
+}
+.hero-acronym .acro-row:hover .rest {
+  letter-spacing: 0.02em;
+  color: #2a190b;
+  transform: translateX(2px);
+}
+
+/* Powolny, dostojny stagger - cała sekwencja trwa ~5 sekund */
+.hero-acronym .acro-row:nth-child(1) .cap  { animation-delay:  300ms; }
+.hero-acronym .acro-row:nth-child(2) .cap  { animation-delay:  900ms; }
+.hero-acronym .acro-row:nth-child(3) .cap  { animation-delay: 1500ms; }
+.hero-acronym .acro-row:nth-child(4) .cap  { animation-delay: 2100ms; }
+
+.hero-acronym .acro-row:nth-child(1) .rest { animation-delay: 2700ms; }
+.hero-acronym .acro-row:nth-child(2) .rest { animation-delay: 3300ms; }
+.hero-acronym .acro-row:nth-child(3) .rest { animation-delay: 3900ms; }
+.hero-acronym .acro-row:nth-child(4) .rest { animation-delay: 4500ms; }
+
+@keyframes mada-cap-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(.94); text-shadow: 0 0 0 rgba(201,157,102,0); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.02); text-shadow: 0 8px 26px rgba(201,157,102,.5); }
+  100% { opacity: 1; transform: translateY(0)   scale(1);    text-shadow: 0 0 0 rgba(201,157,102,0); }
+}
+@keyframes mada-rest-in {
+  0%   { opacity: 0; transform: translateX(-10px); clip-path: inset(0 100% 0 0); }
+  40%  { opacity: 1; }
+  100% { opacity: 1; transform: translateX(0); clip-path: inset(0 0 0 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-acronym .cap,
+  .hero-acronym .rest {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+  }
+}
+.hero-lead {
+  font-size: 17.5px; color: #4a3a2c;
+  max-width: 520px; margin-bottom: 32px;
+  text-wrap: pretty;
+}
+.hero-buttons { display: flex; gap: 14px; flex-wrap: wrap; }
+
+.hero-photo-wrap {
+  position: relative;
+  aspect-ratio: 4/5;
+  max-height: 640px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.hero-photo-wrap img {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+}
+.hero-photo-wrap::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    linear-gradient(to right,  var(--cream) 0%, transparent 22%, transparent 100%),
+    linear-gradient(to bottom, transparent 60%, var(--cream) 100%),
+    linear-gradient(to top, transparent 80%, var(--cream) 100%);
+  z-index: 1; pointer-events: none;
+}
+
+/* ─── BENTO MISJA + STATS (asymetria szachownicy) ─────────── */
+/* Layout (5-col grid):
+     Row 1: [Misja  3/5 LEWA] [130+  2/5 PRAWA]
+     Row 2: [300+   2/5 LEWA] [Założyciele 3/5 PRAWA]
+*/
+.bento {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "misja misja misja stat1 stat1"
+    "stat2 stat2 found found found";
+  gap: 20px;
+}
+.card {
+  background: var(--pinkBeige);
+  border-radius: 18px;
+  padding: 44px;
+}
+.card.card-big       { grid-area: misja; padding: 52px; }
+.card.card-stat      {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 52px 32px;
+}
+.card.card-stat.adopcja { grid-area: stat1; }
+.card.card-stat.meal    { grid-area: stat2; }
+.card.card-founders {
+  grid-area: found;
+  display: grid; grid-template-columns: 0.8fr 1.2fr;
+  gap: 28px; padding: 36px; align-items: center;
+}
+.card.card-founders .founders-photo {
+  aspect-ratio: 4/5; border-radius: 12px; overflow: hidden;
+}
+.card.card-founders .founders-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 58% center; }
+
+.card h2 { font-size: 36px; margin-bottom: 16px; }
+.card.card-big h2 { font-size: 32px; }
+.card h3 { font-size: 24px; margin-bottom: 12px; }
+.card p  { color: #4a3a2c; font-size: 15px; line-height: 1.6; margin-bottom: 10px; }
+.card p:last-child { margin-bottom: 0; }
+
+.stat-num {
+  font-family: var(--font-head);
+  font-size: 72px; color: var(--brown);
+  font-weight: 700; line-height: 1;
+  margin: 14px 0 8px;
+}
+.stat-label {
+  font-size: 13px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--brown); opacity: .8;
+}
+.stat-icon { font-size: 26px; margin-bottom: 4px; }
+
+/* ─── CTA ADOPCJA SERCA ─────────────────────────────────────── */
+.adopcja-cta {
+  background: var(--brown);
+  color: var(--cream);
+  border-radius: 24px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  align-items: stretch;
+  margin: 56px 0 0;
+}
+.adopcja-cta-photo {
+  position: relative;
+  min-height: 460px;
+  overflow: hidden;
+}
+.adopcja-cta-photo img {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center 20%;
+}
+.adopcja-cta-text {
+  padding: 64px 64px 64px 56px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.adopcja-cta-text .eyebrow {
+  color: var(--gold);
+  display: block; margin-bottom: 18px;
+  font-size: 12px; letter-spacing: .2em; text-transform: uppercase; font-weight: 700;
+}
+.adopcja-cta-text .price {
+  font-family: var(--font-head);
+  font-size: 88px; line-height: 1;
+  color: var(--cream); font-weight: 700;
+  margin-bottom: 14px;
+}
+.adopcja-cta-text .price small {
+  display: block;
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--gold); font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase;
+  margin-top: 8px;
+}
+.adopcja-cta-text h2 {
+  color: var(--cream);
+  font-size: 38px; line-height: 1.15;
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+.adopcja-cta-text h2 i { color: var(--gold); font-style: italic; }
+.adopcja-cta-text p {
+  font-size: 16px; line-height: 1.6;
+  color: rgba(250,245,238,.85);
+  margin-bottom: 32px; max-width: 460px;
+}
+.adopcja-cta-buttons { display: flex; gap: 14px; flex-wrap: wrap; }
+.adopcja-cta .btn-gold { background: var(--gold); color: var(--brownDk); }
+.adopcja-cta .btn-ghost-light {
+  background: transparent; color: var(--cream);
+  border: 1.5px solid rgba(250,245,238,.4);
+}
+.adopcja-cta .btn-ghost-light:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ─── CO ROBIMY - 3 kafelki ───────────────────────────────── */
+.projects-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+}
+.proj-card {
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 20px 48px -32px rgba(66,41,24,.28);
+  display: flex; flex-direction: column;
+  transition: transform .25s, box-shadow .25s;
+}
+.proj-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 26px 56px -28px rgba(66,41,24,.32);
+}
+.proj-img { aspect-ratio: 4/3; overflow: hidden; }
+.proj-img img {
+  width: 100%; height: 100%;
+  object-fit: cover; transition: transform .4s;
+}
+.proj-card:hover .proj-img img { transform: scale(1.06); }
+.proj-body { padding: 26px 26px 30px; flex: 1; display: flex; flex-direction: column; }
+.proj-body h3 { font-size: 24px; margin: 14px 0 10px; }
+.proj-body p  { color: #4a3a2c; font-size: 15px; line-height: 1.55; flex: 1; margin-bottom: 20px; }
+.proj-body .more { color: var(--brown); font-weight: 600; font-size: 14px; }
+.proj-body .more::after { content: ' →'; }
+
+/* ─── OBSZARY DZIAŁAŃ (infografiki) ────────────────────────── */
+.obszary-section { background: var(--creamDk); padding: 64px 0; }
+.obszary-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+}
+.obszar-card {
+  background: var(--cream);
+  border-radius: 16px;
+  padding: 36px 28px 32px;
+  display: flex; flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform .2s, box-shadow .2s;
+}
+.obszar-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px -20px rgba(66,41,24,.22);
+}
+.obszar-icon {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: var(--pinkBeige);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brown);
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+.obszar-icon svg { display: block; }
+.obszar-card h3 {
+  font-size: 21px; line-height: 1.2;
+  margin-bottom: 10px;
+}
+.obszar-card p {
+  font-size: 14.5px;
+  color: #4a3a2c;
+  line-height: 1.55;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* ─── MADAGASKAR ───────────────────────────────────────────── */
+.mada-section { background: var(--cream); padding: 24px 0 64px; }
+.mada-gallery {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.mada-gallery figure {
+  margin: 0;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  box-shadow: 0 10px 30px -18px rgba(66,41,24,.32);
+  transition: transform .25s ease, box-shadow .25s ease;
+  cursor: zoom-in;
+}
+.mada-gallery figure::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 55%, rgba(0,0,0,.45));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.mada-gallery figure:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px -20px rgba(66,41,24,.4);
+}
+.mada-gallery figure:hover::after { opacity: 1; }
+.mada-gallery figure:hover img { transform: scale(1.04); }
+.mada-gallery img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform .5s ease;
+}
+.mada-gallery figcaption {
+  position: absolute;
+  left: 14px; right: 14px; bottom: 12px;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--cream);
+  text-shadow: 0 2px 14px rgba(0,0,0,.6);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Przycisk galerii */
+.mada-gallery-cta { text-align: center; margin-top: 28px; }
+
+/* Pełna galeria - modal */
+.mada-gallery-modal {
+  position: fixed; inset: 0; z-index: 240;
+  background: rgba(20, 12, 6, .96);
+  display: none; flex-direction: column;
+}
+.mada-gallery-modal.is-open { display: flex; }
+.mgm-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 28px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(250,245,238,.12);
+}
+.mgm-head h2 {
+  font-family: var(--font-head); color: var(--cream);
+  font-size: 22px; margin: 0; font-weight: 700;
+}
+.mgm-close {
+  width: 42px; height: 42px; border-radius: 999px;
+  border: 1px solid rgba(250,245,238,.3); background: transparent;
+  color: var(--cream); cursor: pointer; display: inline-flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.mgm-close:hover { background: rgba(250,245,238,.15); }
+.mgm-grid {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 24px 28px 40px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  align-content: start;
+}
+.mgm-grid img {
+  width: 100%; display: block; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 10px; cursor: pointer;
+  transition: opacity .2s, transform .2s; background: rgba(255,255,255,.05);
+}
+.mgm-grid img:hover { opacity: .88; transform: scale(.99); }
+@media (max-width: 1100px) { .mgm-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px)  { .mgm-grid { grid-template-columns: repeat(2, 1fr); padding: 16px; } }
+@media (max-width: 440px)  { .mgm-grid { grid-template-columns: 1fr; } }
+
+/* Lightbox - powiększone zdjęcie */
+.mada-lightbox {
+  position: fixed; inset: 0;
+  background: rgba(20, 12, 6, .92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity .25s ease;
+  padding: 40px;
+}
+.mada-lightbox.is-open { display: flex; opacity: 1; }
+.mada-lightbox img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.5);
+}
+.mada-lightbox .ml-caption {
+  position: absolute;
+  bottom: 24px; left: 50%; transform: translateX(-50%);
+  color: var(--cream); opacity: .85;
+  font-family: var(--font-head); font-style: italic;
+  font-size: 14px; text-align: center;
+  text-shadow: 0 2px 10px rgba(0,0,0,.6);
+}
+.mada-lightbox .ml-close {
+  position: absolute;
+  top: 18px; right: 22px;
+  width: 42px; height: 42px;
+  background: rgba(250,245,238,.1);
+  border: 1px solid rgba(250,245,238,.25);
+  color: var(--cream);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.mada-lightbox .ml-close:hover { background: rgba(250,245,238,.2); }
+.mada-lightbox .ml-arrow {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  width: 48px; height: 48px;
+  background: rgba(250,245,238,.1);
+  border: 1px solid rgba(250,245,238,.25);
+  color: var(--cream);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.mada-lightbox .ml-arrow:hover { background: rgba(250,245,238,.22); }
+.mada-lightbox .ml-arrow.prev { left: 18px; }
+.mada-lightbox .ml-arrow.next { right: 18px; }
+
+@media (max-width: 720px) {
+  .mada-gallery { grid-template-columns: 1fr; }
+  .mada-gallery figure { aspect-ratio: 16/10; }
+  .mada-lightbox { padding: 12px; }
+  .mada-lightbox .ml-arrow { width: 38px; height: 38px; }
+}
+.mada-inner {
+  display: grid; grid-template-columns: 1fr 1.25fr;
+  gap: 64px; align-items: center;
+}
+.mada-map {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.mada-map svg { width: 100%; height: auto; display: block; }
+.mada-map .mada-fallback { display: none; }
+.mada-map.is-loading .mada-fallback { display: block; }
+.mada-map.is-loading svg.mada-dynamic { display: none; }
+.mada-map img { width: 100%; height: auto; display: block; }
+.mada-text h2 { font-size: 46px; margin-bottom: 22px; line-height: 1.08; }
+.mada-text p  { font-size: 16.5px; color: #3c2913; margin-bottom: 14px; text-wrap: pretty; }
+.mada-text .eyebrow { display: block; margin-bottom: 16px; }
+
+/* ─── WYDARZENIA ──────────────────────────────────────────── */
+.news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.news-card {
+  display: block; color: inherit; text-decoration: none;
+  background: white; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 2px 0 rgba(66,41,24,.04), 0 16px 40px -24px rgba(66,41,24,.2);
+}
+.news-img { aspect-ratio: 3/2; overflow: hidden; position: relative; }
+.news-badge {
+  position: absolute; top: 14px; left: 14px; z-index: 2;
+  background: var(--gold); color: var(--brownDk);
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  padding: 6px 13px; border-radius: 999px;
+  box-shadow: 0 4px 14px -4px rgba(0,0,0,.4);
+}
+.news-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
+.news-card:hover .news-img img { transform: scale(1.04); }
+.news-body { padding: 22px 22px 26px; }
+.news-date {
+  font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: 8px;
+}
+.news-body h3 { font-size: 20px; margin-bottom: 8px; line-height: 1.3; }
+.news-body p  { color: #4a3a2c; font-size: 14.5px; margin: 0; }
+
+/* ─── STOPKA - IBAN inline + transfer block ───────────────── */
+.iban-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.iban-row b {
+  color: var(--cream); font-size: 13px;
+  font-weight: 700; letter-spacing: .04em;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+.iban-row .iban {
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: .02em;
+  color: rgba(250,245,238,.92);
+  flex: 1;
+}
+.copy-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  color: rgba(250,245,238,.7);
+  border: 1px solid rgba(250,245,238,.25);
+  border-radius: 6px;
+  width: 28px; height: 28px;
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.copy-btn:hover { color: var(--gold); border-color: var(--gold); }
+.copy-btn.copied { color: var(--gold); border-color: var(--gold); background: rgba(201,157,102,.1); }
+.copy-btn svg { display: block; }
+
+/* Dane do przelewu */
+.transfer-block {
+  background: rgba(201,157,102,.08);
+  border: 1px solid rgba(201,157,102,.25);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 20px;
+}
+.transfer-block .label {
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: 12px;
+  display: block;
+}
+.transfer-block .field {
+  margin-bottom: 12px;
+}
+.transfer-block .field:last-child { margin-bottom: 0; }
+.transfer-block .field .field-label {
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(250,245,238,.55);
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+.transfer-block .field .field-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.transfer-block .field .field-row .text {
+  font-size: 13px;
+  color: var(--cream);
+  line-height: 1.5;
+  flex: 1;
+}
+.transfer-block .field.title .text {
+  font-style: italic;
+  color: rgba(250,245,238,.95);
+}
+
+/* ─── WESPRZYJ NAS - 5 sposobów wsparcia z rozwijanym panelem ─── */
+.wesprzyj-section {
+  background: var(--brown);
+  color: var(--cream);
+  padding: 96px 0;
+}
+.wesprzyj-section .ws-head {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 48px;
+}
+.wesprzyj-section .ws-head .eyebrow {
+  display: inline-block; margin-bottom: 14px;
+}
+.wesprzyj-section .ws-head h2 {
+  color: var(--cream);
+  font-size: 50px;
+  margin-bottom: 18px;
+  line-height: 1.08;
+}
+.wesprzyj-section .ws-head p {
+  font-size: 17px;
+  color: rgba(250,245,238,.78);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.ws-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 32px;
+}
+.ws-card {
+  background: rgba(250,245,238,.06);
+  border: 1px solid rgba(250,245,238,.12);
+  border-radius: 14px;
+  padding: 24px 18px 22px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--cream);
+  transition: background .2s, border-color .2s, transform .2s, box-shadow .25s;
+  font: inherit;
+  display: flex; flex-direction: column; align-items: center;
+}
+.ws-card:hover {
+  background: rgba(250,245,238,.11);
+  border-color: rgba(201,157,102,.55);
+  transform: translateY(-2px);
+}
+.ws-card.is-active {
+  background: rgba(201,157,102,.18);
+  border-color: var(--gold);
+  box-shadow: 0 8px 24px -10px rgba(201,157,102,.5);
+}
+.ws-card .ws-icon {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: rgba(201,157,102,.2);
+  color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+  transition: background .2s, color .2s;
+}
+.ws-card.is-active .ws-icon {
+  background: var(--gold);
+  color: var(--brownDk);
+}
+.ws-card .ws-icon svg { display: block; }
+.ws-card h3 {
+  font-family: var(--font-head);
+  font-size: 17px;
+  color: var(--cream);
+  margin: 0 0 6px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ws-card p {
+  font-size: 13px;
+  color: rgba(250,245,238,.68);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.ws-panels { position: relative; }
+.ws-panel {
+  background: var(--cream);
+  border-radius: 18px;
+  padding: 40px 48px;
+  color: var(--brown);
+  display: none;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 36px;
+  align-items: center;
+  animation: ws-fade .35s ease both;
+}
+.ws-panel.is-active { display: grid; }
+.ws-panel-body h3 {
+  font-family: var(--font-head);
+  font-size: 32px;
+  color: var(--brown);
+  margin-bottom: 14px;
+  line-height: 1.15;
+}
+.ws-panel-body p {
+  font-size: 15.5px;
+  color: #3c2913;
+  line-height: 1.65;
+  margin-bottom: 12px;
+  text-wrap: pretty;
+}
+.ws-panel-body p:last-child { margin-bottom: 0; }
+.ws-panel-body strong { color: var(--brown); }
+.ws-panel-body em { color: var(--gold); font-style: italic; }
+.ws-panel .ws-cta {
+  display: flex; flex-direction: column;
+  gap: 12px;
+}
+.ws-panel .ws-cta .btn {
+  width: 100%;
+  text-align: center;
+}
+.ws-panel .ws-cta .btn-ghost-light {
+  background: transparent;
+  color: var(--brown);
+  border: 1.5px solid var(--brown);
+}
+.ws-panel .ws-cta .btn-ghost-light:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+@keyframes ws-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1100px) {
+  .ws-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+  .wesprzyj-section { padding: 64px 0; }
+  .wesprzyj-section .ws-head h2 { font-size: 34px; }
+  .ws-grid { grid-template-columns: repeat(2, 1fr); }
+  .ws-panel.is-active { grid-template-columns: 1fr; padding: 28px 24px; }
+  .ws-panel-body h3 { font-size: 26px; }
+}
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; padding: 0 24px; }
+  .hero-text h1 { font-size: 44px; }
+  .bento, .projects-grid, .news-grid, .mada-inner,
+  .adopcja-cta, .obszary-grid { grid-template-columns: 1fr; }
+  .bento { grid-template-areas: none; }
+  .card.card-big, .card.card-founders, .card.card-stat.meal, .card.card-stat.adopcja {
+    grid-area: auto;
+  }
+  .card.card-founders { grid-template-columns: 1fr; }
+  .adopcja-cta-photo { min-height: 280px; }
+  .adopcja-cta-text { padding: 36px 28px; }
+  .adopcja-cta-text .price { font-size: 64px; }
+  .nav-inner { padding: 16px 24px; }
+}
+@media (max-width: 560px) {
+  .card { padding: 28px 22px; }
+  .card.card-big { padding: 30px 22px; }
+  .card.card-founders { padding: 28px 22px; }
+  .card.card-stat { padding: 30px 22px; }
+  .hero { padding: 0 14px; }
+  .hero-text h1 { font-size: 38px; }
+  .card.card-big h2 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
+
+<!-- ═══ NAV (zunifikowany) ════════════════════════════════════ -->
+<nav class="main-nav">
+  <div class="nav-inner">
+    <a href="Strona Główna.html" class="nav-logo">
+      <img src="media/logo-kolor.png" alt="Fundacja Misja MADA" />
+    </a>
+    <ul class="nav-links">
+      <li><a href="Strona Główna.html" class="active">Strona główna</a></li>
+      <li><a href="Co robimy.html">Co robimy?</a></li>
+      <li><a href="O nas.html">O nas</a></li>
+      <li><a href="Wydarzenia.html">Wydarzenia</a></li>
+      <li><a href="Kontakt.html">Kontakt</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button type="button" class="nav-action nav-search" aria-label="Szukaj na stronie" title="Szukaj (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.3-4.3"/>
+        </svg>
+      </button>
+      <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" class="nav-action" aria-label="Facebook Fundacji" title="Facebook">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/>
+        </svg>
+      </a>
+    </div>
+    <a href="#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══════════════════════════════════════════════════ -->
+<section class="hero-wrap" id="main-content">
+  <div class="hero">
+    <div class="hero-text">
+      <h1>Fundacja<br />Misja MADA</h1>
+      <div class="hero-acronym">
+        <div class="acro-row"><span class="cap">M</span><span class="rest">iłość</span></div>
+        <div class="acro-row"><span class="cap">A</span><span class="rest">kceptacja bliźniego</span></div>
+        <div class="acro-row"><span class="cap">D</span><span class="rest">obroczynność</span></div>
+        <div class="acro-row"><span class="cap">A</span><span class="rest">doracja Boga</span></div>
+      </div>
+      <p class="hero-lead">Służymy drugiemu człowiekowi przez pomoc misyjną, dzieła miłosierdzia i nadzieję płynącą z Ewangelii. Wspieramy Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki) posługujące dzieciom na Madagaskarze.</p>
+      <div class="hero-buttons">
+        <a href="Co robimy.html" class="btn btn-outline">Dowiedz się więcej</a>
+        <button type="button" class="btn btn-gold" data-newsletter-open>Zapisz się na newsletter</button>
+      </div>
+    </div>
+    <div class="hero-photo-wrap">
+      <img src="media/20251107_103213.jpg" alt="Dziecko z Centrum Edukacyjnego w Itaosy" />
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MISJA + STATS (bento asymetryczne) ═════════════════════ -->
+<section class="section" id="misja" style="padding-top: 48px;">
+  <div class="container">
+    <div class="bento">
+
+      <!-- TOP-LEFT (szeroka): Misja -->
+      <div class="card card-big">
+        <h2>Nasza misja na Madagaskarze</h2>
+        <p>Jesteśmy małżeństwem misjonarzy świeckich. Po pierwszym wyjeździe na Madagaskar w 2023 r. założyliśmy fundację, by w sposób długofalowy wspierać Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki) w ich codziennej posłudze najuboższym.</p>
+        <p>Nasze działania koncentrujemy na pomocy dzieciom, edukacji, przeciwdziałaniu głodowi oraz budowaniu świadomości misyjnej w Polsce.</p>
+      </div>
+
+      <!-- TOP-RIGHT (wąska): 130+ -->
+      <div class="card card-stat adopcja">
+        <div class="stat-icon">♥</div>
+        <div class="stat-num">130+</div>
+        <div class="stat-label">Dzieci w Adopcji Serca</div>
+      </div>
+
+      <!-- BOTTOM-LEFT (SZEROKA - pod Misja): Założyciele -->
+      <div class="card card-founders">
+        <div class="founders-photo">
+          <img src="media/My_2_web.jpg" alt="Założyciele - Anna i Marek na Madagaskarze, na tle pól ryżowych" style="object-position: 50% 35%;" />
+        </div>
+        <div>
+          <h3>Założyciele</h3>
+          <p>Małżeństwo misjonarzy świeckich, których droga rozpoczęła się od Adopcji Serca dwójki dzieci z Madagaskaru.</p>
+          <p>Łącząc codzienną pracę zawodową z misją, budują pomost solidarności między Polską a Czerwoną Wyspą.</p>
+        </div>
+      </div>
+
+      <!-- BOTTOM-RIGHT (WĄSKA - pod 130+): 275 posiłków -->
+      <div class="card card-stat meal">
+        <div class="stat-icon" style="font-size:24px;">🍽</div>
+        <div class="stat-num">275</div>
+        <div class="stat-label">Posiłków wydawanych każdego dnia</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA ADOPCJA SERCA (NAJWAŻNIEJSZA DZIAŁALNOŚĆ) ═══════════ -->
+<section class="section" style="padding-top: 0;">
+  <div class="container">
+    <div class="adopcja-cta">
+      <div class="adopcja-cta-photo">
+        <img src="media/20251107_103245.jpg" alt="Dziecko objęte programem Adopcja Serca" />
+      </div>
+      <div class="adopcja-cta-text">
+        <span class="eyebrow">NASZ NAJWAŻNIEJSZY PROJEKT</span>
+        <div class="price">70&nbsp;zł<small>miesięcznie</small></div>
+        <h2>Tyle wystarcza, by <i>zmienić życie jednego dziecka.</i></h2>
+        <p>Adopcja Serca to długoterminowe wsparcie konkretnego dziecka z Madagaskaru - pokrywa edukację, codzienny ciepły posiłek, mundurek szkolny i podstawową opiekę medyczną. Pomoc trafia bezpośrednio do Sióstr Małych Misjonarek Miłosierdzia (Sióstr Orionistek) w Itaosy.</p>
+        <div class="adopcja-cta-buttons">
+          <a href="Co robimy.html#adopcja" class="btn btn-gold">Zostań rodzicem adopcyjnym</a>
+          <a href="Co robimy.html#adopcja" class="btn btn-ghost-light">Dowiedz się więcej</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CO ROBIMY (3 projekty: Atelier, Centrum, Wolontariat) ═══ -->
+<section class="section" id="co-robimy" style="padding-top: 56px;">
+  <div class="container">
+    <div class="section-head">
+      <h2>Co jeszcze robimy?</h2>
+      <p>Trzy projekty, przez które realizujemy naszą misję - od edukacji zawodowej rodzin po infrastrukturę i osobiste zaangażowanie.</p>
+    </div>
+    <div class="projects-grid">
+
+      <a href="Co robimy.html#atelier" class="proj-card">
+        <div class="proj-img">
+          <img src="media/Atelier_Nadziei_1.jpg" alt="Atelier Nadziei - pracownia krawiecka" style="object-position: 62% 32%;" />
+        </div>
+        <div class="proj-body">
+          <span class="tag">Rozwój</span>
+          <h3>Atelier Nadziei</h3>
+          <p>Pracownia krawiecka przy Centrum w Itaosy - nauka zawodu dla rodziców i starszej młodzieży. Pierwszy krok ku samodzielności ekonomicznej rodzin.</p>
+          <span class="more">Czytaj więcej</span>
+        </div>
+      </a>
+
+      <a href="Co robimy.html#centrum" class="proj-card">
+        <div class="proj-img">
+          <img src="media/Centrum_Edukacyjne.jpg" alt="Centrum Edukacyjne św. Alojzego Orione w Itaosy" />
+        </div>
+        <div class="proj-body">
+          <span class="tag">Infrastruktura</span>
+          <h3>Centrum Edukacyjne</h3>
+          <p>Rozbudowa Centrum Edukacyjnego św. Alojzego Orione - nowe sale lekcyjne, lepsze warunki nauki dla 300+ dzieci. Placówka działa od 1989 r.</p>
+          <span class="more">Czytaj więcej</span>
+        </div>
+      </a>
+
+      <a href="Co robimy.html#wolontariat" class="proj-card">
+        <div class="proj-img">
+          <img src="media/Wolontariat_1.jpg" alt="Wolontariat - Misja MADA na Madagaskarze" style="object-position: 50% 28%;" />
+        </div>
+        <div class="proj-body">
+          <span class="tag">Zaangażowanie</span>
+          <h3>Wolontariat</h3>
+          <p>Wolontariat lokalny w Polsce, tj.: kiermasze, prelekcje, akcje, oraz wyjazdowy na Madagaskar we współpracy z Fundacją Salvatti.</p>
+          <span class="more">Czytaj więcej</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MADAGASKAR (z mapą SVG) ═══════════════════════════════════ -->
+<section class="mada-section" style="margin-top: 0;">
+  <div class="container">
+    <div class="mada-inner">
+      <div class="mada-map is-loading">
+        <!-- Statyczny fallback (widoczny dopóki ładuje się dynamiczna mapa) -->
+        <img class="mada-fallback" src="assets/madagaskar.svg" alt="Mapa Madagaskaru" />
+        <!-- Dynamiczna mapa - renderowana z prawdziwego GeoJSON (Natural Earth) -->
+        <svg class="mada-dynamic" id="mada-svg" viewBox="0 0 380 620" aria-label="Mapa Madagaskaru - Antananarywa, Itaosy"></svg>
+      </div>
+      <div class="mada-text">
+        <div class="eyebrow">Madagaskar</div>
+        <h2>Czwarta największa wyspa świata, jedna z najuboższych</h2>
+        <p>Ponad 75% mieszkańców Madagaskaru żyje poniżej progu ubóstwa. Cyklony i susze pogłębiają biedę, zwłaszcza na południu wyspy. Mimo to jest to kraj pełen życzliwości, gościnności i głębokiej wiary.</p>
+        <p>W tym kontekście działalność misyjna - w tym polscy misjonarze - odgrywa kluczową rolę, koncentrując się na pomocy humanitarnej, edukacji i opiece medycznej.</p>
+        <a href="O nas.html" class="btn btn-outline" style="margin-top: 20px;">Poznaj Fundację</a>
+      </div>
+    </div>
+
+    <!-- Galeria - widoki Madagaskaru -->
+    <div class="mada-gallery">
+      <figure>
+        <img src="media/galeria-01.jpg" alt="Wybrzeże Madagaskaru - rybacy z tradycyjną łodzią piroga" />
+        <figcaption>Wybrzeże - rybacy z łodzią piroga</figcaption>
+      </figure>
+      <figure>
+        <img src="media/galeria-02.jpg" alt="Droga przez górzysty płaskowyż Madagaskaru" />
+        <figcaption>Wnętrze wyspy - górzysty płaskowyż</figcaption>
+      </figure>
+      <figure>
+        <img src="media/galeria-03.jpg" alt="Pola ryżowe i palmy w głębi Madagaskaru" />
+        <figcaption>Pola ryżowe w głębi wyspy</figcaption>
+      </figure>
+    </div>
+
+    <div class="mada-gallery-cta">
+      <button type="button" class="btn btn-gold" id="mada-gallery-btn">Zobacz galerię Madagaskaru</button>
+    </div>
+  </div>
+</section>
+
+<!-- (Sekcja "Obszary działań" została przeniesiona na podstronę O nas) -->
+
+<!-- ═══ WYDARZENIA ═════════════════════════════════════════════ -->
+<section class="section" id="wydarzenia" style="padding-top: 32px;">
+  <div class="container">
+    <div class="section-head">
+      <h2>Wydarzenia</h2>
+      <p>Wydarzenia, kiermasze, relacje z misji - bądź na bieżąco z życiem fundacji.</p>
+    </div>
+    <div class="news-grid" id="home-events"></div>
+    <div style="text-align: center; margin-top: 36px;">
+      <a href="Wydarzenia.html" class="btn btn-outline">Zobacz wszystkie wydarzenia</a>
+    </div>
+  </div>
+</section>
+
+<script>
+/* Wydarzenia na stronie głównej - zaciągane z window.MADA_EVENTS.
+   Układ: [0] wyróżnione nadchodzące (od lewej) + 2 najnowsze archiwalne (chronologicznie).
+   Każdy kafelek linkuje do pełnego wpisu (Wydarzenie.html?id=…). */
+document.addEventListener('DOMContentLoaded', function () {
+  var all = (window.MADA_EVENTS || []);
+  var grid = document.getElementById('home-events');
+  if (!grid) return;
+
+  var featured = all.filter(function (e) { return e.status === 'nadchodzace' && e.featured; })
+                    .sort(function (a, b) { return (a.dateISO || '').localeCompare(b.dateISO || ''); })[0];
+  var archive = all.filter(function (e) { return e.status === 'archiwum'; })
+                   .sort(function (a, b) { return (b.dateISO || '').localeCompare(a.dateISO || ''); });
+
+  var picks = [];
+  if (featured) picks.push({ e: featured, upcoming: true });
+  archive.slice(0, featured ? 2 : 3).forEach(function (e) { picks.push({ e: e, upcoming: false }); });
+
+  function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function shortDate(e) { return (e.dateLabel || '').replace(/^[A-Za-zĄąĆćĘ꜌łŃńÓ󌜟żŹź]+,\s*/, ''); }
+
+  grid.innerHTML = picks.map(function (p) {
+    var e = p.e;
+    var img = (e.photos && e.photos[0]) ? e.photos[0].src : '';
+    var alt = (e.photos && e.photos[0]) ? e.photos[0].alt : e.title;
+    var badge = p.upcoming
+      ? '<span class="news-badge">Nadchodzące</span>'
+      : '';
+    return '<a class="news-card" href="Wydarzenie.html?id=' + encodeURIComponent(e.id) + '">' +
+      '<div class="news-img">' + badge +
+        (img ? '<img src="' + esc(img) + '" alt="' + esc(alt) + '" />' : '') +
+      '</div>' +
+      '<div class="news-body">' +
+        '<div class="news-date">' + esc(shortDate(e)) + '</div>' +
+        '<h3>' + esc(e.title) + '</h3>' +
+        '<p>' + esc(e.lead || '') + '</p>' +
+      '</div>' +
+    '</a>';
+  }).join('');
+});
+</script>
+
+<!-- ═══ WESPRZYJ CTA ════════════════════════════════════════════ -->
+<section class="wesprzyj-section" id="wesprzyj">
+  <div class="container">
+    <div class="ws-head">
+      <span class="eyebrow" style="color: var(--gold);">Wesprzyj nas</span>
+      <h2>Razem możemy więcej!</h2>
+      <p>Twoje wsparcie pozwala nam kontynuować misję i nieść realną pomoc tam, gdzie jest ona najbardziej potrzebna. Wybierz formę, która Ci odpowiada - każda ma znaczenie.</p>
+    </div>
+
+    <div class="ws-grid" role="tablist">
+      <button type="button" class="ws-card is-active" data-target="adopcja" role="tab" aria-selected="true">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <h3>Adopcja Serca</h3>
+        <p>Wesprzyj konkretne dziecko - tylko 70&nbsp;zł/mies.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="darowizna" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5h4.5a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3H15"/></svg>
+        </div>
+        <h3>Darowizna</h3>
+        <p>Jednorazowo, dowolna kwota.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="biznes" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>
+        </div>
+        <h3>Partner Biznesowy</h3>
+        <p>CSR Twojej firmy.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="edu" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/></svg>
+        </div>
+        <h3>Partner Edukacyjny</h3>
+        <p>Szkoły i przedszkola.</p>
+      </button>
+
+      <button type="button" class="ws-card" data-target="wolontariat" role="tab" aria-selected="false">
+        <div class="ws-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 21v-1.5A4.5 4.5 0 0 1 7.5 15h3A4.5 4.5 0 0 1 15 19.5V21"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 13.5h2A3.5 3.5 0 0 1 21 17v1"/></svg>
+        </div>
+        <h3>Wolontariat</h3>
+        <p>W Polsce i na Madagaskarze.</p>
+      </button>
+    </div>
+
+    <div class="ws-panels">
+      <article class="ws-panel is-active" data-id="adopcja" role="tabpanel">
+        <div class="ws-panel-body">
+          <h3>Adopcja Serca</h3>
+          <p>Dołącz do naszego programu <strong>Adopcja Serca</strong> i daj szansę na naukę w szkole jednemu z dzieci na Madagaskarze.</p>
+          <p>Już <strong>70&nbsp;zł miesięcznie</strong> pokrywa edukację, codzienny ciepły posiłek, mundurek szkolny i podstawową opiekę medyczną konkretnego dziecka. Pomoc trafia bezpośrednio do Sióstr Małych Misjonarek Miłosierdzia (Sióstr Orionistek) w Itaosy.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="Co robimy.html#adopcja" class="btn btn-gold">Zobacz program →</a>
+          <a href="#" class="btn btn-ghost-light">Zostań rodzicem adopcyjnym</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="darowizna" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Darowizna</h3>
+          <p>Możesz wesprzeć nasze działania <strong>jednorazową darowizną o dowolnej kwocie</strong>. Każda złotówka ma znaczenie!</p>
+          <p>Wpłatę możesz wykonać bezpośrednio na konto fundacji - numery kont PLN, EUR i GBP znajdziesz w stopce strony.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="#kontakt" class="btn btn-gold">Numery kont</a>
+          <a href="#" class="btn btn-ghost-light" title="Bramka płatności - wkrótce">Płatność online</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="biznes" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Partner Biznesowy</h3>
+          <p>Jeśli chcesz przyłączyć się do naszych działań w ramach polityki <strong>CSR</strong> swojej firmy, zapraszamy do kontaktu.</p>
+          <p>Podczas spotkania przedstawimy nasze propozycje i porozmawiamy o możliwościach współpracy, która przyniesie konkretne cele finansowe lub rzeczowe naszej fundacji, a Twojej firmie nowe spojrzenie na Madagaskar, edukację i dożywianie dzieci.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Partner%20Biznesowy" class="btn btn-gold">Napisz do nas →</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="edu" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Partner Edukacyjny</h3>
+          <p>Zapraszamy do współpracy <strong>szkoły i przedszkola</strong>, które chciałyby włączyć się w działania na rzecz edukacji dzieci na Madagaskarze. Możecie zostać opiekunem konkretnych dzieci, przystępując do programu <em>Adopcja Serca</em>.</p>
+          <p>Współpracę wzmocnimy organizując u Was spotkania i prezentacje ukazujące życie naszych podopiecznych. Przygotujemy zajęcia edukacyjne o kulturze i życiu na Madagaskarze - pokażemy zabawki, stroje i rzeczy użytkowe. Takie zajęcia pozwolą uczniom zbliżyć się do afrykańskich rówieśników!</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Partner%20Edukacyjny" class="btn btn-gold">Zaproś nas do szkoły →</a>
+        </div>
+      </article>
+
+      <article class="ws-panel" data-id="wolontariat" role="tabpanel" hidden>
+        <div class="ws-panel-body">
+          <h3>Wolontariat</h3>
+          <p>Jeśli masz ochotę przyłączyć się do naszej pracy <strong>w Polsce</strong> lub <strong>wyjechać na misje</strong>, napisz do nas. W zależności od bieżących potrzeb porozmawiamy, jak możesz nam pomóc.</p>
+          <p>Jeśli interesuje Cię wolontariat na Madagaskarze - prowadzimy go we współpracy z Fundacją Salvatti. Szczegóły na podstronie wolontariatu.</p>
+        </div>
+        <div class="ws-cta">
+          <a href="mailto:kontakt@misjamada.pl?subject=Wolontariat" class="btn btn-gold">Napisz do nas →</a>
+          <a href="Co robimy.html#wolontariat" class="btn btn-ghost-light">Wolontariat na Madagaskarze</a>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<script>
+(function() {
+  const cards = document.querySelectorAll('.ws-card');
+  const panels = document.querySelectorAll('.ws-panel');
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      const target = card.dataset.target;
+      cards.forEach(c => {
+        const on = c === card;
+        c.classList.toggle('is-active', on);
+        c.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panels.forEach(p => {
+        const on = p.dataset.id === target;
+        p.classList.toggle('is-active', on);
+        if (on) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
+      });
+    });
+  });
+})();
+</script>
+
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<footer class="site-footer" id="kontakt">
+  <div class="container">
+    <div class="footer-grid">
+
+      <div>
+        <div class="footer-brand">
+          <img src="media/logo-biale.png" alt="Fundacja Misja MADA" />
+          <p>Fundacja Misja MADA<br />ul. Szosa Chełmińska 271A<br />87-100 Toruń, Polska</p>
+          <p>e-mail: <a href="mailto:kontakt@misjamada.pl" style="color: var(--gold); text-decoration: none;">kontakt@misjamada.pl</a><br />tel.: 604 181 301&nbsp;/&nbsp;690 623 252</p>
+          <p style="margin-top: 10px;">
+            <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 8px; color: var(--cream); text-decoration: none; opacity: .85; font-size: 13.5px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
+              Facebook: Misja MADA
+            </a>
+          </p>
+          <div class="foot-meta">
+            KRS: 0001099359<br />
+            NIP: 9562392375<br />
+            REGON: 528347054
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Konta bankowe</h4>
+
+        <div class="iban-row">
+          <b>PLN</b>
+          <span class="iban">70 1090 1056 0000 0001 5832 5871</span>
+          <button class="copy-btn" data-copy="70 1090 1056 0000 0001 5832 5871" aria-label="Kopiuj numer konta PLN">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>EUR</b>
+          <span class="iban">49 1090 1056 0000 0001 6067 9663</span>
+          <button class="copy-btn" data-copy="49 1090 1056 0000 0001 6067 9663" aria-label="Kopiuj numer konta EUR">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>GBP</b>
+          <span class="iban">34 1090 1056 0000 0001 6645 4246</span>
+          <button class="copy-btn" data-copy="34 1090 1056 0000 0001 6645 4246" aria-label="Kopiuj numer konta GBP">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <!-- DANE DO PRZELEWU - Odbiorca / Adres / Tytuł -->
+        <div class="transfer-block">
+          <span class="label">Dane do przelewu</span>
+
+          <div class="field">
+            <span class="field-label">Odbiorca</span>
+            <div class="field-row">
+              <span class="text">Fundacja Misja MADA</span>
+              <button class="copy-btn" data-copy="Fundacja Misja MADA" aria-label="Kopiuj nazwę odbiorcy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Adres</span>
+            <div class="field-row">
+              <span class="text">ul. Szosa Chełmińska 271A<br/>87-100 Toruń</span>
+              <button class="copy-btn" data-copy="ul. Szosa Chełmińska 271A, 87-100 Toruń" aria-label="Kopiuj adres">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field title">
+            <span class="field-label">Tytuł przelewu</span>
+            <div class="field-row">
+              <span class="text">Darowizna na cele statutowe</span>
+              <button class="copy-btn" data-copy="Darowizna na cele statutowe" aria-label="Kopiuj tytuł przelewu">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Na skróty</h4>
+        <ul>
+          <li><a href="Strona Główna.html">Strona główna</a></li>
+          <li><a href="Co robimy.html">Co robimy?</a></li>
+          <li><a href="O nas.html">O nas</a></li>
+          <li><a href="Wydarzenia.html">Wydarzenia</a></li>
+          <li><a href="Kontakt.html">Kontakt</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Informacje</h4>
+        <ul>
+          <li><a href="O nas.html#dokumenty">Statut fundacji</a></li>
+          <li><a href="O nas.html#dokumenty">Sprawozdania</a></li>
+          <li><a href="Polityka prywatności.html">Polityka prywatności</a></li>
+          <li><a href="Regulamin serwisu.html">Regulamin</a></li>
+        </ul>
+        <h4 style="margin-top: 26px;">Partnerzy</h4>
+        <ul>
+          <li><a href="https://salvatti.pl/" target="_blank" rel="noopener">Fundacja Salvatti</a></li>
+          <li><a href="https://www.misevi.pl/" target="_blank" rel="noopener">Stowarzyszenie MISEVI</a></li>
+          <li><a href="https://www.suoredonorione.org/" target="_blank" rel="noopener">Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 Fundacja Misja MADA · Wszelkie prawa zastrzeżone</span>
+      <span>Toruń · Itaosy · Antananarywa</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ COPY TO CLIPBOARD ═════════════════════════════════════ -->
+<script>
+(function() {
+  const checkIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    const original = btn.innerHTML;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = btn.dataset.copy;
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      btn.classList.add('copied');
+      btn.innerHTML = checkIcon;
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1600);
+    });
+  });
+})();
+</script>
+
+<!-- ═══ DYNAMICZNA MAPA MADAGASKARU (Natural Earth via D3) ═════════ -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script>
+(async () => {
+  const wrap = document.querySelector('.mada-map');
+  const svg = document.getElementById('mada-svg');
+  if (!svg || !window.d3 || !window.topojson) return;
+
+  const VB_W = 380, VB_H = 620;
+  const PALETTE = {
+    brown: '#422918', gold: '#c99d66', goldDk: '#a37840',
+    fillLight: '#e4c89d', shade: '#7a4f24',
+  };
+
+  try {
+    // Natural Earth 50m world atlas (TopoJSON) - Madagascar id is "450"
+    const url = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json';
+    const world = await (await fetch(url)).json();
+    const fc = topojson.feature(world, world.objects.countries);
+    const mada = fc.features.find(f => f.id === '450' || f.properties?.name === 'Madagascar');
+    if (!mada) throw new Error('Madagascar feature not found');
+
+    // Projection fitted to viewBox, leave margin for labels (40px)
+    const margin = { top: 24, right: 80, bottom: 36, left: 70 };
+    const projection = d3.geoMercator()
+      .fitExtent([
+        [margin.left, margin.top],
+        [VB_W - margin.right, VB_H - margin.bottom],
+      ], mada);
+    const pathGen = d3.geoPath(projection);
+
+    // Build SVG content
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const ns = (tag, attrs = {}, parent = svg) => {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      parent.appendChild(el);
+      return el;
+    };
+
+    // Defs: gradient fill + shade
+    const defs = ns('defs');
+    defs.innerHTML = `
+      <linearGradient id="madaFill" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%"  stop-color="${PALETTE.fillLight}"/>
+        <stop offset="55%" stop-color="${PALETTE.gold}"/>
+        <stop offset="100%" stop-color="${PALETTE.goldDk}"/>
+      </linearGradient>
+      <radialGradient id="madaShade" cx="0.5" cy="0.5" r="0.45">
+        <stop offset="0%" stop-color="${PALETTE.shade}" stop-opacity="0.28"/>
+        <stop offset="70%" stop-color="${PALETTE.shade}" stop-opacity="0"/>
+      </radialGradient>
+    `;
+
+    // Land path
+    const d = pathGen(mada);
+    ns('path', {
+      d,
+      fill: 'url(#madaFill)',
+      stroke: PALETTE.brown,
+      'stroke-width': '1.4',
+      'stroke-linejoin': 'round',
+    });
+    // Shade overlay
+    ns('path', { d, fill: 'url(#madaShade)' });
+
+    // ════════ Cities ════════
+    const cities = [
+      { name: 'Antsiranana', lonlat: [49.30, -12.27], label: 'right',  small: true },
+      { name: 'Mahajanga',   lonlat: [46.32, -15.72], label: 'left',   small: true },
+      { name: 'Toamasina',   lonlat: [49.40, -18.15], label: 'right',  small: true },
+      { name: 'Toliara',     lonlat: [43.67, -23.36], label: 'left',   small: true },
+      { name: 'Tôlanaro',    lonlat: [46.99, -25.03], label: 'bottom', small: true },
+    ];
+    cities.forEach(c => {
+      const [x, y] = projection(c.lonlat);
+      ns('circle', { cx: x, cy: y, r: 3, fill: PALETTE.brown });
+      let tx = x + 8, ty = y + 4, anchor = 'start';
+      if (c.label === 'left')   { tx = x - 8;  anchor = 'end'; }
+      if (c.label === 'bottom') { tx = x;       ty = y + 14; anchor = 'middle'; }
+      const t = ns('text', {
+        x: tx, y: ty, 'text-anchor': anchor,
+        'font-family': "'Plus Jakarta Sans', sans-serif",
+        'font-size': '11', fill: PALETTE.brown,
+      });
+      t.textContent = c.name;
+    });
+
+    // Antananarywa - STOLICA (larger marker)
+    const [ax, ay] = projection([47.52, -18.93]);
+    ns('circle', { cx: ax, cy: ay, r: 6, fill: 'none', stroke: PALETTE.brown, 'stroke-width': '1.6' });
+    ns('circle', { cx: ax, cy: ay, r: 2, fill: PALETTE.brown });
+    const at1 = ns('text', {
+      x: ax + 11, y: ay + 3,
+      'font-family': "'Plus Jakarta Sans', sans-serif",
+      'font-size': '12', 'font-weight': '700', fill: PALETTE.brown,
+    });
+    at1.textContent = 'Antananarywa';
+    const at2 = ns('text', {
+      x: ax + 11, y: ay + 16,
+      'font-family': "'Plus Jakarta Sans', sans-serif",
+      'font-size': '9', 'letter-spacing': '0.14em', fill: PALETTE.shade,
+    });
+    at2.textContent = '★ STOLICA';
+
+    // Itaosy - NASZA MISJA (highlighted, leader to left)
+    const [ix, iy] = projection([47.46, -18.95]);
+    ns('circle', { cx: ix, cy: iy, r: 5, fill: PALETTE.brown });
+    ns('circle', { cx: ix, cy: iy, r: 2.5, fill: PALETTE.gold });
+    const labelX = Math.max(8, ix - 90);
+    const labelY = iy + 28;
+    ns('line', {
+      x1: ix - 4, y1: iy + 4,
+      x2: labelX + 60, y2: labelY - 12,
+      stroke: PALETTE.brown, 'stroke-width': '0.9',
+      'stroke-dasharray': '3 3',
+    });
+    const it1 = ns('text', {
+      x: labelX, y: labelY,
+      'font-family': "'Libre Caslon Text', serif",
+      'font-size': '15', 'font-weight': '700', fill: PALETTE.brown,
+    });
+    it1.textContent = 'Itaosy';
+    const it2 = ns('text', {
+      x: labelX, y: labelY + 14,
+      'font-family': "'Plus Jakarta Sans', sans-serif",
+      'font-size': '9', 'letter-spacing': '0.12em', fill: PALETTE.shade,
+    });
+    it2.textContent = 'NASZA MISJA';
+
+    // Ocean labels
+    const oc = ns('text', {
+      x: VB_W - 18, y: VB_H / 2,
+      'font-family': "'Libre Caslon Text', serif",
+      'font-style': 'italic', 'font-size': '12',
+      'letter-spacing': '0.16em', fill: PALETTE.shade,
+      'text-anchor': 'middle',
+      transform: `rotate(90 ${VB_W - 18} ${VB_H / 2})`,
+    });
+    oc.textContent = 'Ocean Indyjski';
+    const mz = ns('text', {
+      x: 14, y: VB_H / 2 - 40,
+      'font-family': "'Libre Caslon Text', serif",
+      'font-style': 'italic', 'font-size': '10',
+      'letter-spacing': '0.14em', fill: PALETTE.shade,
+      'text-anchor': 'middle',
+      transform: `rotate(-90 14 ${VB_H / 2 - 40})`,
+    });
+    mz.textContent = 'Kanał Mozambicki';
+
+    // Compass rose
+    const cr = ns('g', { transform: `translate(${VB_W - 30} ${VB_H - 24})` });
+    ns('circle', { r: 16, fill: 'none', stroke: PALETTE.brown, 'stroke-width': '1', opacity: '0.45' }, cr);
+    ns('line', { x1: 0, y1: -16, x2: 0, y2: 16, stroke: PALETTE.brown, 'stroke-width': '0.7', opacity: '0.45' }, cr);
+    ns('line', { x1: -16, y1: 0, x2: 16, y2: 0, stroke: PALETTE.brown, 'stroke-width': '0.7', opacity: '0.45' }, cr);
+    ns('polygon', { points: '0,-16 -3.5,0 0,-2 3.5,0', fill: PALETTE.gold, stroke: PALETTE.brown, 'stroke-width': '0.5' }, cr);
+    const nt = ns('text', { x: 0, y: -20, 'text-anchor': 'middle', 'font-family': "'Plus Jakarta Sans', sans-serif", 'font-size': '9', 'font-weight': '700', fill: PALETTE.brown }, cr);
+    nt.textContent = 'N';
+
+    wrap.classList.remove('is-loading');
+  } catch (e) {
+    console.warn('Mada map: dynamic render failed, keeping fallback', e);
+  }
+})();
+</script>
+
+<script src="assets/site-search.js" defer></script>
+
+<!-- ═══ LIGHTBOX dla galerii Madagaskar ══════════════════ -->
+<div class="mada-lightbox" id="mada-lightbox" aria-hidden="true" role="dialog">
+  <button type="button" class="ml-close" aria-label="Zamknij">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+  </button>
+  <button type="button" class="ml-arrow prev" aria-label="Poprzednie">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button type="button" class="ml-arrow next" aria-label="Następne">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+  <img id="mada-lightbox-img" alt="" />
+  <div class="ml-caption" id="mada-lightbox-caption"></div>
+</div>
+<script>
+(function() {
+  const lb = document.getElementById('mada-lightbox');
+  if (!lb) return;
+  const lbImg = document.getElementById('mada-lightbox-img');
+  const lbCap = document.getElementById('mada-lightbox-caption');
+  const figs = Array.from(document.querySelectorAll('.mada-gallery figure'));
+  let current = 0;
+
+  function show(i) {
+    current = (i + figs.length) % figs.length;
+    const fig = figs[current];
+    const img = fig.querySelector('img');
+    const cap = fig.querySelector('figcaption');
+    lbImg.src = img.src;
+    lbImg.alt = img.alt || '';
+    lbCap.textContent = cap ? cap.textContent : '';
+  }
+  function open(i) {
+    show(i);
+    lb.classList.add('is-open');
+    lb.setAttribute('aria-hidden', 'false');
+    document.documentElement.style.overflow = 'hidden';
+  }
+  function close() {
+    lb.classList.remove('is-open');
+    lb.setAttribute('aria-hidden', 'true');
+    document.documentElement.style.overflow = '';
+  }
+
+  figs.forEach((fig, i) => fig.addEventListener('click', () => open(i)));
+  lb.querySelector('.ml-close').addEventListener('click', close);
+  lb.querySelector('.ml-arrow.prev').addEventListener('click', e => { e.stopPropagation(); show(current - 1); });
+  lb.querySelector('.ml-arrow.next').addEventListener('click', e => { e.stopPropagation(); show(current + 1); });
+  lb.addEventListener('click', e => { if (e.target === lb || e.target === lbImg) close(); });
+  document.addEventListener('keydown', e => {
+    if (!lb.classList.contains('is-open')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') show(current - 1);
+    else if (e.key === 'ArrowRight') show(current + 1);
+  });
+})();
+</script>
+
+<!-- ═══ PEŁNA GALERIA MADAGASKARU ══════════════════════════ -->
+<div class="mada-gallery-modal" id="mada-gallery-modal" aria-hidden="true" role="dialog" aria-label="Galeria Madagaskaru">
+  <div class="mgm-head">
+    <h2>Galeria Madagaskaru</h2>
+    <button type="button" class="mgm-close" id="mgm-close" aria-label="Zamknij galerię">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M6 18L18 6"/></svg>
+    </button>
+  </div>
+  <div class="mgm-grid" id="mgm-grid"></div>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('mada-gallery-btn');
+  var modal = document.getElementById('mada-gallery-modal');
+  var grid = document.getElementById('mgm-grid');
+  if (!btn || !modal || !grid) return;
+
+  // Zdjęcia ogólne z Madagaskaru (media/galeria-01..31.jpg)
+  var photos = [];
+  for (var i = 1; i <= 32; i++) {
+    photos.push('media/galeria-' + (i < 10 ? '0' + i : i) + '.jpg');
+  }
+
+  // Zbuduj siatkę (lazy-loading)
+  grid.innerHTML = photos.map(function (src, i) {
+    return '<img src="' + src + '" loading="lazy" alt="Madagaskar - zdjęcie ' + (i + 1) + '" data-i="' + i + '" />';
+  }).join('');
+
+  var lb = document.getElementById('mada-lightbox');
+  var lbImg = document.getElementById('mada-lightbox-img');
+  var lbCap = document.getElementById('mada-lightbox-caption');
+  var cur = 0, lbOpen = false;
+
+  function openModal() { modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false'); document.documentElement.style.overflow = 'hidden'; }
+  function closeModal() { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); if (!lbOpen) document.documentElement.style.overflow = ''; }
+
+  function showZoom(i) {
+    cur = (i + photos.length) % photos.length;
+    if (lbImg) { lbImg.src = photos[cur]; lbImg.alt = 'Madagaskar - zdjęcie ' + (cur + 1); }
+    if (lbCap) lbCap.textContent = '';
+  }
+  function openZoom(i) { showZoom(i); lb.classList.add('is-open'); lb.setAttribute('aria-hidden', 'false'); lbOpen = true; }
+  function closeZoom() { lb.classList.remove('is-open'); lb.setAttribute('aria-hidden', 'true'); lbOpen = false; if (!modal.classList.contains('is-open')) document.documentElement.style.overflow = ''; }
+
+  btn.addEventListener('click', openModal);
+  document.getElementById('mgm-close').addEventListener('click', closeModal);
+  grid.addEventListener('click', function (e) {
+    var img = e.target.closest('img[data-i]');
+    if (img) openZoom(parseInt(img.getAttribute('data-i'), 10));
+  });
+
+  // Nawigacja w powiększeniu (współdzieli #mada-lightbox)
+  lb.querySelector('.ml-close').addEventListener('click', function () { if (lbOpen) closeZoom(); });
+  lb.querySelector('.ml-arrow.prev').addEventListener('click', function (e) { if (lbOpen) { e.stopPropagation(); showZoom(cur - 1); } });
+  lb.querySelector('.ml-arrow.next').addEventListener('click', function (e) { if (lbOpen) { e.stopPropagation(); showZoom(cur + 1); } });
+  lb.addEventListener('click', function (e) { if (lbOpen && (e.target === lb || e.target === lbImg)) closeZoom(); });
+  document.addEventListener('keydown', function (e) {
+    if (lbOpen) {
+      if (e.key === 'Escape') closeZoom();
+      else if (e.key === 'ArrowLeft') showZoom(cur - 1);
+      else if (e.key === 'ArrowRight') showZoom(cur + 1);
+    } else if (modal.classList.contains('is-open') && e.key === 'Escape') {
+      closeModal();
+    }
+  });
+})();
+</script>
+
+<script src="assets/wydarzenia-data.js" defer></script>
+<script src="assets/site-nav.js" defer></script>
+<script src="assets/site-a11y.js" defer></script>
+<script src="assets/adopcja-form.js" defer></script>
+<script src="assets/newsletter.js" defer></script>
+<script src="assets/darowizna.js" defer></script>
+
+<script src="assets/i18n-dict.js" defer></script>
+<script src="assets/i18n-dict-fr.js" defer></script>
+<script src="assets/i18n.js" defer></script>
+</body>
+</html>

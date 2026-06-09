@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<title>Newsletter - Fundacja Misja MADA</title>
+<!--
+  ════════════════════════════════════════════════════════════════
+  SZABLON NEWSLETTERA - Fundacja Misja MADA
+  ────────────────────────────────────────────────────────────────
+  • Układ tabelkowy + style inline = bezpieczny dla klientów poczty
+    (Gmail, Outlook, Apple Mail) oraz MailerLite.
+  • Szerokość 600 px, responsywny na telefonach.
+  • Czcionki email-safe: Georgia (nagłówki) + Arial/Helvetica (tekst)
+    - wizualnie blisko Libre Caslon / Plus Jakarta ze strony.
+  • Obrazki w e-mailu MUSZĄ mieć pełne adresy URL (https://…).
+    W MailerLite wgraj zdjęcia do biblioteki i podmień src="…".
+  • Tagi MailerLite: {$email}, {$unsubscribe}, {$forward} - działają
+    po wklejeniu do edytora HTML w MailerLite.
+  ════════════════════════════════════════════════════════════════
+-->
+<style>
+  /* Tylko wspomaganie - kluczowe style są inline (email-safe) */
+  body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table { border-collapse: collapse !important; }
+  img { border: 0; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+  a { text-decoration: none; }
+  @media only screen and (max-width: 600px) {
+    .nl-container { width: 100% !important; }
+    .nl-pad { padding-left: 24px !important; padding-right: 24px !important; }
+    .nl-h1 { font-size: 26px !important; line-height: 32px !important; }
+    .nl-stack { display: block !important; width: 100% !important; }
+    .nl-stack-pad { padding: 0 0 16px 0 !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#efe4dc;">
+
+  <!-- Preheader (ukryty podgląd w skrzynce) -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#efe4dc;">
+    Najnowsze wieści z Madagaskaru - relacje, wydarzenia i podziękowania od Fundacji Misja MADA.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#efe4dc" style="background-color:#efe4dc;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+
+        <!-- ══════════ KONTENER 600px ══════════ -->
+        <table role="presentation" class="nl-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#faf5ee; border-radius:16px; overflow:hidden;">
+
+          <!-- HEADER / LOGO -->
+          <tr>
+            <td align="center" bgcolor="#2a1a0e" style="background-color:#2a1a0e; padding:26px 30px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" style="font-family:Georgia,'Times New Roman',serif; color:#faf5ee; font-size:19px; font-weight:bold; letter-spacing:.5px;">
+                    Fundacja&nbsp;Misja&nbsp;MADA
+                  </td>
+                  <td align="right" style="font-family:Arial,Helvetica,sans-serif; color:#c99d66; font-size:11px; letter-spacing:2px; text-transform:uppercase;">
+                    Newsletter
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ZŁOTY PASEK -->
+          <tr><td style="height:4px; background-color:#c99d66; line-height:4px; font-size:4px;">&nbsp;</td></tr>
+
+          <!-- HERO IMAGE - banner 600×260 (podmień src na adres z MailerLite).
+               Zalecany rozmiar zdjęcia: 600 × 260 px (proporcja ~2.3:1).
+               object-fit:cover przycina zdjęcie do paska, by nie było za wysokie. -->
+          <tr>
+            <td align="center" style="padding:0; font-size:0; line-height:0;">
+              <img src="media/Madagaskar_1.jpg" width="600" height="260" alt="Madagaskar - misje Fundacji Misja MADA" style="display:block; width:100%; max-width:600px; height:260px; object-fit:cover; object-position:center;" />
+            </td>
+          </tr>
+
+          <!-- TYTUŁ + DATA -->
+          <tr>
+            <td class="nl-pad" style="padding:36px 48px 0 48px;">
+              <p style="margin:0 0 10px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#c99d66; font-weight:bold;">
+                Wieści z Madagaskaru &middot; {$email}
+              </p>
+              <h1 class="nl-h1" style="margin:0; font-family:Georgia,'Times New Roman',serif; font-size:32px; line-height:38px; color:#422918; font-weight:bold;">
+                Razem zmieniamy życie dzieci w&nbsp;Itaosy
+              </h1>
+            </td>
+          </tr>
+
+          <!-- INTRO -->
+          <tr>
+            <td class="nl-pad" style="padding:20px 48px 0 48px;">
+              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:26px; color:#3c2913;">
+                Drodzy Przyjaciele Misji,<br /><br />
+                dziękujemy, że jesteście z nami. W tym wydaniu dzielimy się najnowszymi wieściami z naszych działań - relacją ze spotkania misyjnego, podziękowaniami oraz zaproszeniem na nadchodzące wydarzenie.
+              </p>
+            </td>
+          </tr>
+
+          <!-- SEPARATOR -->
+          <tr>
+            <td class="nl-pad" style="padding:32px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #e6d9c8; line-height:1px; font-size:1px;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+
+          <!-- ARTYKUŁ 1 -->
+          <tr>
+            <td class="nl-pad" style="padding:30px 48px 0 48px;">
+              <p style="margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#c99d66; font-weight:bold;">
+                Relacja
+              </p>
+              <h2 style="margin:0 0 12px 0; font-family:Georgia,'Times New Roman',serif; font-size:22px; line-height:28px; color:#422918; font-weight:bold;">
+                Spotkanie misyjne w Siedlcach
+              </h2>
+              <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:25px; color:#3c2913;">
+                Dzięki ofiarności parafian zebraliśmy ponad 13&nbsp;000&nbsp;zł na Centrum Edukacyjne prowadzone przez Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki). To realne posiłki, mundurki i nauka dla konkretnych dzieci.
+              </p>
+              <a href="https://misjamada.pl/wydarzenia" style="font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#422918; border-bottom:2px solid #c99d66; padding-bottom:2px;">
+                Czytaj relację &rarr;
+              </a>
+            </td>
+          </tr>
+
+          <!-- HIGHLIGHT: ADOPCJA SERCA -->
+          <tr>
+            <td class="nl-pad" style="padding:36px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f1ebe1" style="background-color:#f1ebe1; border-radius:14px;">
+                <tr>
+                  <td style="padding:28px 30px;">
+                    <h2 style="margin:0 0 10px 0; font-family:Georgia,'Times New Roman',serif; font-size:21px; line-height:27px; color:#422918; font-weight:bold;">
+                      Zostań Rodzicem Adopcyjnym ❤︎
+                    </h2>
+                    <p style="margin:0 0 20px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#3c2913;">
+                      Już <strong>70&nbsp;zł miesięcznie</strong> pokrywa edukację, codzienny ciepły posiłek i opiekę dla jednego dziecka na Madagaskarze.
+                    </p>
+                    <!-- PRZYCISK (bulletproof) -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" bgcolor="#c99d66" style="background-color:#c99d66; border-radius:999px;">
+                          <a href="https://misjamada.pl/co-robimy#adopcja" style="display:inline-block; padding:14px 30px; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#2a1a0e; border-radius:999px;">
+                            Wspieram dziecko &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- NADCHODZĄCE WYDARZENIE -->
+          <tr>
+            <td class="nl-pad" style="padding:34px 48px 0 48px;">
+              <p style="margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#c99d66; font-weight:bold;">
+                Zapraszamy
+              </p>
+              <h2 style="margin:0 0 8px 0; font-family:Georgia,'Times New Roman',serif; font-size:20px; line-height:26px; color:#422918; font-weight:bold;">
+                „Razem dla Misji" - Leżajsk
+              </h2>
+              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:24px; color:#3c2913;">
+                Niedziela, 26 lipca 2026 &middot; Parafia Św. Trójcy w Leżajsku. Świadectwo, spotkanie z misjami i kiermasz rękodzieła prosto z Madagaskaru.
+              </p>
+            </td>
+          </tr>
+
+          <!-- PODPIS -->
+          <tr>
+            <td class="nl-pad" style="padding:34px 48px 40px 48px;">
+              <p style="margin:0; font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:16px; line-height:24px; color:#422918;">
+                Z wdzięcznością,<br />
+                Asia i Radek - Fundacja Misja MADA
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td bgcolor="#2a1a0e" style="background-color:#2a1a0e; padding:32px 48px;">
+              <p style="margin:0 0 14px 0; font-family:Georgia,'Times New Roman',serif; font-size:16px; color:#faf5ee; font-weight:bold;">
+                Fundacja Misja MADA
+              </p>
+              <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:21px; color:#c9b8a6;">
+                ul. Szosa Chełmińska 271A, 87-100 Toruń<br />
+                kontakt@misjamada.pl &middot; tel. 604 181 301<br />
+                Konto PLN: 70 1090 1056 0000 0001 5832 5871
+              </p>
+              <p style="margin:0 0 18px 0;">
+                <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" style="font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#c99d66; font-weight:bold;">Facebook: Misja MADA</a>
+                &nbsp;&middot;&nbsp;
+                <a href="https://misjamada.pl" style="font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#c99d66; font-weight:bold;">misjamada.pl</a>
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #4a3724; line-height:1px; font-size:1px;">&nbsp;</td></tr></table>
+              <p style="margin:16px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; line-height:18px; color:#8a7763;">
+                Otrzymujesz tę wiadomość, ponieważ zapisałeś/aś się do newslettera Fundacji Misja MADA.<br />
+                <a href="{$unsubscribe}" style="color:#8a7763; text-decoration:underline;">Wypisz się</a>
+                &nbsp;&middot;&nbsp;
+                <a href="{$forward}" style="color:#8a7763; text-decoration:underline;">Prześlij dalej</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /KONTENER -->
+
+      </td>
+    </tr>
+  </table>
+
+<template id="__bundler_thumbnail" data-bg-color="#2a1a0e">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#2a1a0e"/>
+    <rect x="360" y="150" width="480" height="500" rx="24" fill="#faf5ee"/>
+    <rect x="360" y="150" width="480" height="90" rx="24" fill="#422918"/>
+    <rect x="360" y="250" width="480" height="150" fill="#c99d66"/>
+    <rect x="410" y="440" width="300" height="26" rx="8" fill="#422918"/>
+    <rect x="410" y="486" width="380" height="16" rx="8" fill="#c9b8a6"/>
+    <rect x="410" y="516" width="340" height="16" rx="8" fill="#c9b8a6"/>
+    <rect x="410" y="572" width="180" height="44" rx="22" fill="#c99d66"/>
+  </svg>
+</template>
+
+</body>
+</html>
