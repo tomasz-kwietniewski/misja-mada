@@ -18,12 +18,12 @@ if (is_readable($__secret)) {
     require $__secret;
 }
 
-// Domyślne wartości SANDBOX (publiczne dane testowe PayU) - jeśli config nie zdefiniował.
+// Domyślne wartości SANDBOX (publiczny POS REST/OAuth PayU, dane jawne z dokumentacji).
 if (!defined('PAYU_ENV'))           define('PAYU_ENV', 'sandbox');
-if (!defined('PAYU_POS_ID'))        define('PAYU_POS_ID', '145227');
-if (!defined('PAYU_CLIENT_ID'))     define('PAYU_CLIENT_ID', '145227');
-if (!defined('PAYU_CLIENT_SECRET')) define('PAYU_CLIENT_SECRET', '12f071174cb7eb79d4aac5bc2f07563f');
-if (!defined('PAYU_MD5'))           define('PAYU_MD5', '13a980d4f851f3d9a1cfc792fb1f5e50');
+if (!defined('PAYU_POS_ID'))        define('PAYU_POS_ID', '300746');
+if (!defined('PAYU_CLIENT_ID'))     define('PAYU_CLIENT_ID', '300746');
+if (!defined('PAYU_CLIENT_SECRET')) define('PAYU_CLIENT_SECRET', '2ee86a66e5d97e3fadc400c9f19b065d');
+if (!defined('PAYU_MD5'))           define('PAYU_MD5', 'b6ca15b0d1020e8094d9b5f8d163db54');
 
 define('PAYU_BASE', PAYU_ENV === 'production'
     ? 'https://secure.payu.com'
