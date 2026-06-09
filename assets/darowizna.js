@@ -18,11 +18,14 @@
 (function () {
   'use strict';
 
+  // Backend PayU (płatność jednorazowa) - endpoint na własnej domenie.
+  window.MADA_PAYU_URL = 'https://misjamada.pl/payu/create-order.php';
+
   const CELE = {
     statutowe: 'Działania statutowe Fundacji Misja MADA',
+    adopcja: 'Adopcja Serca (tylko wpłaty cykliczne)',
     centrum: 'Rozbudowa Centrum Edukacyjnego w Itaosy',
     atelier: 'Wsparcie Atelier Nadziei',
-    adopcja: 'Adopcja Serca (tylko wpłaty cykliczne)',
   };
   const KWOTY = [10, 20, 50, 100];
   // Stawka Adopcji Serca za jedno dziecko (miesięcznie)
@@ -328,6 +331,16 @@
         nazwisko: fd.get('nazwisko').toString().trim(),
         email: fd.get('email').toString().trim(),
       };
+
+      // ── Etap 1: tylko PLN i tylko jednorazowo (cykliczne = pakiet 6) ──
+      if (payload.recurring) {
+        return showErr(isAdopcja()
+          ? 'Adopcja Serca to wsparcie cykliczne - płatność automatyczną uruchomimy wkrótce. Skorzystaj z formularza „Zostań rodzicem adopcyjnym" (przelew tradycyjny) albo wybierz inny cel jako wpłatę jednorazową.'
+          : 'Płatności cykliczne uruchomimy wkrótce. Wybierz „Jednorazowo" albo skorzystaj z przelewu tradycyjnego (dane w stopce).');
+      }
+      if (state.waluta !== 'PLN') {
+        return showErr('Płatność online dostępna na razie tylko w PLN. Wybierz PLN albo skorzystaj z przelewu tradycyjnego (konto EUR w stopce).');
+      }
 
       const URL = window.MADA_PAYU_URL || '';
       const submitBtn = modal.querySelector('#dar-submit');
