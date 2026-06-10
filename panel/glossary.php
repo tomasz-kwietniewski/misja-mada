@@ -8,23 +8,21 @@
    Dzięki temu nazwy własne i terminy religijne są zawsze spójne.
   ═══════════════════════════════════════════════════════════════ */
 
-/** Lista terminów: 'pl' (forma źródłowa) => kanoniczne 'en'/'fr'.
- *  Kolejność nie ma znaczenia - dopasowanie idzie od najdłuższych. */
+/** Lista terminów: 'pl' (reprezentatywna forma, do sortowania) => kanoniczne 'en'/'fr'.
+ *  Opcjonalne 'rx' = wzorzec regex (bez ograniczników) łapiący ODMIENIONE formy
+ *  polskie (np. „Adopcji Serca", „Centrum Edukacyjnym"). Dopasowanie od najdłuższych. */
 function mada_glossary() {
     return [
-        ['pl' => 'Siostry Małe Misjonarki Miłosierdzia', 'en' => 'Little Missionary Sisters of Charity', 'fr' => 'Petites Sœurs Missionnaires de la Charité'],
-        ['pl' => 'Małe Misjonarki Miłosierdzia',          'en' => 'Little Missionary Sisters of Charity', 'fr' => 'Petites Sœurs Missionnaires de la Charité'],
-        ['pl' => 'Siostry Orionistki',                    'en' => 'Orionine Sisters',                     'fr' => 'Sœurs Orionines'],
-        ['pl' => 'Fundacja Misja MADA',                   'en' => 'Misja MADA Foundation',                'fr' => 'Fondation Misja MADA'],
-        ['pl' => 'Misja MADA',                            'en' => 'Misja MADA',                           'fr' => 'Misja MADA'],
-        ['pl' => 'Adopcja Serca',                         'en' => 'Heart Adoption',                       'fr' => 'Adoption du Cœur'],
-        ['pl' => 'Centrum Edukacyjne',                    'en' => 'Educational Centre',                   'fr' => 'Centre éducatif'],
-        ['pl' => 'Msze Święte',                           'en' => 'Holy Masses',                          'fr' => 'saintes messes'],
-        ['pl' => 'Mszy Świętych',                         'en' => 'Holy Masses',                          'fr' => 'saintes messes'],
-        ['pl' => 'Msza Święta',                           'en' => 'Holy Mass',                            'fr' => 'sainte messe'],
-        ['pl' => 'Mszy Świętej',                          'en' => 'Holy Mass',                            'fr' => 'sainte messe'],
-        ['pl' => 'Mszy Św.',                              'en' => 'Holy Mass',                            'fr' => 'sainte messe'],
-        ['pl' => 'Madagaskar',                            'en' => 'Madagascar',                           'fr' => 'Madagascar'],
+        ['pl' => 'Siostry Małe Misjonarki Miłosierdzia', 'rx' => 'Si(?:ostry|óstr) Mał(?:e|ych) Misjonark(?:i|ek) Miłosierdzia', 'en' => 'Little Missionary Sisters of Charity', 'fr' => 'Petites Sœurs Missionnaires de la Charité'],
+        ['pl' => 'Małe Misjonarki Miłosierdzia',          'rx' => 'Mał(?:e|ych) Misjonark(?:i|ek) Miłosierdzia',                  'en' => 'Little Missionary Sisters of Charity', 'fr' => 'Petites Sœurs Missionnaires de la Charité'],
+        ['pl' => 'Siostry Orionistki',                    'rx' => 'Si(?:ostry|óstr) Orionist(?:ki|ek)',                            'en' => 'Orionine Sisters',                     'fr' => 'Sœurs Orionines'],
+        ['pl' => 'Fundacja Misja MADA',                   'rx' => 'Fundacj\p{L}+ Misja MADA',                                      'en' => 'Misja MADA Foundation',                'fr' => 'Fondation Misja MADA'],
+        ['pl' => 'Misja MADA',                                                                                                     'en' => 'Misja MADA',                           'fr' => 'Misja MADA'],
+        ['pl' => 'Adopcja Serca',                         'rx' => 'Adopcj\p{L}+ Serca',                                            'en' => 'Heart Adoption',                       'fr' => 'Adoption du Cœur'],
+        ['pl' => 'Centrum Edukacyjne',                    'rx' => 'Centrum Edukacyjn\p{L}+',                                       'en' => 'Educational Centre',                   'fr' => 'Centre éducatif'],
+        ['pl' => 'Msze Święte',                           'rx' => 'Msz(?:e|y) Święt(?:e|ych)',                                     'en' => 'Holy Masses',                          'fr' => 'saintes messes'],
+        ['pl' => 'Msza Święta',                           'rx' => 'Msz(?:a|y|ę|ą) Święt(?:a|ej|ą|ej)|Mszy Św\.',                   'en' => 'Holy Mass',                            'fr' => 'sainte messe'],
+        ['pl' => 'Madagaskar',                            'rx' => 'Madagaskar\p{L}*',                                              'en' => 'Madagascar',                           'fr' => 'Madagascar'],
     ];
 }
 
@@ -46,10 +44,10 @@ function mada_glossary_protect($text) {
     $map = [];
     $i = 0;
     foreach ($terms as $idx => $term) {
-        $pl = $term['pl'];
-        // Dopasowanie tylko do CAŁYCH wyrazów (granice litery), by nie ciąć
-        // wewnątrz odmienionych form (np. "Madagaskar" w "Madagaskarze").
-        $pattern = '/(?<!\p{L})' . preg_quote($pl, '/') . '(?!\p{L})/u';
+        // Rdzeń: wzorzec 'rx' (łapie odmianę) albo dosłowna forma 'pl'.
+        $core = isset($term['rx']) ? '(?:' . $term['rx'] . ')' : preg_quote($term['pl'], '/');
+        // Granice litery, by nie ciąć wewnątrz innego wyrazu.
+        $pattern = '/(?<!\p{L})' . $core . '(?!\p{L})/u';
         $token = mada_glossary_token($i);
         $count = 0;
         $new = preg_replace($pattern, $token, $text, -1, $count);
