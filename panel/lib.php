@@ -124,6 +124,19 @@ function mada_all_events() {
     return $out;
 }
 
+/** Zdejmuje flagę featured ze wszystkich wydarzeń poza $exceptId (maks. 1 wyróżnione). */
+function mada_clear_other_featured($exceptId) {
+    foreach (glob(MADA_EVENTS_DIR . '/*.json') as $file) {
+        $id = basename($file, '.json');
+        if ($id === $exceptId) continue;
+        $data = json_decode(file_get_contents($file), true);
+        if (is_array($data) && !empty($data['featured'])) {
+            $data['featured'] = false;
+            mada_write_event($id, $data);
+        }
+    }
+}
+
 /* ── Status wyliczany z daty (bez ręcznego pola) ───────────────── */
 /** 'nadchodzace' gdy dateISO >= dzisiaj (do końca dnia wydarzenia), inaczej 'archiwum'. */
 function mada_event_status($event) {
