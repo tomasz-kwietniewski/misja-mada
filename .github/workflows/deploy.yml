@@ -29,11 +29,16 @@ jobs:
           REMOTE_PORT: "57185"
           TARGET: /home/srv84712/domains/misjamada.pl/public_html/
         run: |
-          set -euo pipefail
+          # UWAGA: bez 'set -e' - sami obsługujemy błędy w pętli ponawiania.
+          set -uo pipefail
           # Klucz prywatny z sekretu -> plik (bezpiecznie, przez zmienną env)
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          trap 'rm -f ~/.ssh/deploy_key' EXIT
+
+          # Szybkie wykrycie blokady (ConnectTimeout) + utrzymanie sesji przy transferze.
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -p ${REMOTE_PORT} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
 
           # -r rekurencyjnie, -l linki, -t czasy, -z kompresja, -v szczegóły, --delete lustro.
           # Wykluczenia: NIE wysyłamy ani NIE kasujemy na serwerze:
@@ -42,21 +47,37 @@ jobs:
           #   */secret/      -> sekrety (PayU, newsletter, panel CMS) poza repo
           #   /cgi-bin/, *.shtml, /.well-known/ -> infrastruktura serwera SEO Host
           #   reszta         -> pliki wewnętrzne repo (nie część publicznej strony)
-          rsync -rltzv --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${REMOTE_PORT} -o StrictHostKeyChecking=accept-new" \
-            --exclude='/.git/' \
-            --exclude='/.github/' \
-            --exclude='/.gitignore' \
-            --exclude='/.gitattributes' \
-            --exclude='/README.md' \
-            --exclude='/data/' \
-            --exclude='/uploads/' \
-            --exclude='/payu/secret/' \
-            --exclude='/newsletter/secret/' \
-            --exclude='/panel/secret/' \
-            --exclude='/cgi-bin/' \
-            --exclude='/.well-known/' \
-            --exclude='*.shtml' \
-            ./ "${REMOTE_USER}@${REMOTE_HOST}:${TARGET}"
+          run_rsync() {
+            rsync -rltzv --delete \
+              -e "$SSH_CMD" \
+              --exclude='/.git/' \
+              --exclude='/.github/' \
+              --exclude='/.gitignore' \
+              --exclude='/.gitattributes' \
+              --exclude='/README.md' \
+              --exclude='/data/' \
+              --exclude='/uploads/' \
+              --exclude='/payu/secret/' \
+              --exclude='/newsletter/secret/' \
+              --exclude='/panel/secret/' \
+              --exclude='/cgi-bin/' \
+              --exclude='/.well-known/' \
+              --exclude='*.shtml' \
+              ./ "${REMOTE_USER}@${REMOTE_HOST}:${TARGET}"
+          }
 
-          rm -f ~/.ssh/deploy_key
+          # Ponawianie - SEO Host bywa chwilowo blokuje SSH (fail2ban po serii połączeń).
+          # Do 6 prób z odstępem 40 s - "przeczekuje" krótką blokadę i dograuje sam.
+          MAX=6
+          attempt=1
+          until run_rsync; do
+            code=$?
+            if [ "$attempt" -ge "$MAX" ]; then
+              echo "::error::Deploy nieudany po $MAX próbach (ostatni kod: $code). Prawdopodobnie chwilowa blokada SSH SEO Hosta - odczekaj kilkanaście minut i uruchom ponownie (Actions -> Run workflow)."
+              exit "$code"
+            fi
+            echo "::warning::Próba $attempt/$MAX nieudana (kod $code). Ponawiam za 40 s..."
+            attempt=$((attempt + 1))
+            sleep 40
+          done
+          echo "Deploy OK (próba $attempt/$MAX)."
