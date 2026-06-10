@@ -28,6 +28,24 @@ function mada_session_start() {
     session_start();
 }
 
+/* ── Ochrona katalogu sekretów (defense-in-depth) ───────────────
+   Gdyby serwer kiedyś nie wykonał plików .php (awaria/maintenance),
+   surowa treść users.php/deepl-config.php NIE może pójść z weba.
+   Tworzymy .htaccess deny, jeśli go brak. */
+function mada_ensure_secret_protected() {
+    $dir = __DIR__ . '/secret';
+    if (!is_dir($dir)) return;
+    $ht = $dir . '/.htaccess';
+    if (!file_exists($ht)) {
+        @file_put_contents($ht,
+            "# Sekrety - niedostepne z weba\n" .
+            "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n" .
+            "<IfModule !mod_authz_core.c>\n  Order deny,allow\n  Deny from all\n</IfModule>\n"
+        );
+    }
+}
+mada_ensure_secret_protected();
+
 /* ── Konta ──────────────────────────────────────────────────────── */
 function mada_users() {
     $f = __DIR__ . '/secret/users.php';
