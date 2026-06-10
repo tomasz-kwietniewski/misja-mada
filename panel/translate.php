@@ -91,10 +91,31 @@ function mada_assign_path(array &$target, $path, $value) {
     }
 }
 
+/* ── Pamięć tłumaczeń (cache) - oszczędza limit znaków DeepL ─────
+   Plik data/translation-cache.json: { "EN-GB": {plText: tr}, "FR": {...} }.
+   Identyczne/niezmienione frazy nie są wysyłane ponownie do DeepL. */
+function mada_cache_path() { return MADA_DATA . '/translation-cache.json'; }
+
+function mada_cache_load() {
+    $p = mada_cache_path();
+    if (!is_readable($p)) return [];
+    $d = json_decode(file_get_contents($p), true);
+    return is_array($d) ? $d : [];
+}
+
+function mada_cache_save($cache) {
+    mada_ensure_dirs();
+    $json = json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) return;
+    $tmp = mada_cache_path() . '.tmp';
+    if (file_put_contents($tmp, $json, LOCK_EX) !== false) @rename($tmp, mada_cache_path());
+}
+
 /**
- * Buduje tłumaczenia EN/FR dla wydarzenia.
+ * Buduje tłumaczenia EN/FR dla wydarzenia (z pamięcią tłumaczeń).
  * $translator: opcjonalna atrapa fn(array $texts, string $targetCode): array (do testów).
  * Zwraca ['en'=>..., 'fr'=>...] albo null gdy tłumaczenie się nie powiodło / brak klucza.
+ * Do DeepL trafiają TYLKO frazy spoza cache (zmienione/nowe) - oszczędność limitu.
  */
 function mada_translate_event(array $event, ?callable $translator = null) {
     if ($translator === null) {
@@ -105,34 +126,50 @@ function mada_translate_event(array $event, ?callable $translator = null) {
     $list = mada_collect_translatable($event);
     if (!$list) return null;
 
+    $cache = mada_cache_load();
+    $cacheDirty = false;
     $i18n = [];
     try {
         foreach (DEEPL_TARGETS as $lang => $code) {
-            // chroń terminy w każdym tekście
-            $protected = [];
-            $maps = [];
+            $langCache = isset($cache[$code]) && is_array($cache[$code]) ? $cache[$code] : [];
+
+            // tylko frazy spoza cache wysyłamy do DeepL (chronione glosariuszem)
+            $missIdx = [];
+            $missProtected = [];
+            $missMaps = [];
             foreach ($list as $idx => [$path, $text]) {
+                if (array_key_exists($text, $langCache)) continue;   // trafienie - 0 znaków
                 [$pt, $map] = mada_glossary_protect($text);
-                $protected[] = $pt;
-                $maps[$idx]  = $map;
+                $missIdx[]            = $idx;
+                $missProtected[]      = $pt;
+                $missMaps[$idx]       = $map;
             }
-            $translated = $translator($protected, $code);
-            if (count($translated) !== count($list)) {
-                throw new Exception('DeepL - niezgodna liczba tłumaczeń.');
+            if ($missProtected) {
+                $translated = $translator($missProtected, $code);
+                if (count($translated) !== count($missProtected)) {
+                    throw new Exception('DeepL - niezgodna liczba tłumaczeń.');
+                }
+                foreach ($missIdx as $j => $idx) {
+                    $text = $list[$idx][1];
+                    $langCache[$text] = mada_glossary_restore($translated[$j], $missMaps[$idx], $lang);
+                    $cacheDirty = true;
+                }
             }
+
+            // złóż wynik z cache
             $out = [];
             foreach ($list as $idx => [$path, $text]) {
-                $val = mada_glossary_restore($translated[$idx], $maps[$idx], $lang);
-                mada_assign_path($out, $path, $val);
+                mada_assign_path($out, $path, isset($langCache[$text]) ? $langCache[$text] : $text);
             }
-            // posortuj body wg indeksu (gdyby były luki)
             if (isset($out['body'])) { ksort($out['body']); $out['body'] = array_values($out['body']); }
-            $i18n[$lang] = $out;
+            $cache[$code] = $langCache;
+            $i18n[$lang]  = $out;
         }
     } catch (Exception $e) {
         error_log('[CMS translate] ' . $e->getMessage());
         return null;
     }
+    if ($cacheDirty) mada_cache_save($cache);
     return $i18n;
 }
 
