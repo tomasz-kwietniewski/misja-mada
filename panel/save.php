@@ -1,6 +1,7 @@
 <?php
 /* ═══ CMS - zapis wydarzenia (POST) ══════════════════════════════ */
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/translate.php';
 mada_require_login();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { mada_redirect('index.php'); }
@@ -95,4 +96,9 @@ if ($featured) {
     mada_clear_other_featured($id);
 }
 
-mada_redirect('index.php?msg=' . ($isNew ? 'added' : 'saved'));
+// Automatyczne tłumaczenie EN/FR (best-effort; brak klucza = pominięte)
+$tr = mada_retranslate_and_store($id);
+
+$msg = $isNew ? 'added' : 'saved';
+if ($tr === 'fail') $msg = 'notrans';
+mada_redirect('index.php?msg=' . $msg);

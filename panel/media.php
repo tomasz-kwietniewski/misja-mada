@@ -4,6 +4,7 @@
    Embed: tylko YouTube i Facebook (allowlista domen, parsowanie ID).
   ═══════════════════════════════════════════════════════════════ */
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/translate.php';
 mada_require_login();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { mada_redirect('index.php'); }
@@ -123,4 +124,8 @@ if ($op === 'up' && $idx > 0 && $idx < count($newMedia)) {
 
 $event['media'] = $newMedia;
 mada_write_event($id, $event);
+
+// Odśwież tłumaczenia (alt/caption mogły się zmienić, indeksy mogły się przesunąć)
+mada_retranslate_and_store($id);
+
 media_back($id, $op === 'save' ? 'saved' : 'reordered');
