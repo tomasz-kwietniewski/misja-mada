@@ -88,10 +88,15 @@
     </ul>
     <div class="nav-actions">
       <button type="button" class="nav-action nav-search" aria-label="Szukaj na stronie" title="Szukaj (Ctrl+K)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.3-4.3"/>
+        </svg>
       </button>
       <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" class="nav-action" aria-label="Facebook Fundacji" title="Facebook">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/>
+        </svg>
       </a>
     </div>
     <a href="index.html#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
@@ -183,16 +188,16 @@
 
         <div class="iban-row">
           <b>EUR</b>
-          <span class="iban">49 1090 1056 0000 0001 6067 9663</span>
-          <button class="copy-btn" data-copy="49 1090 1056 0000 0001 6067 9663" aria-label="Kopiuj numer konta EUR">
+          <span class="iban">PL49 1090 1056 0000 0001 6067 9663</span>
+          <button class="copy-btn" data-copy="PL49 1090 1056 0000 0001 6067 9663" aria-label="Kopiuj numer konta EUR">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
         </div>
 
         <div class="iban-row">
           <b>GBP</b>
-          <span class="iban">34 1090 1056 0000 0001 6645 4246</span>
-          <button class="copy-btn" data-copy="34 1090 1056 0000 0001 6645 4246" aria-label="Kopiuj numer konta GBP">
+          <span class="iban">PL34 1090 1056 0000 0001 6645 4246</span>
+          <button class="copy-btn" data-copy="PL34 1090 1056 0000 0001 6645 4246" aria-label="Kopiuj numer konta GBP">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
         </div>
@@ -221,6 +226,25 @@
             </div>
           </div>
 
+          <div class="field">
+            <span class="field-label">Bank</span>
+            <div class="field-row">
+              <span class="text">Santander Bank Polska S.A.</span>
+              <button class="copy-btn" data-copy="Santander Bank Polska S.A." aria-label="Kopiuj nazwę banku">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">SWIFT / BIC</span>
+            <div class="field-row">
+              <span class="text">WBKPPLPP</span>
+              <button class="copy-btn" data-copy="WBKPPLPP" aria-label="Kopiuj kod SWIFT">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
           <div class="field title">
             <span class="field-label">Tytuł przelewu</span>
             <div class="field-row">
@@ -250,7 +274,7 @@
           <li><a href="o-nas.html#dokumenty">Statut fundacji</a></li>
           <li><a href="o-nas.html#dokumenty">Sprawozdania</a></li>
           <li><a href="polityka-prywatnosci.html">Polityka prywatności</a></li>
-          <li><a href="#">Regulamin</a></li>
+          <li><a href="regulamin-serwisu.html">Regulamin</a></li>
         </ul>
         <h4 style="margin-top: 26px;">Partnerzy</h4>
         <ul>
