@@ -98,12 +98,7 @@ panel_header($isEdit ? 'Edycja wydarzenia' : 'Nowe wydarzenie');
         </div>
       </fieldset>
 
-      <?php if ($isEdit): ?>
-      <fieldset>
-        <legend>Galeria (zdjęcia i filmy)</legend>
-        <p class="hint" style="margin:0;">Zarządzanie galerią pojawi się tutaj w kolejnym etapie (ETAP 3).</p>
-      </fieldset>
-      <?php else: ?>
+      <?php if (!$isEdit): ?>
       <p class="hint">Galerię zdjęć i filmów dodasz po zapisaniu wydarzenia.</p>
       <?php endif; ?>
 
@@ -112,5 +107,80 @@ panel_header($isEdit ? 'Edycja wydarzenia' : 'Nowe wydarzenie');
         <a href="index.php" class="btn-ghost">Anuluj</a>
       </div>
     </form>
+
+<?php if ($isEdit):
+    $eid   = $e['id'];
+    $media = (isset($e['media']) && is_array($e['media'])) ? $e['media'] : [];
+    $imgCount = 0; foreach ($media as $it) { if (($it['type'] ?? '') === 'image') $imgCount++; }
+?>
+    <section class="form gallery" id="galeria" style="margin-top:24px;">
+      <h2 style="margin:0 0 6px;">Galeria (zdjęcia i filmy)</h2>
+      <p class="hint" style="margin:0 0 18px;">Zdjęcia hostujemy u nas (limit 20, obecnie <?= $imgCount ?>). Filmy dodajesz jako linki z YouTube lub Facebooka - bez limitu.</p>
+      <?= panel_gmsg() ?>
+
+      <div class="gallery-add">
+        <form method="post" action="upload.php" enctype="multipart/form-data" class="g-form">
+          <?= mada_csrf_field() ?>
+          <input type="hidden" name="id" value="<?= mada_esc($eid) ?>">
+          <label class="g-label">Dodaj zdjęcie (JPG, PNG, WEBP - maks. 12 MB)
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" required <?= $imgCount >= 20 ? 'disabled' : '' ?>>
+          </label>
+          <button type="submit" class="btn-secondary" <?= $imgCount >= 20 ? 'disabled' : '' ?>>Wgraj zdjęcie</button>
+        </form>
+
+        <form method="post" action="media.php" class="g-form">
+          <?= mada_csrf_field() ?>
+          <input type="hidden" name="id" value="<?= mada_esc($eid) ?>">
+          <input type="hidden" name="op" value="embed">
+          <label class="g-label">Dodaj film (wklej link YouTube lub Facebook)
+            <input type="url" name="url" placeholder="https://youtu.be/... lub https://www.facebook.com/...">
+          </label>
+          <button type="submit" class="btn-secondary">Dodaj film</button>
+        </form>
+      </div>
+
+      <?php if (!$media): ?>
+        <p class="hint">Brak pozycji w galerii. Dodaj pierwsze zdjęcie lub film powyżej.</p>
+      <?php else: ?>
+      <form method="post" action="media.php">
+        <?= mada_csrf_field() ?>
+        <input type="hidden" name="id" value="<?= mada_esc($eid) ?>">
+        <ul class="media-list">
+          <?php foreach ($media as $i => $it):
+              $type = $it['type'] ?? 'image';
+              $key  = $it['key'] ?? '';
+          ?>
+          <li class="media-item">
+            <input type="hidden" name="mkey[]" value="<?= mada_esc($key) ?>">
+            <div class="media-thumb">
+              <?php if ($type === 'image'): ?>
+                <img src="/<?= mada_esc($it['src'] ?? '') ?>" alt="">
+              <?php elseif ($type === 'youtube'): ?>
+                <img src="https://img.youtube.com/vi/<?= mada_esc($it['videoId'] ?? '') ?>/mqdefault.jpg" alt="">
+                <span class="media-tag tag-yt">▶ YouTube</span>
+              <?php else: ?>
+                <span class="media-tag tag-fb">▶ Facebook</span>
+              <?php endif; ?>
+            </div>
+            <div class="media-fields">
+              <input type="text" name="alt[]" value="<?= mada_esc($it['alt'] ?? '') ?>" placeholder="Opis alternatywny (dostępność)<?= $type === 'image' ? ' - wymagany' : '' ?>">
+              <input type="text" name="caption[]" value="<?= mada_esc($it['caption'] ?? '') ?>" placeholder="Podpis pod zdjęciem (opcjonalny, np. fot. ...)">
+              <?php if ($type !== 'image'): ?><a href="<?= mada_esc($it['url'] ?? '#') ?>" target="_blank" rel="noopener" class="hint">otwórz film ↗</a><?php endif; ?>
+            </div>
+            <div class="media-ops">
+              <button type="submit" name="action" value="up_<?= $i ?>" class="btn-ghost btn-sm" title="W górę" <?= $i === 0 ? 'disabled' : '' ?>>↑</button>
+              <button type="submit" name="action" value="down_<?= $i ?>" class="btn-ghost btn-sm" title="W dół" <?= $i === count($media) - 1 ? 'disabled' : '' ?>>↓</button>
+              <button type="submit" name="action" value="del_<?= $i ?>" class="btn-danger btn-sm" title="Usuń" onclick="return confirm('Usunąć tę pozycję z galerii?');">Usuń</button>
+            </div>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+        <div class="form-actions">
+          <button type="submit" name="action" value="save" class="btn-primary">Zapisz opisy galerii</button>
+        </div>
+      </form>
+      <?php endif; ?>
+    </section>
+<?php endif; ?>
 <?php
 panel_footer();
