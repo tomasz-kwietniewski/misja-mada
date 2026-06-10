@@ -36,6 +36,7 @@ function panel_footer() {
 function panel_flash() {
     $codes = [
         'added'   => ['ok',  'Wydarzenie zostało dodane.'],
+        'created' => ['ok',  'Wydarzenie utworzone. Dodaj teraz zdjęcia i filmy w sekcji „Galeria" poniżej.'],
         'saved'   => ['ok',  'Zmiany zostały zapisane.'],
         'deleted' => ['ok',  'Wydarzenie zostało usunięte.'],
         'notrans' => ['ok',  'Zapisano. Uwaga: automatyczne tłumaczenie się nie powiodło - treść pozostaje po polsku.'],

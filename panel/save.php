@@ -99,6 +99,8 @@ if ($featured) {
 // Automatyczne tłumaczenie EN/FR (best-effort; brak klucza = pominięte)
 $tr = mada_retranslate_and_store($id);
 
-$msg = $isNew ? 'added' : 'saved';
-if ($tr === 'fail') $msg = 'notrans';
-mada_redirect('index.php?msg=' . $msg);
+// Nowe wydarzenie -> od razu strona edycji z galerią (bez ręcznego wracania).
+if ($isNew) {
+    mada_redirect('edit.php?id=' . urlencode($id) . '&msg=created');
+}
+mada_redirect('index.php?msg=' . ($tr === 'fail' ? 'notrans' : 'saved'));

@@ -82,8 +82,8 @@ panel_header($isEdit ? 'Edycja wydarzenia' : 'Nowe wydarzenie');
           <textarea name="lead" style="min-height:70px;"><?= $v('lead') ?></textarea>
         </label>
         <label>Pełny opis
-          <textarea name="body"><?= mada_esc($bodyText) ?></textarea>
-          <span class="hint">Oddzielaj akapity pustą linią (Enter, Enter).</span>
+          <textarea name="body" style="min-height:360px;"><?= mada_esc($bodyText) ?></textarea>
+          <span class="hint">Oddzielaj akapity pustą linią (Enter, Enter). To główna treść wydarzenia.</span>
         </label>
         <label>Godziny Mszy Świętych (opcjonalne)
           <input type="text" name="masze" value="<?= $v('masze') ?>" placeholder="np. Msze Święte o godz.: 7:00, 8:30, 10:00">

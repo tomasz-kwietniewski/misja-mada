@@ -15,14 +15,47 @@ define('MADA_EVENTS_DIR', MADA_DATA . '/wydarzenia');
 define('MADA_UPLOADS',  MADA_BASE . '/uploads/wydarzenia');
 define('MADA_UPLOADS_URL', 'uploads/wydarzenia');        // ścieżka względna w treści strony
 
-/* ── Kategorie wydarzeń (klucz => etykieta domyślna) ───────────── */
-function mada_categories() {
+/* ── Kategorie wydarzeń (klucz => etykieta) - edytowalne w panelu ──
+   Przechowywane w data/categories.json; przy braku pliku - zasiew domyślnych. */
+function mada_categories_defaults() {
     return [
         'misja'    => 'Akcja misyjna',
         'kiermasz' => 'Kiermasz',
         'szkola'   => 'Spotkanie w szkole',
         'fundacja' => 'Życie fundacji',
     ];
+}
+
+function mada_categories_path() { return MADA_DATA . '/categories.json'; }
+
+function mada_categories() {
+    $p = mada_categories_path();
+    if (is_readable($p)) {
+        $d = json_decode(file_get_contents($p), true);
+        if (is_array($d) && $d) return $d;
+    }
+    $def = mada_categories_defaults();
+    mada_save_categories($def);   // zasiew przy pierwszym użyciu
+    return $def;
+}
+
+function mada_save_categories($cats) {
+    mada_ensure_dirs();
+    $json = json_encode($cats, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) return false;
+    $p = mada_categories_path();
+    $tmp = $p . '.tmp';
+    if (file_put_contents($tmp, $json, LOCK_EX) === false) return false;
+    return rename($tmp, $p);
+}
+
+/** Czy jakieś wydarzenie używa danej kategorii (do ochrony przed usunięciem). */
+function mada_category_in_use($key) {
+    foreach (glob(MADA_EVENTS_DIR . '/*.json') as $file) {
+        $d = json_decode(file_get_contents($file), true);
+        if (is_array($d) && ($d['category'] ?? '') === $key) return true;
+    }
+    return false;
 }
 
 /* ── Katalogi + ochrona /data/ (htaccess tworzony przez PHP, bo

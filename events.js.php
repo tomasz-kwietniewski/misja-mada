@@ -32,7 +32,10 @@ function mada_pairs($e, $lang) {
     $t = $e['i18n'][$lang] ?? null;
     if (!is_array($t)) return $out;
     $add = function ($pl, $tr) use (&$out) {
-        $pl = (string)$pl; $tr = (string)$tr;
+        // Klucz normalizowany tak jak w i18n.js (zwijanie białych znaków),
+        // inaczej akapity z wewnętrznym enterem nie trafiają w słownik.
+        $pl = preg_replace('/\s+/u', ' ', trim((string)$pl));
+        $tr = (string)$tr;
         if ($pl !== '' && $tr !== '' && $pl !== $tr) $out[$pl] = $tr;
     };
     foreach (['title', 'lead', 'place', 'categoryLabel', 'dateLabel', 'masze'] as $k) {
@@ -94,5 +97,6 @@ foreach ($events as $e) {
 
 echo "/* generowane przez events.js.php */\n";
 echo "window.MADA_EVENTS = " . json_encode($pub, $JSON) . ";\n";
+echo "window.MADA_CATEGORIES = " . json_encode(mada_categories(), $JSON) . ";\n";
 echo "window.MADA_I18N = Object.assign({}, window.MADA_I18N || {}, " . json_encode($dictEn, $JSON) . ");\n";
 echo "window.MADA_I18N_FR = Object.assign({}, window.MADA_I18N_FR || {}, " . json_encode($dictFr, $JSON) . ");\n";

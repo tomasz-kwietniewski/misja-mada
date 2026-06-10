@@ -51,6 +51,19 @@
     yearGroup.innerHTML = chips;
   }
 
+  // ── Chipy kategorii (dynamiczne, tylko obecne w archiwum) ─────
+  var catGroup = document.getElementById('cat-group');
+  if (catGroup) {
+    var cats = window.MADA_CATEGORIES || {};
+    var used = {};
+    archive.forEach(function (e) { if (e.category) used[e.category] = true; });
+    var cc = '<span class="group-label">Kategoria</span><button class="chip active" data-cat="all">Wszystkie</button>';
+    Object.keys(cats).forEach(function (k) {
+      if (used[k]) cc += '<button class="chip" data-cat="' + esc(k) + '">' + esc(cats[k]) + '</button>';
+    });
+    catGroup.innerHTML = cc;
+  }
+
   // licznik łączny
   var visibleCount = document.getElementById('visible-count');
   if (visibleCount) visibleCount.textContent = archive.length;
