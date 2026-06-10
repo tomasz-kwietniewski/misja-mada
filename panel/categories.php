@@ -72,20 +72,21 @@ panel_header('Kategorie wydarzeń');
     <?= cat_flash() ?>
 
     <div class="form" style="margin-bottom:22px;">
-      <p class="hint" style="margin:0 0 16px;">Kategorie pojawiają się na liście wyboru przy wydarzeniu oraz w filtrze archiwum. Zmiana nazwy nie rusza już zapisanych wydarzeń. Kategorii używanej przez wydarzenia nie można usunąć.</p>
+      <p class="hint" style="margin:0 0 16px;">Kategoria to rodzaj wydarzenia (np. „Akcja misyjna") - służy do grupowania. <b>Pod jedną kategorię może trafić dowolnie wiele wydarzeń.</b> Liczba obok pokazuje, ile wydarzeń jest w danej kategorii. Kategorie pojawiają się na liście wyboru przy wydarzeniu i w filtrze archiwum. Zmiana nazwy nie rusza już zapisanych wydarzeń. Kategorii, w której są wydarzenia, nie można usunąć (najpierw przenieś je do innej).</p>
       <form method="post" action="categories.php">
         <?= mada_csrf_field() ?>
         <table class="events" style="margin-bottom:16px;">
-          <thead><tr><th>Nazwa kategorii</th><th style="width:120px;">Status</th><th style="width:90px;">Akcje</th></tr></thead>
+          <thead><tr><th>Nazwa kategorii</th><th style="width:130px;">Wydarzeń</th><th style="width:90px;">Akcje</th></tr></thead>
           <tbody>
           <?php foreach ($cats as $key => $label):
-              $inUse = mada_category_in_use($key); ?>
+              $count = mada_category_count($key);
+              $inUse = $count > 0; ?>
             <tr>
               <td><input type="text" name="label[<?= mada_esc($key) ?>]" value="<?= mada_esc($label) ?>" style="width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;"></td>
-              <td><?= $inUse ? '<span class="badge badge-up">w użyciu</span>' : '<span class="badge badge-arch">wolna</span>' ?></td>
+              <td><?= $count ?> <?= mada_plural_events($count) ?></td>
               <td>
                 <button type="submit" name="action" value="del:<?= mada_esc($key) ?>" class="btn-danger btn-sm"
-                  <?= $inUse ? 'disabled title="Używana - nie można usunąć"' : 'onclick="return confirm(\'Usunąć tę kategorię?\');"' ?>>Usuń</button>
+                  <?= $inUse ? 'disabled title="Są tu wydarzenia - najpierw przenieś je do innej kategorii"' : 'onclick="return confirm(\'Usunąć tę pustą kategorię?\');"' ?>>Usuń</button>
               </td>
             </tr>
           <?php endforeach; ?>

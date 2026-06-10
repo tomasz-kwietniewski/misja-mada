@@ -49,13 +49,27 @@ function mada_save_categories($cats) {
     return rename($tmp, $p);
 }
 
-/** Czy jakieś wydarzenie używa danej kategorii (do ochrony przed usunięciem). */
-function mada_category_in_use($key) {
+/** Ile wydarzeń należy do danej kategorii (kategoria grupuje dowolnie wiele). */
+function mada_category_count($key) {
+    $n = 0;
     foreach (glob(MADA_EVENTS_DIR . '/*.json') as $file) {
         $d = json_decode(file_get_contents($file), true);
-        if (is_array($d) && ($d['category'] ?? '') === $key) return true;
+        if (is_array($d) && ($d['category'] ?? '') === $key) $n++;
     }
-    return false;
+    return $n;
+}
+
+/** Czy jakieś wydarzenie używa danej kategorii (do ochrony przed usunięciem). */
+function mada_category_in_use($key) {
+    return mada_category_count($key) > 0;
+}
+
+/** Polska odmiana słowa "wydarzenie" wg liczby. */
+function mada_plural_events($n) {
+    if ($n === 1) return 'wydarzenie';
+    $m10 = $n % 10; $m100 = $n % 100;
+    if ($m10 >= 2 && $m10 <= 4 && ($m100 < 10 || $m100 >= 20)) return 'wydarzenia';
+    return 'wydarzeń';
 }
 
 /* ── Katalogi + ochrona /data/ (htaccess tworzony przez PHP, bo
