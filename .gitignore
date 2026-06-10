@@ -18,6 +18,10 @@
 # ── Dane edytowane na serwerze przez CMS (pakiet 5) ──────────
 # Nie wersjonujemy - źródłem prawdy dla wydarzeń jest serwer.
 /data/
+# Zdjęcia wgrywane przez panel - też treść serwerowa, nie repo.
+/uploads/
+# Sekrety panelu (loginy/hasła, klucz DeepL) - poza repo.
+/panel/secret/
 
 # ── Sekrety (gdyby kiedyś pojawiły się lokalnie) ─────────────
 *.key
