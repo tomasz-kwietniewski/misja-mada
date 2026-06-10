@@ -15,6 +15,17 @@ usort($events, function ($a, $b) {
     return $sa === 'nadchodzace' ? strcmp($da, $db) : strcmp($db, $da);
 });
 
+// Efektywne wyróżnione na stronie: ręczne (featured) albo bezpiecznik = najbliższe nadchodzące.
+$manualFeaturedId = null;
+$nearestUpcomingId = null;
+foreach ($events as $e) {
+    if (mada_event_status($e) !== 'nadchodzace') continue;
+    if ($nearestUpcomingId === null) $nearestUpcomingId = $e['id'];   // lista posortowana -> pierwsze nadchodzące = najbliższe
+    if (!empty($e['featured']) && $manualFeaturedId === null) $manualFeaturedId = $e['id'];
+}
+$effFeaturedId = $manualFeaturedId !== null ? $manualFeaturedId : $nearestUpcomingId;
+$effIsAuto = ($manualFeaturedId === null);
+
 panel_header('Panel wydarzeń');
 echo panel_flash();
 ?>
@@ -42,7 +53,15 @@ echo panel_flash();
           <td><?= mada_esc($e['title'] ?? '(bez tytułu)') ?></td>
           <td><?= mada_esc($e['dateLabel'] ?? ($e['dateISO'] ?? '')) ?></td>
           <td><span class="badge <?= $isUp ? 'badge-up' : 'badge-arch' ?>"><?= $isUp ? 'nadchodzące' : 'archiwum' ?></span></td>
-          <td><?= !empty($e['featured']) ? '<span class="star" title="Wyróżnione">★</span>' : '' ?></td>
+          <td>
+            <?php if ($e['id'] === $effFeaturedId): ?>
+              <?php if ($effIsAuto): ?>
+                <span class="star-auto" title="Wyróżnione automatycznie (najbliższe nadchodzące). Zaznacz „Wyróżnione" w edycji innego, by wybrać ręcznie.">★ auto</span>
+              <?php else: ?>
+                <span class="star" title="Wyróżnione ręcznie">★</span>
+              <?php endif; ?>
+            <?php endif; ?>
+          </td>
           <td>
             <div class="row-actions">
               <a class="btn-secondary btn-sm" href="edit.php?id=<?= urlencode($e['id']) ?>">Edytuj</a>
