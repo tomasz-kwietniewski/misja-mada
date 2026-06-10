@@ -128,6 +128,12 @@
 }
 .ev-lightbox.is-open { display: flex; }
 .ev-lightbox img { max-width: 100%; max-height: 88vh; object-fit: contain; border-radius: 10px; }
+.lb-video { width: min(960px, 92vw); aspect-ratio: 16/9; }
+.lb-video iframe { width: 100%; height: 100%; border: 0; border-radius: 10px; background: #000; }
+.ev-gallery figure.is-video { background-size: cover; background-position: center; background-color: var(--brown); }
+.ev-gallery figure.is-video .vid-thumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.ev-gallery figure.is-video .play-ic { filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); transition: transform .2s; }
+.ev-gallery figure.is-video:hover .play-ic { transform: scale(1.12); }
 .ev-lightbox .lb-close, .ev-lightbox .lb-arrow {
   position: absolute; background: rgba(250,245,238,.1);
   border: 1px solid rgba(250,245,238,.25); color: var(--cream);
@@ -194,6 +200,7 @@
   <button type="button" class="lb-arrow prev" aria-label="Poprzednie"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
   <button type="button" class="lb-arrow next" aria-label="Następne"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
   <img id="ev-lightbox-img" alt="" />
+  <div id="ev-lightbox-video" class="lb-video" style="display:none;"></div>
 </div>
 
 <footer class="site-footer" id="kontakt">
@@ -252,89 +259,7 @@
   </div>
 </footer>
 
-<script src="assets/wydarzenia-data.js"></script>
-<script>
-(function() {
-  const params = new URLSearchParams(location.search);
-  const id = params.get('id');
-  const root = document.getElementById('ev-root');
-  const ev = (window.MADA_EVENTS || []).find(e => e.id === id);
 
-  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-  if (!ev) {
-    root.innerHTML = `<div class="ev-notfound">
-      <h1>Nie znaleziono wydarzenia</h1>
-      <p>Wydarzenie mogło zostać usunięte lub link jest nieprawidłowy.</p>
-      <a href="wydarzenia.html" class="btn btn-primary">Wróć do wydarzeń</a>
-    </div>`;
-    document.title = 'Wydarzenie - Fundacja Misja MADA';
-    return;
-  }
-
-  document.title = ev.title.replace(/[„""]/g,'') + ' - Fundacja Misja MADA';
-
-  const pin = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
-  const cal = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
-  const clock = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
-
-  let html = '';
-  html += `<a href="wydarzenia.html" class="ev-back">← Wróć do wydarzeń</a>`;
-  html += `<div class="ev-cat">${esc(ev.categoryLabel || '')}</div>`;
-  html += `<h1 class="ev-title">${esc(ev.title)}</h1>`;
-  html += `<div class="ev-meta">`;
-  html += `<div class="ev-meta-row">${cal}<span><b>Kiedy?</b> ${esc(ev.dateLabel)}</span></div>`;
-  html += `<div class="ev-meta-row">${pin}<span><b>Gdzie?</b> ${esc(ev.place)}</span></div>`;
-  if (ev.masze) html += `<div class="ev-meta-row">${clock}<span>${esc(ev.masze)}</span></div>`;
-  html += `</div>`;
-
-  if (ev.photos && ev.photos[0]) {
-    html += `<div class="ev-hero-img"><img src="${esc(ev.photos[0].src)}" alt="${esc(ev.photos[0].alt||'')}" /></div>`;
-  }
-
-  html += `<div class="ev-body">`;
-  (ev.body||[]).forEach(p => html += `<p>${esc(p)}</p>`);
-  html += `</div>`;
-
-  if (ev.summary) {
-    html += `<div class="ev-summary"><div class="ev-summary-val">${esc(ev.summary.value)}</div><div class="ev-summary-label">${esc(ev.summary.label)}</div></div>`;
-  }
-
-  // Mini-galeria - tylko dla wydarzeń archiwalnych (nadchodzące nie mają jeszcze zdjęć)
-  if (ev.status !== 'nadchodzace' && ev.photos && ev.photos.length) {
-    html += `<div class="ev-gallery"><h2>Galeria</h2><div class="ev-gallery-grid">`;
-    ev.photos.forEach(ph => {
-      html += `<figure data-src="${esc(ph.src)}"><img src="${esc(ph.src)}" alt="${esc(ph.alt||'')}" />`;
-      if (ph.caption) html += `<figcaption>${esc(ph.caption)}</figcaption>`;
-      html += `</figure>`;
-    });
-    html += `</div></div>`;
-  }
-
-  html += `<div class="ev-cta-band">
-    <p>${ev.status === 'nadchodzace' ? 'Chcesz wziąć udział lub dowiedzieć się więcej?' : 'Chcesz wspierać nasze działania na Madagaskarze?'}</p>
-    <a href="index.html#wesprzyj" class="btn btn-gold">Wesprzyj nas</a>
-    <a href="wydarzenia.html" class="btn btn-outline">Wszystkie wydarzenia</a>
-  </div>`;
-
-  root.innerHTML = html;
-
-  // Lightbox
-  const lb = document.getElementById('ev-lightbox');
-  const lbImg = document.getElementById('ev-lightbox-img');
-  const figs = Array.from(root.querySelectorAll('.ev-gallery figure'));
-  let cur = 0;
-  function show(i){ cur=(i+figs.length)%figs.length; lbImg.src=figs[cur].dataset.src; lbImg.alt=figs[cur].querySelector('img').alt; }
-  function open(i){ show(i); lb.classList.add('is-open'); lb.setAttribute('aria-hidden','false'); document.documentElement.style.overflow='hidden'; }
-  function close(){ lb.classList.remove('is-open'); lb.setAttribute('aria-hidden','true'); document.documentElement.style.overflow=''; }
-  figs.forEach((f,i)=>f.addEventListener('click',()=>open(i)));
-  lb.querySelector('.lb-close').addEventListener('click',close);
-  lb.querySelector('.lb-arrow.prev').addEventListener('click',e=>{e.stopPropagation();show(cur-1);});
-  lb.querySelector('.lb-arrow.next').addEventListener('click',e=>{e.stopPropagation();show(cur+1);});
-  lb.addEventListener('click',e=>{if(e.target===lb||e.target===lbImg)close();});
-  document.addEventListener('keydown',e=>{ if(!lb.classList.contains('is-open'))return; if(e.key==='Escape')close(); else if(e.key==='ArrowLeft')show(cur-1); else if(e.key==='ArrowRight')show(cur+1);});
-})();
-</script>
 
 <script>
 (function() {
@@ -357,6 +282,8 @@
 <script src="assets/site-a11y.js" defer></script>
 <script src="assets/i18n-dict.js" defer></script>
 <script src="assets/i18n-dict-fr.js" defer></script>
+<script src="events.js.php" defer></script>
+<script src="assets/wydarzenie-render.js" defer></script>
 <script src="assets/i18n.js" defer></script>
 </body>
 </html>
