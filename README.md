@@ -19,7 +19,7 @@ skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzeb
 ├── co-robimy.html            — projekty (Adopcja Serca, Atelier, Centrum Edukacyjne, Wolontariat)
 ├── o-nas.html                — fundacja, założyciele, obszary działań, dokumenty, partnerzy
 ├── wydarzenia.html           — wyróżnione + nadchodzące + ostatnie archiwalne
-├── wydarzenie.html           — szablon pojedynczego wpisu (czyta ?id= z wydarzenia-data.js)
+├── wydarzenie.html           — szablon pojedynczego wpisu (czyta ?id=, dane z events.js.php)
 ├── archiwum-wydarzen.html    — szachownica z filtrami (rok/kategoria) + paginacja (9/stronę)
 ├── kontakt.html              — formularz kontaktowy + dane + newsletter
 ├── polityka-prywatnosci.html
@@ -31,7 +31,7 @@ skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzeb
 ├── assets/                   — CSS, JS, dane, skrypt backendu, mapa SVG
 │   ├── site.css
 │   ├── site-nav.js, site-a11y.js, site-search.js
-│   ├── wydarzenia-data.js    — ŹRÓDŁO DANYCH WYDARZEŃ (redaktor edytuje tutaj)
+│   ├── wydarzenia-render.js, archiwum-render.js, wydarzenie-render.js — render wydarzeń z danych
 │   ├── adopcja-form.js        — formularz „Zostań rodzicem adopcyjnym" (2 ścieżki: PayU / przelew)
 │   ├── darowizna.js           — formularz darowizny PayU (kwota/waluta/typ/cel + dane)
 │   ├── newsletter.js          — modal newslettera (do podpięcia MailerLite)
@@ -88,12 +88,16 @@ Gotowy skrypt (double opt-in dla Adopcji, osobny arkusz dla Kontaktu). Instrukcj
 ### 3. Newsletter — `assets/newsletter.js`
 Modal gotowy; podpiąć embed/API MailerLite (plan darmowy).
 
-### 4. CMS wydarzeń
-Dziś wydarzenia są w `assets/wydarzenia-data.js` (tablica `window.MADA_EVENTS`, pola:
-`id, status, featured, title, dateLabel, dateISO, year, category, place, masze, lead, body[], photos[], summary`).
-Strona główna, Wydarzenia i Archiwum renderują się z tej tablicy. Przy migracji do CMS
-zachowaj ten sam schemat. Reguły: dokładnie 1 wpis `featured:true` (na górę Wydarzeń);
-pozostałe `nadchodzace` → sekcja „Nadchodzące" (ukryta gdy brak); `archiwum` → Archiwum.
+### 4. CMS wydarzeń (panel PHP)
+Panel pod `/panel/` (logowanie: konta w `panel/secret/users.php`). Redaktorzy dodają/edytują/usuwają
+wydarzenia oraz galerię (zdjęcia w `uploads/wydarzenia/`, filmy jako linki YouTube/Facebook).
+- **Źródło prawdy:** `data/wydarzenia/<id>.json` (poza repo i deployem; chronione `data/.htaccess`).
+- **Endpoint:** `events.js.php` czyta JSON-y i emituje `window.MADA_EVENTS` + dosypuje tłumaczenia
+  do słowników i18n. Front (index, wydarzenia, wydarzenie, archiwum) renderuje się z tego.
+- **Status z daty:** `dateISO` w przyszłości → „nadchodzące", w przeszłości → „archiwum" (automatycznie).
+- **Wyróżnione:** ręczna flaga `featured` (maks. 1) albo fallback na najbliższe nadchodzące.
+- **Tłumaczenia EN/FR:** DeepL API Free przy zapisie (`panel/secret/deepl-config.php`) + glosariusz terminów.
+- Sekrety i dane (`panel/secret/`, `data/`, `uploads/`) są poza repo i wykluczone z deployu (rsync `--delete`).
 
 ## Dane fundacji (zachować)
 - Fundacja Misja MADA · ul. Szosa Chełmińska 271A, 87-100 Toruń

@@ -1022,8 +1022,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   grid.innerHTML = picks.map(function (p) {
     var e = p.e;
-    var img = (e.photos && e.photos[0]) ? e.photos[0].src : '';
-    var alt = (e.photos && e.photos[0]) ? e.photos[0].alt : e.title;
+    var imgs = (e.media || []).filter(function (m) { return (m.type || 'image') === 'image'; });
+    var img = imgs[0] ? imgs[0].src : '';
+    var alt = imgs[0] ? (imgs[0].alt || e.title) : e.title;
     var badge = p.upcoming
       ? '<span class="news-badge">Nadchodzące</span>'
       : '';
@@ -1621,7 +1622,6 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 
-<script src="assets/wydarzenia-data.js" defer></script>
 <script src="assets/site-nav.js" defer></script>
 <script src="assets/site-a11y.js" defer></script>
 <script src="assets/adopcja-form.js" defer></script>
@@ -1630,6 +1630,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script src="assets/i18n-dict.js" defer></script>
 <script src="assets/i18n-dict-fr.js" defer></script>
+<script src="events.js.php" defer></script>
 <script src="assets/i18n.js" defer></script>
 </body>
 </html>

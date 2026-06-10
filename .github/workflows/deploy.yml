@@ -37,9 +37,11 @@ jobs:
 
           # -r rekurencyjnie, -l linki, -t czasy, -z kompresja, -v szczegóły, --delete lustro.
           # Wykluczenia: NIE wysyłamy ani NIE kasujemy na serwerze:
-          #   /data/        -> dane wydarzeń edytowane przez CMS (pakiet 5)
+          #   /data/         -> dane wydarzeń edytowane przez CMS (pakiet 5)
+          #   /uploads/      -> zdjęcia wgrywane przez panel CMS (pakiet 5)
+          #   */secret/      -> sekrety (PayU, newsletter, panel CMS) poza repo
           #   /cgi-bin/, *.shtml, /.well-known/ -> infrastruktura serwera SEO Host
-          #   reszta        -> pliki wewnętrzne repo (nie część publicznej strony)
+          #   reszta         -> pliki wewnętrzne repo (nie część publicznej strony)
           rsync -rltzv --delete \
             -e "ssh -i ~/.ssh/deploy_key -p ${REMOTE_PORT} -o StrictHostKeyChecking=accept-new" \
             --exclude='/.git/' \
@@ -48,8 +50,10 @@ jobs:
             --exclude='/.gitattributes' \
             --exclude='/README.md' \
             --exclude='/data/' \
+            --exclude='/uploads/' \
             --exclude='/payu/secret/' \
             --exclude='/newsletter/secret/' \
+            --exclude='/panel/secret/' \
             --exclude='/cgi-bin/' \
             --exclude='/.well-known/' \
             --exclude='*.shtml' \
