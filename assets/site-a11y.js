@@ -7,6 +7,11 @@
   'use strict';
 
   function init() {
+    // ── Auto-rok w stopce (© rok) - zawsze bieżący, bez ręcznej aktualizacji ──
+    document.querySelectorAll('.js-year').forEach(function (el) {
+      el.textContent = new Date().getFullYear();
+    });
+
     // ── Wesprzyj-nas - powiąż ws-card z ws-panel przez ID + aria ──
     document.querySelectorAll('.ws-grid').forEach(grid => {
       const cards = grid.querySelectorAll('.ws-card');
