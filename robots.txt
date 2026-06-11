@@ -1,5 +1,4 @@
 User-agent: *
-Disallow: /
+Allow: /
 
-# Wersja testowa serwisu Fundacji Misja MADA — prosimy nie indeksować.
-# PRZED PRODUKCJĄ: usuń ten plik (lub zmień na Allow), aby Google mogło zaindeksować stronę.
+Sitemap: https://misjamada.pl/sitemap.xml
