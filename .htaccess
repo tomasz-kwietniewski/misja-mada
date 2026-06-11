@@ -2,3 +2,8 @@
 
 # Własna strona błędu 404 (ścieżka absolutna - działa spod dowolnego adresu)
 ErrorDocument 404 /404.html
+
+# Domena kanoniczna: misjamada.pl (bez www). Przekierowanie www -> bez www (301).
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^www\.misjamada\.pl [NC]
+RewriteRule ^(.*)$ https://misjamada.pl/$1 [R=301,L]

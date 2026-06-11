@@ -18,8 +18,9 @@
 (function () {
   'use strict';
 
-  // Backend PayU (płatność jednorazowa) - endpoint na własnej domenie.
-  window.MADA_PAYU_URL = 'https://misjamada.pl/payu/create-order.php';
+  // Backend PayU (płatność jednorazowa) - ścieżka WZGLĘDNA, by działała
+  // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
+  window.MADA_PAYU_URL = '/payu/create-order.php';
 
   const CELE = {
     statutowe: 'Działania statutowe Fundacji Misja MADA',

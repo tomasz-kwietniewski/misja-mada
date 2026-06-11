@@ -15,8 +15,9 @@
 (function () {
   'use strict';
 
-  // Backend zapisu na newsletter (MailerLite) - endpoint na własnej domenie.
-  window.MADA_NEWSLETTER_URL = 'https://misjamada.pl/newsletter/subscribe.php';
+  // Backend zapisu na newsletter (MailerLite) - ścieżka WZGLĘDNA, by działała
+  // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
+  window.MADA_NEWSLETTER_URL = '/newsletter/subscribe.php';
 
   function init() {
     const triggers = document.querySelectorAll('[data-newsletter-open]');
