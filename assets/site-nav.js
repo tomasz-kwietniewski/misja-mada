@@ -67,7 +67,7 @@
             <button type="button" class="drawer-search" aria-label="Szukaj na stronie">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             </button>
-            <a href="https://www.facebook.com/p/Misja-MADA-61554828612524/" target="_blank" rel="noopener" aria-label="Facebook Fundacji">
+            <a href="https://www.facebook.com/MisjaMADA" target="_blank" rel="noopener" aria-label="Facebook Fundacji">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
             </a>
           </div>

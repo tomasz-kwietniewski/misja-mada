@@ -104,7 +104,7 @@ wydarzenia oraz galerię (zdjęcia w `uploads/wydarzenia/`, filmy jako linki You
 - kontakt@misjamada.pl · tel. 604 181 301 / 690 623 252 · domena docelowa: misjamada.pl
 - KRS 0001099359 · NIP 9562392375 · REGON 528347054
 - Konta: PLN 70 1090 1056 0000 0001 5832 5871 · EUR 49 1090 1056 0000 0001 6067 9663 · GBP 34 1090 1056 0000 0001 6645 4246
-- Facebook: facebook.com/p/Misja-MADA-61554828612524
+- Facebook: facebook.com/MisjaMADA
 - Partnerzy: Pallotyńska Fundacja Misyjna Salvatti, Stowarzyszenie MISEVI Polska, Siostry Małe Misjonarki Miłosierdzia (Orionistki)
 
 ## Podgląd
