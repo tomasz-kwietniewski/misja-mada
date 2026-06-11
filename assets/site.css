@@ -304,8 +304,9 @@ footer.site-footer {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1.2fr 0.9fr 0.9fr;
-  gap: 48px;
+  grid-template-columns: auto auto auto auto;
+  justify-content: space-between;
+  gap: 24px 40px;
   padding-bottom: 48px;
   border-bottom: 1px solid rgba(250,245,238,.14);
 }
