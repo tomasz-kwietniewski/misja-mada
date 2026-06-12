@@ -26,7 +26,7 @@
           '<span class="spraw-year">' + esc(it.year) + '</span>' +
           '<span class="spraw-title">' + esc(it.title || typeLabel) + '</span>' +
         '</div>' +
-        '<a class="btn btn-primary spraw-dl" href="/' + esc(it.file) + '" target="_blank" rel="noopener">Pobierz PDF</a>' +
+        '<a class="btn btn-primary spraw-dl" href="/' + esc(it.file) + '" target="_blank" rel="noopener">Pobierz PDF za rok <span class="spraw-dl-year">' + esc(it.year) + '</span></a>' +
       '</div>';
     }).join('');
   }

@@ -77,6 +77,35 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; color: var(--brown)
 .panel-wrap { max-width: 1000px; margin: 0 auto; padding: 28px; }
 .panel-wrap .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 
+/* ── Osobny dział: sprawozdania (wyróżniony, złoty) ─────────────── */
+.spraw-panel {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  margin-top: 36px; padding: 22px 26px;
+  background: #fbf3e2;
+  border: 1px solid var(--gold); border-left: 6px solid var(--gold);
+  border-radius: 12px;
+}
+.spraw-panel-eyebrow {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--gold);
+  margin-bottom: 5px;
+}
+.spraw-panel h3 { margin: 0 0 6px; font-size: 19px; }
+.spraw-panel p { margin: 0; font-size: 13.5px; color: #7a6550; max-width: 600px; }
+.btn-spraw {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  font: inherit; font-weight: 700;
+  padding: 11px 22px; border-radius: 9px;
+  background: var(--gold); color: #fff; border: 1px solid var(--gold);
+  text-decoration: none; white-space: nowrap;
+}
+.btn-spraw:hover { background: #b3801f; border-color: #b3801f; }
+
+@media (max-width: 640px) {
+  .spraw-panel { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .btn-spraw { width: 100%; justify-content: center; }
+}
+
 /* ── Tabela wydarzeń ────────────────────────────────────────────── */
 table.events { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 28px -18px rgba(66,41,24,.25); }
 table.events th, table.events td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }

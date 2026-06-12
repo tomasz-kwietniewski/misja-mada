@@ -237,6 +237,7 @@ window.MADA_I18N = {
   "Sprawozdania merytoryczne": "Activity reports",
   "Zobacz wszystkie →": "See all →",
   "Pobierz PDF": "Download PDF",
+  "Pobierz PDF za rok": "Download PDF for",
   "Wkrótce pojawią się tutaj dokumenty do pobrania.": "Documents will be available here soon.",
   "Aktualne": "Current",
   "Czytaj online →": "Read online →",
