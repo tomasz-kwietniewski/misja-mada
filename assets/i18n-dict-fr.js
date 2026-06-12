@@ -230,7 +230,7 @@ window.MADA_I18N_FR = {
   "Sprawozdanie z działalności": "Rapport d'activité",
   "Sprawozdania": "Rapports",
   "Sprawozdania Fundacji": "Rapports de la Fondation",
-  "Wszystkie sprawozdania finansowe i merytoryczne Fundacji Misja MADA do pobrania — za bieżący i poprzednie lata.": "Tous les rapports financiers et d'activité de la Fondation Misja MADA à télécharger — pour l'année en cours et les années précédentes.",
+  "Wszystkie sprawozdania finansowe i merytoryczne Fundacji Misja MADA do pobrania.": "Tous les rapports financiers et d'activité de la Fondation Misja MADA à télécharger.",
   "Sprawozdania finansowe": "Rapports financiers",
   "Sprawozdania merytoryczne": "Rapports d'activité",
   "Zobacz wszystkie →": "Voir tout →",

@@ -232,7 +232,7 @@ window.MADA_I18N = {
   "Sprawozdanie z działalności": "Activity report",
   "Sprawozdania": "Reports",
   "Sprawozdania Fundacji": "Foundation reports",
-  "Wszystkie sprawozdania finansowe i merytoryczne Fundacji Misja MADA do pobrania — za bieżący i poprzednie lata.": "All financial and activity reports of the Misja MADA Foundation available to download — for the current and previous years.",
+  "Wszystkie sprawozdania finansowe i merytoryczne Fundacji Misja MADA do pobrania.": "All financial and activity reports of the Misja MADA Foundation available to download.",
   "Sprawozdania finansowe": "Financial reports",
   "Sprawozdania merytoryczne": "Activity reports",
   "Zobacz wszystkie →": "See all →",
