@@ -7,3 +7,15 @@ ErrorDocument 404 /404.html
 RewriteEngine On
 RewriteCond %{HTTP_HOST} ^www\.misjamada\.pl [NC]
 RewriteRule ^(.*)$ https://misjamada.pl/$1 [R=301,L]
+
+# Pliki tłumaczeń i18n zmieniają się często. Domyślnie serwer cache'uje JS na
+# 7 dni (max-age=604800) BEZ rewalidacji - przez co po aktualizacji słownika
+# wracający użytkownik widzi starą wersję (nowe frazy zostają nieprzetłumaczone).
+# Wymuszamy rewalidację (ETag/Last-Modified) przy każdym wejściu: gdy plik się nie
+# zmienił -> 304 (tanie), gdy się zmienił -> świeża wersja od razu.
+# (URL skryptów ma dodatkowo ?v=… - jednorazowo przełamuje już-zapisany 7-dniowy cache.)
+<IfModule mod_headers.c>
+  <FilesMatch "i18n(-dict(-fr)?)?\.js$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
