@@ -10,7 +10,14 @@
 
 /** Lista terminów: 'pl' (reprezentatywna forma, do sortowania) => kanoniczne 'en'/'fr'.
  *  Opcjonalne 'rx' = wzorzec regex (bez ograniczników) łapiący ODMIENIONE formy
- *  polskie (np. „Adopcji Serca", „Centrum Edukacyjnym"). Dopasowanie od najdłuższych. */
+ *  polskie (np. „Adopcji Serca", „Centrum Edukacyjnym"). Dopasowanie od najdłuższych.
+ *
+ *  ŹRÓDŁO PRAWDY dla nazw własnych. Formy FR są zatwierdzone przez Panią Prezes
+ *  (autorytet językowy francuskiego). Przy zmianie nazwy aktualizuj TU oraz w
+ *  słownikach statycznych assets/i18n-dict.js (EN) i assets/i18n-dict-fr.js (FR),
+ *  żeby tłumaczenia wydarzeń i stron były spójne. Kanoniczne FR:
+ *    Adopcja Serca   → „Adoption de Cœur"     (nie „du Cœur")
+ *    Centrum Eduk.   → „Centre d'Éducation"   (nie „Centre Éducatif") */
 function mada_glossary() {
     return [
         ['pl' => 'Siostry Małe Misjonarki Miłosierdzia', 'rx' => 'Si(?:ostry|óstr) Mał(?:e|ych) Misjonark(?:i|ek) Miłosierdzia', 'en' => 'Little Missionary Sisters of Charity', 'fr' => 'Petites Sœurs Missionnaires de la Charité'],
@@ -18,8 +25,8 @@ function mada_glossary() {
         ['pl' => 'Siostry Orionistki',                    'rx' => 'Si(?:ostry|óstr) Orionist(?:ki|ek)',                            'en' => 'Orionine Sisters',                     'fr' => 'Sœurs Orionines'],
         ['pl' => 'Fundacja Misja MADA',                   'rx' => 'Fundacj\p{L}+ Misja MADA',                                      'en' => 'Misja MADA Foundation',                'fr' => 'Fondation Misja MADA'],
         ['pl' => 'Misja MADA',                                                                                                     'en' => 'Misja MADA',                           'fr' => 'Misja MADA'],
-        ['pl' => 'Adopcja Serca',                         'rx' => 'Adopcj\p{L}+ Serca',                                            'en' => 'Heart Adoption',                       'fr' => 'Adoption du Cœur'],
-        ['pl' => 'Centrum Edukacyjne',                    'rx' => 'Centrum Edukacyjn\p{L}+',                                       'en' => 'Educational Centre',                   'fr' => 'Centre éducatif'],
+        ['pl' => 'Adopcja Serca',                         'rx' => 'Adopcj\p{L}+ Serca',                                            'en' => 'Heart Adoption',                       'fr' => 'Adoption de Cœur'],
+        ['pl' => 'Centrum Edukacyjne',                    'rx' => 'Centrum Edukacyjn\p{L}+',                                       'en' => 'Educational Centre',                   'fr' => "Centre d'Éducation"],
         ['pl' => 'Msze Święte',                           'rx' => 'Msz(?:e|y) Święt(?:e|ych)',                                     'en' => 'Holy Masses',                          'fr' => 'saintes messes'],
         ['pl' => 'Msza Święta',                           'rx' => 'Msz(?:a|y|ę|ą) Święt(?:a|ej|ą|ej)|Mszy Św\.',                   'en' => 'Holy Mass',                            'fr' => 'sainte messe'],
         ['pl' => 'Madagaskar',                            'rx' => 'Madagaskar\p{L}*',                                              'en' => 'Madagascar',                           'fr' => 'Madagascar'],
