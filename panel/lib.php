@@ -206,3 +206,100 @@ function mada_redirect($url) {
     header('Location: ' . $url);
     exit;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Sprawozdania (PDF) - manifest + pliki
+   ───────────────────────────────────────────────────────────────
+   Źródło prawdy: data/sprawozdania.json (prywatne, deny z weba).
+   Pliki nowe:    uploads/sprawozdania/<plik>.pdf (publiczne).
+   Pliki stare 2024: referencja do media/*.pdf (z repo) - nie ruszamy.
+  ═══════════════════════════════════════════════════════════════ */
+define('MADA_SPRAW_FILE',        MADA_DATA . '/sprawozdania.json');
+define('MADA_SPRAW_UPLOADS',     MADA_BASE . '/uploads/sprawozdania');
+define('MADA_SPRAW_UPLOADS_URL', 'uploads/sprawozdania');   // ścieżka względna w treści strony
+
+/** Dwa dozwolone typy sprawozdań. */
+function mada_spraw_types() { return ['finansowe', 'merytoryczne']; }
+
+/** Domyślna zawartość manifestu - seed wskazujący istniejące PDF-y 2024 w media/. */
+function mada_sprawozdania_defaults() {
+    return [
+        'finansowe' => [
+            ['year' => 2024, 'file' => 'media/Sprawozdanie_finansowe_2024.pdf', 'title' => 'Sprawozdanie finansowe'],
+        ],
+        'merytoryczne' => [
+            ['year' => 2024, 'file' => 'media/Sprawozdanie_z_dzialalnosci_2024.pdf', 'title' => 'Sprawozdanie z działalności'],
+        ],
+    ];
+}
+
+function mada_valid_spraw_type($t) { return in_array($t, mada_spraw_types(), true); }
+
+function mada_valid_spraw_year($y) {
+    if (!ctype_digit((string)$y)) return false;
+    $n = (int)$y;
+    return $n >= 2000 && $n <= 2100;
+}
+
+/** Odczyt manifestu; seed domyślnych przy pierwszym użyciu. Gwarantuje oba klucze. */
+function mada_sprawozdania() {
+    if (is_readable(MADA_SPRAW_FILE)) {
+        $d = json_decode(file_get_contents(MADA_SPRAW_FILE), true);
+        if (is_array($d)) {
+            foreach (mada_spraw_types() as $t) {
+                if (!isset($d[$t]) || !is_array($d[$t])) $d[$t] = [];
+            }
+            return $d;
+        }
+    }
+    $def = mada_sprawozdania_defaults();
+    mada_save_sprawozdania($def);
+    return $def;
+}
+
+/** Zapis atomowy manifestu (temp + rename), JSON czytelny i z polskimi znakami. */
+function mada_save_sprawozdania($data) {
+    mada_ensure_dirs();
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) return false;
+    $tmp = MADA_SPRAW_FILE . '.tmp';
+    if (file_put_contents($tmp, $json, LOCK_EX) === false) return false;
+    return rename($tmp, MADA_SPRAW_FILE);
+}
+
+/** Kopia manifestu z każdą listą posortowaną malejąco po roku. */
+function mada_sprawozdania_sorted() {
+    $d = mada_sprawozdania();
+    foreach (mada_spraw_types() as $t) {
+        usort($d[$t], function ($a, $b) { return ((int)($b['year'] ?? 0)) <=> ((int)($a['year'] ?? 0)); });
+    }
+    return $d;
+}
+
+/** Katalog uploadów PDF + .htaccess blokujący wykonanie skryptów (PDF-y są publiczne). */
+function mada_spraw_ensure_dir() {
+    if (!is_dir(MADA_SPRAW_UPLOADS)) @mkdir(MADA_SPRAW_UPLOADS, 0755, true);
+    $ht = MADA_SPRAW_UPLOADS . '/.htaccess';
+    if (is_dir(MADA_SPRAW_UPLOADS) && !file_exists($ht)) {
+        // Bez php_flag (psułoby się pod PHP-FPM). Po prostu deny dla plików-skryptów.
+        @file_put_contents($ht,
+            "# PDF sprawozdan - katalog statyczny; blokada plikow-skryptow\n" .
+            "<FilesMatch \"\\.(php|phtml|php3|php4|php5|php7|php8|phps|pl|py|cgi|asp|sh)$\">\n" .
+            "  <IfModule mod_authz_core.c>\n    Require all denied\n  </IfModule>\n" .
+            "  <IfModule !mod_authz_core.c>\n    Order deny,allow\n    Deny from all\n  </IfModule>\n" .
+            "</FilesMatch>\n"
+        );
+    }
+}
+
+/** Kasuje plik PDF TYLKO jeśli leży w uploads/sprawozdania/ (plików z media/ nie ruszamy). */
+function mada_spraw_delete_file($relPath) {
+    $relPath = (string)$relPath;
+    $prefix = MADA_SPRAW_UPLOADS_URL . '/';
+    if (strpos($relPath, $prefix) !== 0) return false;
+    $name = basename($relPath);
+    if ($name === '' || strpos($name, '..') !== false) return false;
+    $abs = MADA_SPRAW_UPLOADS . '/' . $name;
+    if (is_file($abs)) @unlink($abs);
+    return true;
+}
