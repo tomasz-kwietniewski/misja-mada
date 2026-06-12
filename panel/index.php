@@ -32,6 +32,7 @@ echo panel_flash();
     <div class="bar">
       <h2 style="margin:0;">Wydarzenia <span style="color:#7a6550;font-weight:400;font-size:15px;">(<?= count($events) ?>)</span></h2>
       <div style="display:flex;gap:10px;">
+        <a href="sprawozdania.php" class="btn-secondary">Sprawozdania</a>
         <a href="categories.php" class="btn-secondary">Kategorie</a>
         <a href="edit.php" class="btn-primary">+ Dodaj wydarzenie</a>
       </div>
