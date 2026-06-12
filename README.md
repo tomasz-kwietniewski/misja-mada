@@ -99,6 +99,22 @@ wydarzenia oraz galerię (zdjęcia w `uploads/wydarzenia/`, filmy jako linki You
 - **Tłumaczenia EN/FR:** DeepL API Free przy zapisie (`panel/secret/deepl-config.php`) + glosariusz terminów.
 - Sekrety i dane (`panel/secret/`, `data/`, `uploads/`) są poza repo i wykluczone z deployu (rsync `--delete`).
 
+### 5. Sprawozdania (CMS) — `panel/sprawozdania.php`
+Drugi typ treści obok wydarzeń (ten sam wzorzec). Redaktorzy wgrywają PDF-y sprawozdań
+finansowych i merytorycznych za kolejne lata; pojawiają się na podstronie `sprawozdania.html`
+i jako „Najnowszy rok" na kaflach `o-nas.html`.
+- **Źródło prawdy:** `data/sprawozdania.json` (poza repo/deployem). Endpoint `sprawozdania.js.php`
+  → `window.MADA_SPRAWOZDANIA`; render w `assets/sprawozdania-render.js`.
+- PDF-y nowe: `uploads/sprawozdania/` (upload waliduje `application/pdf`, limit 20 MB).
+  Wpisy 2024 seedują się z istniejących `media/Sprawozdanie_*.pdf` (bez przenoszenia plików).
+
+## Testy i CI
+- **Testy logiki CMS:** `php tests/run.php` — minimalny runner bez zależności; sprawdza czyste
+  funkcje z `panel/lib.php` (slug, walidacja id/typu/roku, status z daty, seed i sort sprawozdań,
+  ochrona usuwania plików). Działa w katalogu tymczasowym — nie rusza realnych danych.
+- **CI:** `.github/workflows/ci.yml` przy każdym pushu/PR robi `php -l` na wszystkich `.php`,
+  sprawdza składnię `assets/*.js` i uruchamia testy. Niezależne od deployu; `tests/` nie idzie na produkcję.
+
 ## Dane fundacji (zachować)
 - Fundacja Misja MADA · ul. Szosa Chełmińska 271A, 87-100 Toruń
 - kontakt@misjamada.pl · tel. 604 181 301 / 690 623 252 · domena docelowa: misjamada.pl

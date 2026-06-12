@@ -1,0 +1,45 @@
+name: CI (lint + testy)
+
+# Bramka jakości: przy każdym pushu i Pull Requeście sprawdza składnię
+# PHP/JS i uruchamia testy logiki CMS. Niezależne od deployu (deploy.yml).
+# Cel: nie wpuścić złamanego pliku na produkcję.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Lint PHP (php -l na wszystkich .php)
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          rc=0
+          for f in **/*.php; do
+            php -l "$f" || rc=1
+          done
+          exit $rc
+
+      - name: Walidacja składni JS (assets/*.js)
+        shell: bash
+        run: |
+          rc=0
+          for f in assets/*.js; do
+            node --check "$f" || rc=1
+          done
+          exit $rc
+
+      - name: Testy logiki CMS
+        run: php tests/run.php

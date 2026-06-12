@@ -55,6 +55,7 @@ jobs:
               --exclude='/.gitignore' \
               --exclude='/.gitattributes' \
               --exclude='/README.md' \
+              --exclude='/tests/' \
               --exclude='/data/' \
               --exclude='/uploads/' \
               --exclude='/payu/secret/' \
