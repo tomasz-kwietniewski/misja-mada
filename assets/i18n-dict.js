@@ -132,7 +132,7 @@ window.MADA_I18N = {
   "Napisz do nas →": "Write to us →",
   "Zapraszamy do współpracy": "We invite",
   "szkoły i przedszkola": "primary schools and kindergartens",
-  ", które chciałyby włączyć się w działania na rzecz edukacji dzieci na Madagaskarze. Możecie zostać opiekunem konkretnych dzieci, przystępując do programu": "to work with us in supporting the education of children in Madagascar. You can become the guardian of specific children by joining the programme",
+  ", które chciałyby włączyć się w działania na rzecz edukacji dzieci na Madagaskarze. Możecie zostać opiekunem konkretnych dzieci, przystępując do programu": " to work with us in supporting the education of children in Madagascar. You can become the guardian of specific children by joining the programme",
   "Współpracę wzmocnimy organizując u Was spotkania i prezentacje ukazujące życie naszych podopiecznych. Przygotujemy zajęcia edukacyjne o kulturze i życiu na Madagaskarze - pokażemy zabawki, stroje i rzeczy użytkowe. Takie zajęcia pozwolą uczniom zbliżyć się do afrykańskich rówieśników!": "We will strengthen the cooperation by holding meetings and presentations at your school showing the lives of the children in our care. We will prepare educational classes about the culture and life in Madagascar - showing toys, clothing and everyday objects. Such classes let pupils feel closer to their French-speaking friends!",
   "Zaproś nas do szkoły →": "Invite us to your school →",
   "Jeśli masz ochotę przyłączyć się do naszej pracy": "If you would like to join our work",
