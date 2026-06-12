@@ -38,6 +38,27 @@
 
   function norm(s) { return s.replace(/\s+/g, ' ').trim(); }
 
+  // Indeks pomocniczy (klucz małymi literami -> tłumaczenie) budowany leniwie dla
+  // każdego słownika. Fallback, gdy treść na stronie różni się od klucza TYLKO
+  // wielkością liter (np. „Strona Partnera" vs słownik „Strona partnera"). Dzięki
+  // temu drobna niespójność wielkości liter nie zostawia tekstu nieprzetłumaczonego.
+  // Tylko klucze >= 5 znaków, by uniknąć kolizji krótkich słów (np. „Do"/„do").
+  // Kolizje (różne tłumaczenia tego samego klucza-małymi) są wyłączane (null).
+  var LOWER = {};
+  function lowerIndex(target) {
+    if (LOWER[target]) return LOWER[target];
+    var dict = DICTS[target] || {};
+    var idx = {};
+    for (var k in dict) {
+      if (!Object.prototype.hasOwnProperty.call(dict, k) || k.length < 5) continue;
+      var lk = k.toLowerCase();
+      if (lk in idx) { if (idx[lk] !== dict[k]) idx[lk] = null; }
+      else idx[lk] = dict[k];
+    }
+    LOWER[target] = idx;
+    return idx;
+  }
+
   // Zwraca przetłumaczony tekst (zachowując wiodące/końcowe białe znaki) lub null
   function translateText(raw, target) {
     var dict = DICTS[target];
@@ -45,7 +66,12 @@
     var key = norm(raw);
     if (!key) return null;
     var tr = dict[key];
-    if (tr == null) return null;
+    if (tr == null) {
+      // fallback: dopasowanie bez względu na wielkość liter
+      var li = lowerIndex(target)[key.toLowerCase()];
+      if (li == null) return null;
+      tr = li;
+    }
     var lead = raw.match(/^\s*/)[0];
     var trail = raw.match(/\s*$/)[0];
     return lead + tr + trail;
