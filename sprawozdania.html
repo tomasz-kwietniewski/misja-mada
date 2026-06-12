@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<title>Sprawozdania - Fundacja Misja MADA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="Sprawozdania finansowe i merytoryczne Fundacji Misja MADA - wszystkie lata do pobrania w PDF.">
+<style>
+  .spraw-block { margin: 0 auto 40px; max-width: 820px; }
+  .spraw-h { font-size: 24px; margin: 0 0 18px; padding-bottom: 10px; border-bottom: 2px solid var(--rule); }
+  .spraw-list { display: flex; flex-direction: column; gap: 12px; }
+  .spraw-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: white; border: 1px solid var(--rule); border-radius: 12px; padding: 18px 22px;
+  }
+  .spraw-row-info { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .spraw-year { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; color: var(--brown); }
+  .spraw-title { color: #6b5a4a; font-size: 15px; }
+  .spraw-dl { flex-shrink: 0; }
+  .spraw-empty { color: var(--brown); opacity: .6; }
+  @media (max-width: 540px) {
+    .spraw-row { flex-direction: column; align-items: stretch; }
+    .spraw-dl { text-align: center; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   O NAS - style specyficzne
+   ═══════════════════════════════════════════════════════════════ */
+
+/* historia - narrow reading column */
+.story {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.story p {
+  font-size: 17.5px;
+  color: #3c2913;
+  line-height: 1.75;
+  margin-bottom: 22px;
+  text-wrap: pretty;
+}
+.story p:first-of-type::first-letter {
+  font-family: var(--font-head);
+  font-size: 84px;
+  float: left;
+  line-height: 0.85;
+  color: var(--gold);
+  padding: 6px 14px 0 0;
+  font-weight: 700;
+}
+
+/* założyciele */
+.partners-section {
+  background: var(--creamDk);
+  padding: 72px 0;
+}
+.partners-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin-top: 36px;
+}
+.partner-card {
+  background: white;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--brown);
+  transition: transform .2s, box-shadow .25s, border-color .2s;
+}
+.partner-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px -22px rgba(66,41,24,.25);
+  border-color: var(--gold);
+}
+.partner-card .partner-logo {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+.partner-card .partner-logo img {
+  max-height: 64px;
+  max-width: 100%;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+.partner-card .partner-logo .placeholder {
+  font-family: var(--font-head);
+  font-size: 26px;
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.partner-card h3 {
+  font-family: var(--font-head);
+  font-size: 18px;
+  color: var(--brown);
+  margin-bottom: 6px;
+  line-height: 1.25;
+}
+.partner-card .partner-sub {
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--brown);
+  opacity: .65;
+  margin-bottom: 14px;
+}
+.partner-card p {
+  font-size: 14px;
+  color: #4a3a2c;
+  line-height: 1.55;
+  margin-bottom: 18px;
+  flex: 1;
+}
+.partner-card .partner-link {
+  color: var(--brown);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .02em;
+  margin-top: auto;
+}
+.partner-card .partner-link::after { content: ' →'; }
+@media (max-width: 900px) {
+  .partners-grid { grid-template-columns: 1fr; }
+}
+
+/* zalozyciele */
+.founders-row {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 64px;
+  align-items: center;
+}
+.founders-row .photo {
+  aspect-ratio: 4/5;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.founders-row .photo img { width: 100%; height: 100%; object-fit: cover; }
+.founders-row .photo-caption {
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--brown);
+  opacity: .75;
+  line-height: 1.45;
+  text-align: center;
+  padding: 0 8px;
+  text-wrap: pretty;
+}
+.founders-row .photo-caption b {
+  color: var(--brown);
+  font-style: normal;
+  font-weight: 700;
+  opacity: 1;
+}
+.founders-row .text .eyebrow { display: block; margin-bottom: 18px; }
+.founders-row .text h2 {
+  font-size: 48px; line-height: 1.05;
+  margin-bottom: 24px;
+}
+.founders-row .text p {
+  font-size: 17px; color: #3c2913;
+  margin-bottom: 16px; line-height: 1.65;
+}
+.founders-row .sig {
+  font-family: var(--font-head); font-style: italic;
+  color: var(--brown); font-size: 19px;
+  margin-top: 22px;
+}
+
+/* MADA wartości - 4 karty */
+.values-section { background: var(--creamDk); }
+.values-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.value-card {
+  background: var(--cream);
+  border-radius: 14px;
+  padding: 36px 28px;
+}
+.value-card .big {
+  font-family: var(--font-head);
+  font-size: 84px; line-height: 1;
+  color: var(--brown); font-weight: 700;
+  margin-bottom: 14px;
+}
+.value-card.alt .big { color: var(--gold); font-style: italic; }
+.value-card h3 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+.value-card p {
+  font-size: 14.5px;
+  color: #4a3a2c;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* dokumenty */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.doc-card {
+  background: white;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: 32px;
+  display: flex; flex-direction: column;
+  gap: 16px;
+  transition: transform .2s, box-shadow .2s;
+}
+.doc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -16px rgba(66,41,24,.2);
+}
+.doc-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px;
+  border-radius: 10px;
+  background: var(--pinkBeige);
+  color: var(--brown);
+  font-size: 22px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+.doc-card h3 {
+  font-size: 20px;
+  line-height: 1.3;
+}
+.doc-card .doc-meta {
+  font-size: 13px;
+  color: #6b5a4a;
+  margin-bottom: 4px;
+}
+.doc-card .doc-link {
+  color: var(--brown);
+  font-weight: 600; font-size: 14.5px;
+  display: inline-flex; gap: 8px; align-items: center;
+  margin-top: auto;
+}
+.doc-card .doc-link:hover { opacity: .7; }
+
+/* działalność boxes - obszary działań na ciemnym tle */
+.activity-section { background: var(--brown); color: var(--cream); padding: 96px 0; }
+.activity-section h2 { color: var(--cream); }
+.activity-section .eyebrow { color: var(--gold); display: block; margin-bottom: 14px; }
+.activity-section .section-head { text-align: center; margin: 0 auto 48px; max-width: 760px; }
+.activity-section .section-head h2 { font-size: 46px; margin-bottom: 16px; line-height: 1.1; }
+.activity-section .section-head p { font-size: 17px; color: rgba(250,245,238,.78); line-height: 1.6; }
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.activity-card {
+  background: rgba(250,245,238,.06);
+  border: 1px solid rgba(250,245,238,.12);
+  border-radius: 16px;
+  padding: 32px 26px 30px;
+  display: flex; flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform .2s, border-color .2s, background .2s;
+}
+.activity-card:hover {
+  transform: translateY(-3px);
+  background: rgba(250,245,238,.10);
+  border-color: rgba(201,157,102,.45);
+}
+.activity-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: rgba(201,157,102,.18);
+  color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+.activity-icon svg { display: block; }
+.activity-card h3 {
+  color: var(--cream);
+  font-family: var(--font-head);
+  font-size: 20px;
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+.activity-card p {
+  font-size: 14.5px;
+  color: rgba(250,245,238,.74);
+  line-height: 1.55;
+  margin: 0;
+  text-wrap: pretty;
+}
+.activity-cta { text-align: center; margin-top: 44px; }
+
+@media (max-width: 900px) {
+  .founders-row { grid-template-columns: 1fr; }
+  .founders-row .text h2 { font-size: 36px; }
+  .values-grid { grid-template-columns: 1fr 1fr; }
+  .docs-grid { grid-template-columns: 1fr; }
+  .activity-grid { grid-template-columns: 1fr 1fr; }
+  .activity-section .section-head h2 { font-size: 34px; }
+}
+@media (max-width: 600px) {
+  .values-grid { grid-template-columns: 1fr; }
+  .activity-grid { grid-template-columns: 1fr; }
+}
+</style>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png"></head>
+<body>
+<a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
+
+<!-- ═══ NAV ═══════════════════════════════════════════════════ -->
+<nav class="main-nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <img src="media/logo-kolor.png" alt="Fundacja Misja MADA" />
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Strona główna</a></li>
+      <li><a href="co-robimy.html">Co robimy?</a></li>
+      <li><a href="o-nas.html" class="active">O nas</a></li>
+      <li><a href="wydarzenia.html">Wydarzenia</a></li>
+      <li><a href="kontakt.html">Kontakt</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button type="button" class="nav-action nav-search" aria-label="Szukaj na stronie" title="Szukaj (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-4.3-4.3"/>
+        </svg>
+      </button>
+      <a href="https://www.facebook.com/MisjaMADA" target="_blank" rel="noopener" class="nav-action" aria-label="Facebook Fundacji" title="Facebook">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/>
+        </svg>
+      </a>
+    </div>
+    <a href="#wesprzyj" class="btn btn-primary nav-cta">Wesprzyj nas</a>
+  </div>
+</nav>
+
+<!-- ═══ PAGE HERO ═══════════════════════════════════════════════ -->
+<section id="main-content" class="page-hero">
+  <div class="container">
+    <div class="breadcrumbs"><a href="index.html">Strona główna</a> · <a href="o-nas.html">O nas</a> · Sprawozdania</div>
+    <h1>Sprawozdania Fundacji</h1>
+    <p class="lead">Wszystkie sprawozdania finansowe i merytoryczne Fundacji Misja MADA do pobrania — za bieżący i poprzednie lata.</p>
+  </div>
+</section>
+
+<!-- ═══ SPRAWOZDANIA ════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+
+    <div class="spraw-block">
+      <h3 id="finansowe" class="spraw-h">Sprawozdania finansowe</h3>
+      <div id="spraw-finansowe" class="spraw-list"></div>
+    </div>
+
+    <div class="spraw-block">
+      <h3 id="merytoryczne" class="spraw-h">Sprawozdania merytoryczne</h3>
+      <div id="spraw-merytoryczne" class="spraw-list"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<!-- ═══ FOOTER ══════════════════════════════════════════════════ -->
+<footer class="site-footer" id="kontakt">
+  <div class="container">
+    <div class="footer-grid">
+
+      <div>
+        <div class="footer-brand">
+          <img src="media/logo-biale.png" alt="Fundacja Misja MADA" />
+          <p>Fundacja Misja MADA<br />ul. Szosa Chełmińska 271A<br />87-100 Toruń, Polska</p>
+          <p>e-mail: <a href="mailto:kontakt@misjamada.pl" style="color: var(--gold); text-decoration: none;">kontakt@misjamada.pl</a><br />tel.: 604 181 301&nbsp;/&nbsp;690 623 252</p>
+          <p style="margin-top: 10px;">
+            <a href="https://www.facebook.com/MisjaMADA" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 8px; color: var(--cream); text-decoration: none; opacity: .85; font-size: 13.5px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 13.5h2.5l1-4H14v-2c0-1.03 0-2 2-2h1.5V2.14c-.326-.043-1.557-.14-2.857-.14C11.928 2 10 3.657 10 6.7v2.8H7v4h3V22h4v-8.5z"/></svg>
+              Facebook: Misja MADA
+            </a>
+          </p>
+          <div class="foot-meta">
+            KRS: 0001099359<br />
+            NIP: 9562392375<br />
+            REGON: 528347054
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Konta bankowe</h4>
+
+        <div class="iban-row">
+          <b>PLN</b>
+          <span class="iban">70 1090 1056 0000 0001 5832 5871</span>
+          <button class="copy-btn" data-copy="70 1090 1056 0000 0001 5832 5871" aria-label="Kopiuj numer konta PLN">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>EUR</b>
+          <span class="iban">PL49 1090 1056 0000 0001 6067 9663</span>
+          <button class="copy-btn" data-copy="PL49 1090 1056 0000 0001 6067 9663" aria-label="Kopiuj numer konta EUR">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <div class="iban-row">
+          <b>GBP</b>
+          <span class="iban">PL34 1090 1056 0000 0001 6645 4246</span>
+          <button class="copy-btn" data-copy="PL34 1090 1056 0000 0001 6645 4246" aria-label="Kopiuj numer konta GBP">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+
+        <!-- DANE DO PRZELEWU - Odbiorca / Adres / Tytuł -->
+        <div class="transfer-block">
+          <span class="label">Dane do przelewu</span>
+
+          <div class="field">
+            <span class="field-label">Odbiorca</span>
+            <div class="field-row">
+              <span class="text">Fundacja Misja MADA</span>
+              <button class="copy-btn" data-copy="Fundacja Misja MADA" aria-label="Kopiuj nazwę odbiorcy">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Adres</span>
+            <div class="field-row">
+              <span class="text">ul. Szosa Chełmińska 271A<br/>87-100 Toruń</span>
+              <button class="copy-btn" data-copy="ul. Szosa Chełmińska 271A, 87-100 Toruń" aria-label="Kopiuj adres">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Bank</span>
+            <div class="field-row">
+              <span class="text">Santander Bank Polska S.A.</span>
+              <button class="copy-btn" data-copy="Santander Bank Polska S.A." aria-label="Kopiuj nazwę banku">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">SWIFT / BIC</span>
+            <div class="field-row">
+              <span class="text">WBKPPLPP</span>
+              <button class="copy-btn" data-copy="WBKPPLPP" aria-label="Kopiuj kod SWIFT">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="field title">
+            <span class="field-label">Tytuł przelewu</span>
+            <div class="field-row">
+              <span class="text">Darowizna na cele statutowe</span>
+              <button class="copy-btn" data-copy="Darowizna na cele statutowe" aria-label="Kopiuj tytuł przelewu">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4>Na skróty</h4>
+        <ul>
+          <li><a href="index.html">Strona główna</a></li>
+          <li><a href="co-robimy.html">Co robimy?</a></li>
+          <li><a href="o-nas.html">O nas</a></li>
+          <li><a href="wydarzenia.html">Wydarzenia</a></li>
+          <li><a href="kontakt.html">Kontakt</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Informacje</h4>
+        <ul>
+          <li><a href="o-nas.html#dokumenty">Statut fundacji</a></li>
+          <li><a href="o-nas.html#dokumenty">Sprawozdania</a></li>
+          <li><a href="polityka-prywatnosci.html">Polityka prywatności</a></li>
+          <li><a href="regulamin-serwisu.html">Regulamin</a></li>
+        </ul>
+        <h4 style="margin-top: 26px;">Partnerzy</h4>
+        <ul>
+          <li><a href="https://salvatti.pl/" target="_blank" rel="noopener">Fundacja Salvatti</a></li>
+          <li><a href="https://www.misevi.pl/" target="_blank" rel="noopener">Stowarzyszenie MISEVI</a></li>
+          <li><a href="https://www.suoredonorione.org/" target="_blank" rel="noopener">Siostry Małe Misjonarki Miłosierdzia</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="footer-bottom">
+      <span>© <span class="js-year">2026</span> Fundacja Misja MADA · Wszelkie prawa zastrzeżone</span>
+      <span>Toruń · Itaosy · Antananarywa</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ COPY TO CLIPBOARD ═════════════════════════════════════ -->
+<script>
+(function() {
+  const checkIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    const original = btn.innerHTML;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = btn.dataset.copy;
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      btn.classList.add('copied');
+      btn.innerHTML = checkIcon;
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1600);
+    });
+  });
+})();
+</script>
+
+<script src="assets/site-nav.js" defer></script>
+<script src="assets/site-a11y.js" defer></script>
+<script src="assets/adopcja-form.js" defer></script>
+<script src="assets/darowizna.js" defer></script>
+<script src="assets/newsletter.js" defer></script>
+<script src="assets/site-search.js" defer></script>
+
+<script src="assets/i18n-dict.js" defer></script>
+<script src="assets/i18n-dict-fr.js" defer></script>
+<script src="sprawozdania.js.php" defer></script>
+<script src="assets/sprawozdania-render.js" defer></script>
+<script src="assets/i18n.js" defer></script>
+</body>
+</html>
