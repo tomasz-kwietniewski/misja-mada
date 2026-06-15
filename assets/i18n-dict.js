@@ -19,6 +19,7 @@ window.MADA_I18N = {
   "Wydarzenia": "Events",
   "Kontakt": "Contact",
   "Wesprzyj nas": "Support us",
+  "Fundacja Misja MADA": "Misja MADA Foundation",
 
   // ─── Co robimy - hero ───
   "· Co robimy?": "· What we do",

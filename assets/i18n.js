@@ -85,6 +85,9 @@
     var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         if (n.parentNode && SKIP_TAGS[n.parentNode.tagName]) return NodeFilter.FILTER_REJECT;
+        // Pomiń treść oznaczoną translate="no" (np. nazwa odbiorcy przelewu - musi
+        // zostać dosłowna „Fundacja Misja MADA" we wszystkich językach).
+        if (n.parentElement && n.parentElement.closest('[translate="no"]')) return NodeFilter.FILTER_REJECT;
         return n.nodeValue && n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
     });
@@ -103,6 +106,7 @@
     if (root.querySelectorAll) els = els.concat(Array.prototype.slice.call(root.querySelectorAll('*')));
     els.forEach(function (el) {
       if (!el.getAttribute) return;
+      if (el.closest && el.closest('[translate="no"]')) return;
       ATTRS.forEach(function (a) {
         if (!el.hasAttribute(a)) return;
         var store = attrOrig.get(el) || {};
