@@ -238,6 +238,7 @@ window.MADA_I18N_FR = {
   "Zobacz wszystkie →": "Voir tout →",
   "Pobierz PDF": "Télécharger le PDF",
   "Pobierz PDF za rok": "Télécharger le PDF de l'année",
+  "Najnowsze:": "Plus récent :",
   "Wkrótce pojawią się tutaj dokumenty do pobrania.": "Les documents seront bientôt disponibles ici.",
   "Aktualne": "À jour",
   "Czytaj online →": "Lire en ligne →",
