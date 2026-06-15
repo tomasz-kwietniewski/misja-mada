@@ -39,6 +39,8 @@
     var type = tile.getAttribute('data-sprawozdania');
     var y = latestYear(data[type]);
     var metaEl = tile.querySelector('.doc-meta');
-    if (metaEl && y) metaEl.textContent = 'Najnowsze: ' + y;
+    // Rok w osobnym <span>, żeby etykieta „Najnowsze:" była stabilnym kluczem i18n
+    // (tłumaczona), a rok zostawał. Patrz technika z przyciskiem „Pobierz PDF za rok".
+    if (metaEl && y) metaEl.innerHTML = 'Najnowsze: <span class="doc-meta-year">' + y + '</span>';
   });
 })();
