@@ -135,7 +135,9 @@
 .studnia-lb .slb-arrow:hover, .studnia-lb .slb-close:hover { background: rgba(250,245,238,.25); }
 
 @media (max-width: 760px) {
-  .project-done { background: linear-gradient(180deg, var(--brownDk) 0%, var(--brownDk) 260px, transparent 260px), var(--creamDk); padding: 48px 0 56px; }
+  /* Wysoki brązowy pas (auto-bufor na dłuższe tytuły, np. EN 3-liniowy) - inaczej
+     podtytuł lokalizacji wypadał poza pas i był ucinany. */
+  .project-done { background: linear-gradient(180deg, var(--brownDk) 0%, var(--brownDk) 380px, transparent 380px), var(--creamDk); padding: 48px 0 56px; }
   .done-head h2 { font-size: 32px; }
   .done-gallery { grid-template-columns: repeat(2, 1fr); }
   .done-stats { grid-template-columns: 1fr; gap: 12px; }
