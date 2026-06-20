@@ -108,3 +108,167 @@ function payu_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   CRUD - subskrypcje
+  ───────────────────────────────────────────────────────────────── */
+
+/** Wstawia subskrypcję (status pending_first). Zwraca jej id. */
+function payu_sub_insert(array $d): int {
+    $pdo = payu_db();
+    $sql = "INSERT INTO subscriptions
+        (manage_token, email, first_name, last_name, phone, goal, goal_label,
+         children, amount_grosze, currency, charge_day, start_date, next_charge_at,
+         expiry_date, min_months, status)
+        VALUES
+        (:manage_token, :email, :first_name, :last_name, :phone, :goal, :goal_label,
+         :children, :amount_grosze, :currency, :charge_day, :start_date, :next_charge_at,
+         :expiry_date, :min_months, 'pending_first')";
+    $st = $pdo->prepare($sql);
+    $st->execute([
+        ':manage_token'  => $d['manage_token'],
+        ':email'         => $d['email'],
+        ':first_name'    => $d['first_name'],
+        ':last_name'     => $d['last_name'],
+        ':phone'         => $d['phone'] ?? null,
+        ':goal'          => $d['goal'],
+        ':goal_label'    => $d['goal_label'],
+        ':children'      => $d['children'] ?? null,
+        ':amount_grosze' => $d['amount_grosze'],
+        ':currency'      => $d['currency'] ?? 'PLN',
+        ':charge_day'    => $d['charge_day'],
+        ':start_date'    => $d['start_date'],
+        ':next_charge_at'=> $d['next_charge_at'],
+        ':expiry_date'   => $d['expiry_date'] ?? null,
+        ':min_months'    => $d['min_months'] ?? null,
+    ]);
+    return (int) $pdo->lastInsertId();
+}
+
+function payu_sub_get(int $id): ?array {
+    $st = payu_db()->prepare('SELECT * FROM subscriptions WHERE id = ?');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+function payu_sub_by_manage_token(string $token): ?array {
+    $st = payu_db()->prepare('SELECT * FROM subscriptions WHERE manage_token = ?');
+    $st->execute([$token]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+/**
+ * Aktywuje subskrypcję po udanej pierwszej płatności (FIRST). Pierwsza płatność
+ * liczy się jako miesiąc 1. Idempotentne (tylko z pending_first).
+ * Zwraca true, jeśli FAKTYCZNIE aktywowano (do jednorazowego maila powitalnego).
+ */
+function payu_sub_activate(int $id, string $cardToken, string $cardMask, string $payuOrderId, string $nextChargeAt): bool {
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions
+            SET status='active', card_token=?, card_mask=?, payu_first_order_id=?,
+                next_charge_at=?, months_paid=GREATEST(months_paid,1), retry_count=0,
+                last_error=NULL, last_attempt_at=NOW()
+          WHERE id=? AND status='pending_first'"
+    );
+    $st->execute([$cardToken, $cardMask, $payuOrderId, $nextChargeAt, $id]);
+    return $st->rowCount() > 0;
+}
+
+/** Zapisuje id zamówienia FIRST (gdy płatność idzie przez 3DS - aktywacja po notyfikacji). */
+function payu_sub_set_first_order(int $id, string $payuOrderId): void {
+    $st = payu_db()->prepare('UPDATE subscriptions SET payu_first_order_id=? WHERE id=?');
+    $st->execute([$payuOrderId, $id]);
+}
+
+/** Subskrypcje do obciążenia dziś (status active, termin <= dziś). */
+function payu_sub_due(string $today): array {
+    $st = payu_db()->prepare(
+        "SELECT * FROM subscriptions WHERE status='active' AND next_charge_at <= ? ORDER BY id"
+    );
+    $st->execute([$today]);
+    return $st->fetchAll();
+}
+
+/** Udane obciążenie cykliczne: +1 miesiąc opłacony, nowy termin, reset ponowień. */
+function payu_sub_mark_success(int $id, string $nextChargeAt): void {
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions
+            SET months_paid=months_paid+1, next_charge_at=?, retry_count=0,
+                last_error=NULL, last_attempt_at=NOW()
+          WHERE id=?"
+    );
+    $st->execute([$nextChargeAt, $id]);
+}
+
+/** Nieudane obciążenie z zaplanowanym ponowieniem. */
+function payu_sub_mark_retry(int $id, string $nextChargeAt, string $error): void {
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions
+            SET retry_count=retry_count+1, next_charge_at=?, last_error=?, last_attempt_at=NOW()
+          WHERE id=?"
+    );
+    $st->execute([$nextChargeAt, mb_substr($error, 0, 255), $id]);
+}
+
+/** Wyczerpane ponowienia -> wstrzymanie subskrypcji. */
+function payu_sub_mark_paused(int $id, string $error): void {
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions
+            SET status='paused', paused_at=NOW(), last_error=?, last_attempt_at=NOW()
+          WHERE id=?"
+    );
+    $st->execute([mb_substr($error, 0, 255), $id]);
+}
+
+/** Anulowanie subskrypcji. Zwraca true, jeśli była aktywna/wstrzymana i została anulowana. */
+function payu_sub_cancel(int $id): bool {
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions SET status='cancelled', cancelled_at=NOW()
+          WHERE id=? AND status IN ('active','paused','pending_first')"
+    );
+    $st->execute([$id]);
+    return $st->rowCount() > 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CRUD - obciążenia (charges)
+  ───────────────────────────────────────────────────────────────── */
+
+/**
+ * Wstawia wiersz obciążenia (status pending). Idempotentne: gdy ext_order_id już
+ * istnieje (duplikat), zwraca null - obciążenie już było zainicjowane.
+ */
+function payu_charge_insert(int $subId, string $extOrderId, int $amount, string $currency, int $attempt): ?int {
+    $pdo = payu_db();
+    try {
+        $st = $pdo->prepare(
+            "INSERT INTO charges (subscription_id, ext_order_id, amount_grosze, currency, attempt_no, status)
+             VALUES (?, ?, ?, ?, ?, 'pending')"
+        );
+        $st->execute([$subId, $extOrderId, $amount, $currency, $attempt]);
+        return (int) $pdo->lastInsertId();
+    } catch (PDOException $e) {
+        if ($e->getCode() === '23000') return null;   // naruszenie UNIQUE - duplikat
+        throw $e;
+    }
+}
+
+function payu_charge_by_ext(string $extOrderId): ?array {
+    $st = payu_db()->prepare('SELECT * FROM charges WHERE ext_order_id = ?');
+    $st->execute([$extOrderId]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+/** Aktualizuje status obciążenia (po odpowiedzi PayU lub notyfikacji). */
+function payu_charge_mark(string $extOrderId, string $status, ?string $payuOrderId = null, ?string $error = null): void {
+    $completed = $status === 'completed' ? date('Y-m-d H:i:s') : null;
+    $st = payu_db()->prepare(
+        "UPDATE charges
+            SET status=?, payu_order_id=COALESCE(?, payu_order_id), error_msg=?, completed_at=COALESCE(?, completed_at)
+          WHERE ext_order_id=?"
+    );
+    $st->execute([$status, $payuOrderId, $error !== null ? mb_substr($error, 0, 255) : null, $completed, $extOrderId]);
+}
