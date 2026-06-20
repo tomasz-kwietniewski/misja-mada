@@ -43,3 +43,6 @@ jobs:
 
       - name: Testy logiki CMS
         run: php tests/run.php
+
+      - name: Testy logiki płatności cyklicznych
+        run: php tests/run-recurring.php
