@@ -87,5 +87,15 @@ echo panel_flash();
       </div>
       <a href="sprawozdania.php" class="btn-spraw">Zarządzaj sprawozdaniami →</a>
     </div>
+
+    <!-- Osobny dział: subskrypcje (płatności cykliczne) -->
+    <div class="spraw-panel">
+      <div class="spraw-panel-text">
+        <span class="spraw-panel-eyebrow">Osobny dział</span>
+        <h3>Subskrypcje (płatności cykliczne)</h3>
+        <p>Lista comiesięcznych darowizn (Adopcja Serca i wpłaty cykliczne): status, kwota, kolejne obciążenie. Możliwość anulowania subskrypcji darczyńcy.</p>
+      </div>
+      <a href="subskrypcje.php" class="btn-spraw">Zarządzaj subskrypcjami →</a>
+    </div>
 <?php
 panel_footer();

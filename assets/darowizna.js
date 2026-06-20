@@ -21,6 +21,20 @@
   // Backend PayU (płatność jednorazowa) - ścieżka WZGLĘDNA, by działała
   // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
   window.MADA_PAYU_URL = '/payu/create-order.php';
+  // Backend płatności cyklicznej (Secure Form -> recurring FIRST).
+  window.MADA_RECURRING_URL = '/payu/recurring-first.php';
+
+  // Ładuje moduł Secure Form (assets/secure-form.js) na żądanie - raz.
+  function loadSecureFormLib() {
+    if (window.MadaSecureForm) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = '/assets/secure-form.js'; s.async = true;
+      s.onload = function () { res(); };
+      s.onerror = function () { rej(new Error('Nie udało się załadować modułu płatności cyklicznej.')); };
+      document.head.appendChild(s);
+    });
+  }
 
   const CELE = {
     statutowe: 'Działania statutowe Fundacji Misja MADA',
@@ -254,6 +268,31 @@
       const celLabel = adopcja
         ? `${CELE.adopcja} · ${state.dzieci} ${state.dzieci === 1 ? 'dziecko' : 'dzieci'}`
         : CELE[state.cel];
+      const recurring = (state.typ === 'miesiecznie' || adopcja);
+
+      // Metoda płatności: dla cyklicznych - Secure Form (pola karty na stronie); inaczej info o bramce.
+      const payMethodBlock = recurring ? `
+            <div class="dar-field">
+              <label class="dar-label">Dane karty (płatność cykliczna)</label>
+              <div id="dar-card" class="dar-card-form"></div>
+              <p class="dar-card-loading" id="dar-card-loading">Ładowanie bezpiecznego formularza karty…</p>
+              <p class="dar-note">Dane karty wpisujesz w bezpiecznym formularzu PayU (osadzonym tu w ramce). Zapisujemy wyłącznie token - nie mamy dostępu do numeru karty.</p>
+            </div>` : `
+            <div class="dar-field">
+              <label class="dar-label">Metoda płatności</label>
+              <div class="dar-pay-methods">
+                <span class="dar-pay"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Karta</span>
+                <span class="dar-pay">BLIK</span>
+                <span class="dar-pay">Przelew online</span>
+                <span class="dar-pay-logo">PayU</span>
+              </div>
+              <p class="dar-note">Konkretną metodę wybierzesz w bezpiecznym oknie PayU po kliknięciu „Przekaż".</p>
+            </div>`;
+
+      // Zgoda na cykliczność - WYMÓG PayU (niedomniemana, konkretna, z możliwością rezygnacji).
+      const recurringConsent = recurring ? `
+              <label class="dar-check"><input type="checkbox" name="zgoda_cykl" required /> <span>Wyrażam zgodę na cykliczne (comiesięczne) obciążanie mojej karty kwotą <strong>${amt} ${curSym}</strong> na rzecz Fundacji Misja MADA (${celLabel})${adopcja ? ', minimum przez 12 miesięcy' : ''}. Mogę zrezygnować w każdej chwili (link w mailu).</span></label>` : '';
+
       modal.innerHTML = `
         <div class="dar-box" role="dialog" aria-modal="true" aria-labelledby="dar-title2">
           <button type="button" class="dar-close" aria-label="Zamknij" onclick="window.__darowiznaClose()">
@@ -277,20 +316,12 @@
               <label class="dar-field dar-full"><span class="dar-label">Adres e-mail</span><input type="email" name="email" autocomplete="email" required /></label>
             </div>
 
-            <div class="dar-field">
-              <label class="dar-label">Metoda płatności</label>
-              <div class="dar-pay-methods">
-                <span class="dar-pay"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Karta</span>
-                <span class="dar-pay">BLIK</span>
-                <span class="dar-pay">Przelew online</span>
-                <span class="dar-pay-logo">PayU</span>
-              </div>
-              <p class="dar-note">Konkretną metodę wybierzesz w bezpiecznym oknie PayU po kliknięciu „Przekaż".</p>
-            </div>
+            ${payMethodBlock}
 
             <div class="dar-consents">
               <label class="dar-check"><input type="checkbox" name="zgoda_regulamin" required /> <span>Akceptuję <a href="regulamin-serwisu.html" target="_blank" rel="noopener">Regulamin Serwisu</a> oraz <a href="polityka-prywatnosci.html" target="_blank" rel="noopener">Politykę prywatności</a>.</span></label>
               <label class="dar-check"><input type="checkbox" name="zgoda_dane" required /> <span>Wyrażam zgodę na przetwarzanie moich danych osobowych w celu realizacji darowizny.</span></label>
+              ${recurringConsent}
             </div>
 
             <div class="dar-err" id="dar-err" style="display:none;" role="alert"></div>
@@ -306,6 +337,18 @@
         </div>`;
       modal.querySelector('#dar-back').addEventListener('click', renderStep1);
       modal.querySelector('#dar-form').addEventListener('submit', submit);
+
+      // Dla płatności cyklicznej: załaduj i osadź formularz karty (Secure Form).
+      if (recurring) {
+        const loadingEl = modal.querySelector('#dar-card-loading');
+        loadSecureFormLib()
+          .then(() => window.MadaSecureForm.mount('dar-card'))
+          .then(() => { if (loadingEl) loadingEl.style.display = 'none'; })
+          .catch(err => {
+            if (loadingEl) loadingEl.style.display = 'none';
+            showErr((err && err.message) ? err.message : 'Nie udało się załadować formularza karty. Odśwież stronę lub spróbuj później.');
+          });
+      }
     }
 
     async function submit(e) {
@@ -333,14 +376,13 @@
         email: fd.get('email').toString().trim(),
       };
 
-      // ── Etap 1: tylko PLN i tylko jednorazowo (cykliczne = pakiet 6) ──
-      if (payload.recurring) {
-        return showErr(isAdopcja()
-          ? 'Adopcja Serca to wsparcie cykliczne - płatność automatyczną uruchomimy wkrótce. Skorzystaj z formularza „Zostań rodzicem adopcyjnym" (przelew tradycyjny) albo wybierz inny cel jako wpłatę jednorazową.'
-          : 'Płatności cykliczne uruchomimy wkrótce. Wybierz „Jednorazowo" albo skorzystaj z przelewu tradycyjnego (dane w stopce).');
-      }
       if (state.waluta !== 'PLN') {
         return showErr('Płatność online dostępna na razie tylko w PLN. Wybierz PLN albo skorzystaj z przelewu tradycyjnego (konto EUR w stopce).');
+      }
+      // Płatność cykliczna - Secure Form (tokenizacja karty + recurring FIRST).
+      if (payload.recurring) {
+        if (!fd.get('zgoda_cykl')) { return showErr('Zaznacz zgodę na cykliczne obciążanie karty.'); }
+        return submitRecurring(payload);
       }
 
       const URL = window.MADA_PAYU_URL || '';
@@ -369,6 +411,30 @@
         submitBtn.disabled = false; submitBtn.textContent = 'Przekaż →';
       }
     }
+    // Wysyłka płatności cyklicznej: tokenizacja karty (Secure Form) -> recurring-first.php.
+    async function submitRecurring(payload) {
+      const submitBtn = modal.querySelector('#dar-submit');
+      const origText = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Przetwarzam kartę…'; }
+      try {
+        const token = await window.MadaSecureForm.tokenize();
+        const body = Object.assign({}, payload, { token: token, consent: true });
+        const url = window.MADA_RECURRING_URL || '/payu/recurring-first.php';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data && data.redirectUri) { window.location.href = data.redirectUri; return; }
+        if (data && data.status === 'active') { window.location.href = 'dziekujemy.html'; return; }
+        throw new Error((data && data.error) ? data.error : 'Nie udało się rozpocząć płatności cyklicznej.');
+      } catch (e) {
+        showErr((e && e.message) ? e.message : 'Nie udało się przetworzyć karty. Spróbuj ponownie.');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
+      }
+    }
+
     function showErr(msg) {
       const err = modal.querySelector('#dar-err');
       if (err) { err.textContent = msg; err.style.display = ''; }

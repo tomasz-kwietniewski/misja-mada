@@ -182,6 +182,13 @@ function payu_sub_set_first_order(int $id, string $payuOrderId): void {
     $st->execute([$payuOrderId, $id]);
 }
 
+/** Lista subskrypcji do panelu (najnowsze pierwsze). */
+function payu_sub_list(int $limit = 500): array {
+    $limit = max(1, min(2000, $limit));
+    $st = payu_db()->query("SELECT * FROM subscriptions ORDER BY created_at DESC, id DESC LIMIT $limit");
+    return $st->fetchAll();
+}
+
 /** Subskrypcje do obciążenia dziś (status active, termin <= dziś). */
 function payu_sub_due(string $today): array {
     $st = payu_db()->prepare(
