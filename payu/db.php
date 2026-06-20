@@ -34,6 +34,18 @@ function payu_db(): PDO {
 }
 
 /**
+ * Gwarantuje istnienie schematu - raz na proces (idempotentne, tanie).
+ * Wołane na starcie endpointów backendu (recurring-first, cron), więc tabele
+ * tworzą się same przy pierwszym użyciu - bez ręcznej migracji.
+ */
+function payu_db_ensure_schema(): void {
+    static $done = false;
+    if ($done) return;
+    payu_db_migrate();
+    $done = true;
+}
+
+/**
  * Tworzy tabele, jeśli nie istnieją (idempotentne). Wołać raz przy wdrożeniu
  * (np. payu/migrate.php) lub na starcie crona.
  */
