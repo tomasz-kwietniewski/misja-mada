@@ -179,7 +179,6 @@ window.MADA_I18N_FR = {
   "Kopiuj tytuł przelewu": "Copier le libellé du virement",
   "Szukaj (Ctrl+K)": "Rechercher (Ctrl+K)",
   "Strona partnera - Fundacja Salvatti": "Site du partenaire - Fondation Salvatti",
-  "Bramka płatności - wkrótce": "Passerelle de paiement - bientôt",
 
   // ─── O nas ───
   "· O nas": "· À propos de nous",

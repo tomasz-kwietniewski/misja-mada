@@ -179,7 +179,6 @@ window.MADA_I18N = {
   "Kopiuj tytuł przelewu": "Copy transfer title",
   "Szukaj (Ctrl+K)": "Search (Ctrl+K)",
   "Strona partnera - Fundacja Salvatti": "Partner site - Salvatti Foundation",
-  "Bramka płatności - wkrótce": "Payment gateway - coming soon",
 
   // ─── O nas ───
   "· O nas": "· About us",
