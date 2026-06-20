@@ -1,0 +1,99 @@
+<?php
+/* ═══════════════════════════════════════════════════════════════
+   PayU - płatności cykliczne: CZYSTA LOGIKA (bez bazy, bez sieci)
+   ───────────────────────────────────────────────────────────────
+   Funkcje deterministyczne, testowalne jednostkowo (tests/run-recurring.php).
+   Reguły wynikają ze „Zbioru wymagań usługi cyklicznej" PayU
+   (docs/payu-recurring-wymagania.md) oraz specyfikacji pakietu 6.
+  ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Dzień miesiąca obciążenia (kotwica) wyliczony z daty startu.
+ * Klamrowany do 1..28, by każdy miesiąc miał ten dzień (luty bezpieczny).
+ */
+function mada_sub_charge_day(string $startDate): int {
+    $d = DateTime::createFromFormat('Y-m-d', $startDate);
+    $day = $d ? (int)$d->format('j') : 1;
+    return max(1, min(28, $day));
+}
+
+/**
+ * Data kolejnego obciążenia: miesiąc(e) po $fromDate, w dniu $chargeDay.
+ * Liczone przez „first day of" + N miesięcy, więc nie przeskakuje miesięcy
+ * przy końcówkach (np. 31). $chargeDay i tak klamrowany do 1..28.
+ */
+function mada_sub_next_charge_date(string $fromDate, int $chargeDay, int $months = 1): string {
+    $chargeDay = max(1, min(28, $chargeDay));
+    $d = DateTime::createFromFormat('Y-m-d', $fromDate);
+    if (!$d) return $fromDate;
+    $d->modify('first day of this month');
+    $d->modify('+' . max(1, $months) . ' month');
+    $d->setDate((int)$d->format('Y'), (int)$d->format('n'), $chargeDay);
+    return $d->format('Y-m-d');
+}
+
+/**
+ * Data wygaśnięcia subskrypcji (do informacji dla płatnika oraz
+ * threeDsAuthentication.recurring.expiry). Domyślnie start + 12 mies.
+ */
+function mada_sub_expiry_date(string $startDate, int $minMonths = 12): string {
+    $d = DateTime::createFromFormat('Y-m-d', $startDate);
+    if (!$d) return $startDate;
+    $day = max(1, min(28, (int)$d->format('j')));
+    $d->modify('first day of this month');
+    $d->modify('+' . max(1, $minMonths) . ' month');
+    $d->setDate((int)$d->format('Y'), (int)$d->format('n'), $day);
+    return $d->format('Y-m-d');
+}
+
+/**
+ * Klucz idempotencji obciążenia - unikalny w obrębie POS (PayU odrzuca duplikat
+ * extOrderId). Format: mada_sub{id}_{RRRRMM} (+ _r{n} przy ponowieniu > 1).
+ */
+function mada_sub_ext_order_id(int $subId, string $period, int $attempt = 1): string {
+    $base = 'mada_sub' . $subId . '_' . $period;
+    return $attempt > 1 ? $base . '_r' . $attempt : $base;
+}
+
+/**
+ * Harmonogram ponowień po nieudanym obciążeniu.
+ * Wejście: numer próby, która WŁAŚNIE się nie powiodła (1-based).
+ * Wyjście: liczba dni do kolejnej próby, albo null = wyczerpano (-> pauza).
+ * Zgodne z limitem PayU: nie częściej niż 1x/dzień, max 31 dni.
+ *   próba 1 nieudana -> +1 dzień, próba 2 -> +3 dni, próba 3 -> koniec.
+ */
+function mada_sub_retry_offset_days(int $failedAttemptNo): ?int {
+    $plan = [1 => 1, 2 => 3];   // po której próbie ile dni czekać
+    return $plan[$failedAttemptNo] ?? null;
+}
+
+/** Maksymalna liczba prób obciążenia w jednym okresie (1 pierwotna + 2 ponowienia). */
+function mada_sub_max_attempts(): int {
+    return 3;
+}
+
+/** Czy subskrypcja w danym statusie może być obciążona przez scheduler. */
+function mada_sub_can_charge(string $status): bool {
+    return $status === 'active';
+}
+
+/** Statusy końcowe (nie wracają do obiegu). */
+function mada_sub_is_final(string $status): bool {
+    return $status === 'cancelled';
+}
+
+/**
+ * Zwięzły opis subskrypcji (pole `description` zamówienia + informacja dla
+ * płatnika). Wymóg PayU: identyfikacja subskrypcji + kwota + okres + data.
+ */
+function mada_sub_description(string $goalLabel, int $amountGrosze, string $currency, string $expiry): string {
+    $amount = ($amountGrosze % 100 === 0)
+        ? (string) intdiv($amountGrosze, 100)                 // całe złotówki: „70"
+        : number_format($amountGrosze / 100, 2, '.', '');     // z groszami: „125.50"
+    return sprintf('%s, %s %s/mies., obciążenie co miesiąc do %s', $goalLabel, $amount, $currency, $expiry);
+}
+
+/** Token do linku zarządzania/anulowania subskrypcji (losowy, 64 hex). */
+function mada_sub_gen_manage_token(): string {
+    return bin2hex(random_bytes(32));
+}
