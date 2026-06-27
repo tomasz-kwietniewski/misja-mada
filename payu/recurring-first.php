@@ -121,6 +121,15 @@ try {
             'payMethod' => ['type' => 'CARD_TOKEN', 'value' => $cardToken],
         ],
         'threeDsAuthentication' => [
+            // Wymuszamy pełne Silne Uwierzytelnienie (challenge 3DS) na PIERWSZEJ
+            // płatności zakładającej token. Powód: aneks PayU 13.1 ppkt (g) - za
+            // transakcje kartą przeprocesowane BEZ Silnego Uwierzytelnienia
+            // odpowiedzialność finansową za fraudowe chargebacki ponosi Akceptant
+            // (Fundacja). MANDATE zmusza wydawcę karty do challenge (push w aplikacji
+            // / SMS / PIN), co odcina m.in. "card testing" skradzionymi kartami na
+            // formularzu darowizn. Kolejne obciążenia (STANDARD/MIT, cron-charge.php)
+            // celowo BEZ challenge - płatnik nieobecny, token założono z 3DS.
+            'challengeRequested' => 'MANDATE',
             'recurring' => [
                 'frequency' => 30,
                 'expiry'    => $expiry . 'T00:00:00Z',
