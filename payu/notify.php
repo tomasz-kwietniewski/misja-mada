@@ -5,6 +5,9 @@
    Weryfikujemy podpis, logujemy wpłatę, odpowiadamy 200.
   ═══════════════════════════════════════════════════════════════ */
 require __DIR__ . '/lib.php';
+require __DIR__ . '/db.php';
+require __DIR__ . '/recurring-lib.php';
+require __DIR__ . '/mail.php';
 
 $raw = file_get_contents('php://input');
 
@@ -41,6 +44,48 @@ $line = sprintf(
 $dir = __DIR__ . '/../data';
 if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
 @file_put_contents($dir . '/payu-notifications.log', $line, FILE_APPEND | LOCK_EX);
+
+// ── Płatności cykliczne: rozpoznanie po extOrderId ────────────────
+$extOrderId = isset($order['extOrderId']) ? (string) $order['extOrderId'] : '';
+$status     = isset($order['status'])     ? (string) $order['status']     : '';
+$payuOrderId = isset($order['orderId'])   ? (string) $order['orderId']    : '';
+$cls = mada_sub_classify_ext($extOrderId);
+
+try {
+    if ($cls['type'] === 'first' && $status === 'COMPLETED') {
+        // Pierwsza płatność zakończona (po 3DS) -> odbierz token TOKC_ i aktywuj.
+        $sub = payu_sub_get((int) $cls['subId']);
+        if ($sub && $sub['status'] === 'pending_first') {
+            $tok = mada_sub_extract_token($data);
+            if (!$tok && $payuOrderId) {
+                // Token nie przyszedł w notyfikacji - pobierz zamówienie.
+                $full = payu_get_order($payuOrderId, payu_get_token());
+                $tok  = mada_sub_extract_token($full);
+            }
+            if ($tok) {
+                $activated = payu_sub_activate(
+                    (int) $sub['id'], $tok['token'], (string)($tok['mask'] ?? ''),
+                    $payuOrderId, $sub['next_charge_at']
+                );
+                if ($activated) {
+                    $fresh = payu_sub_get((int) $sub['id']);
+                    mada_mail_welcome($fresh);
+                    mada_mail_foundation($fresh, 'nowa');
+                }
+            } else {
+                error_log('[PayU notify] FIRST sub=' . $cls['subId'] . ' COMPLETED bez tokena TOKC_.');
+            }
+        }
+    } elseif ($cls['type'] === 'standard') {
+        // Kolejne obciążenie - aktualizuj status wiersza charges.
+        $chargeStatus = $status === 'COMPLETED' ? 'completed'
+                      : (($status === 'CANCELED') ? 'failed' : 'pending');
+        payu_charge_mark($extOrderId, $chargeStatus, $payuOrderId);
+    }
+} catch (Throwable $e) {
+    // Nie blokujemy odpowiedzi 200 - błąd logujemy, PayU i tak ponowi przy potrzebie.
+    error_log('[PayU notify] obsluga cykliczna: ' . $e->getMessage());
+}
 
 // PayU wymaga 200, inaczej ponawia notyfikację.
 http_response_code(200);

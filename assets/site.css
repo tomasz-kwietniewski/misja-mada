@@ -1155,6 +1155,8 @@ footer ul a:hover { color: var(--gold); }
 .dar-full { grid-column: 1 / -1; }
 .dar-grid input { font: inherit; font-size: 15px; padding: 11px 14px; width: 100%; border: 1px solid var(--rule); border-radius: 8px; background: white; color: var(--brown); }
 .dar-grid input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,157,102,.22); }
+.dar-card-form { min-height: 56px; background: white; border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; }
+.dar-card-loading { font-size: 13px; color: #7a6550; margin: 8px 2px 0; }
 .dar-pay-methods { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dar-pay { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--brown); background: white; border: 1px solid var(--rule); border-radius: 8px; padding: 8px 14px; }
 .dar-pay-logo { font-weight: 700; color: #a0d000; background: #1b5e20; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
