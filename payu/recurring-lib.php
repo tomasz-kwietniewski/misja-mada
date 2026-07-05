@@ -72,6 +72,27 @@ function mada_sub_max_attempts(): int {
     return 3;
 }
 
+/**
+ * Decyzja o wyniku próby obciążenia STANDARD - ODPORNA NA PODWÓJNE OBCIĄŻENIE.
+ * $responseStatus:
+ *   - statusCode z odpowiedzi PayU (np. 'SUCCESS', 'ERROR_...') gdy PayU ODPOWIEDZIAŁO,
+ *   - null gdy sam request padł zanim doszła odpowiedź (timeout / błąd połączenia /
+ *     niepoprawny JSON) - czyli wynik NIEZNANY (PayU mogło obciążyć kartę albo nie).
+ * Zwraca:
+ *   'success' - PayU potwierdziło (SUCCESS): zapisz, przesuń harmonogram, NIE ponawiaj.
+ *   'retry'   - PayU JAWNIE odmówiło (odpowiedź != SUCCESS): PayU na pewno NIE obciążyło,
+ *               więc bezpiecznie ponowić z nowym extOrderId.
+ *   'hold'    - wynik NIEZNANY (transport padł): NIGDY nie ponawiać nowym extOrderId
+ *               (to właśnie prowadziło do podwójnego obciążenia), tylko wstrzymać do
+ *               ręcznej weryfikacji w PayU. Jeśli obciążenie jednak przeszło, notyfikacja
+ *               COMPLETED oznaczy dany charge jako completed (self-reconcile).
+ */
+function mada_charge_decision(?string $responseStatus): string {
+    // null = transport padł; '' = odpowiedź bez statusu (nietypowa) - oba niejednoznaczne -> hold.
+    if ($responseStatus === null || $responseStatus === '') return 'hold';
+    return $responseStatus === 'SUCCESS' ? 'success' : 'retry';
+}
+
 /** Czy subskrypcja w danym statusie może być obciążona przez scheduler. */
 function mada_sub_can_charge(string $status): bool {
     return $status === 'active';

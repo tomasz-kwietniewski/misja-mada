@@ -36,6 +36,12 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 try {
     payu_db_ensure_schema();
     $today = date('Y-m-d');
+
+    // Higiena danych: zeruj tokeny porzuconych pending_first (>7 dni) - co przebieg,
+    // niezależnie od tego, czy dziś są obciążenia (te subskrypcje i tak nigdy nie są obciążane).
+    $purged = payu_sub_purge_abandoned_tokens(7);
+    if ($purged > 0) { cron_log("Wyczyszczono tokeny porzuconych subskrypcji: {$purged}."); }
+
     $due   = payu_sub_due($today);
     cron_log('Subskrypcji do obciążenia: ' . count($due));
 
@@ -89,23 +95,36 @@ try {
             ],
         ];
 
+        // Wynik obciążenia:
+        //  - PayU ODPOWIEDZIAŁO -> mamy $sc (SUCCESS albo błąd) - decyzja PEWNA.
+        //  - payu_order_request RZUCIŁ (timeout / brak lub niepoprawna odpowiedź) -> $sc = null,
+        //    wynik NIEZNANY: PayU mogło obciążyć kartę albo nie. Wtedy NIGDY nie ponawiamy z nowym
+        //    extOrderId (to prowadziło do podwójnego obciążenia) - wstrzymujemy do ręcznej kontroli.
+        $sc = null;
+        $payuOrderId = null;
+        $err = '';
         try {
             $resp = payu_order_request($order, $token);
-            $sc   = $resp['statusCode'];
+            $sc = (string) $resp['statusCode'];
             $payuOrderId = $resp['data']['orderId'] ?? null;
-
-            if ($sc === 'SUCCESS') {
-                payu_charge_mark($ext, 'pending', $payuOrderId);   // COMPLETED dojdzie notyfikacją
-                $next = mada_sub_next_charge_date($today, (int)$sub['charge_day'], 1);
-                payu_sub_mark_success($id, $next);
-                mada_mail_receipt($sub);
-                cron_log("sub={$id} OBCIAZONO {$amount} {$cur}, nastepne {$next}.");
-            } else {
-                throw new Exception('PayU status=' . $sc . ' ' . ($resp['data']['status']['statusDesc'] ?? ''));
+            if ($sc !== 'SUCCESS') {
+                $err = 'PayU status=' . $sc . ' ' . ($resp['data']['status']['statusDesc'] ?? '');
             }
         } catch (Throwable $e) {
-            $err = $e->getMessage();
-            payu_charge_mark($ext, 'failed', null, $err);
+            $err = $e->getMessage();   // transport/JSON padł -> wynik nieznany ($sc pozostaje null)
+        }
+
+        $decision = mada_charge_decision($sc);
+
+        if ($decision === 'success') {
+            payu_charge_mark($ext, 'pending', $payuOrderId);   // COMPLETED dojdzie notyfikacją
+            $next = mada_sub_next_charge_date($today, (int)$sub['charge_day'], 1);
+            payu_sub_mark_success($id, $next);
+            mada_mail_receipt($sub);
+            cron_log("sub={$id} OBCIAZONO {$amount} {$cur}, nastepne {$next}.");
+        } elseif ($decision === 'retry') {
+            // PayU JAWNIE odmówiło - na pewno bez obciążenia. Bezpiecznie ponowić (nowy ext) lub pauza.
+            payu_charge_mark($ext, 'failed', $payuOrderId, $err);
             $offset = mada_sub_retry_offset_days($attempt);
             if ($offset === null) {
                 payu_sub_mark_paused($id, $err);
@@ -118,6 +137,14 @@ try {
                 mada_mail_charge_failed($sub);
                 cron_log("sub={$id} NIEUDANE (proba {$attempt}), ponowienie {$retryDate}: {$err}");
             }
+        } else {   // 'hold' - wynik NIEZNANY (transport). NIE ponawiać - ryzyko podwójnego obciążenia.
+            // Charge zostaje 'pending' (nie 'failed'): jeśli PayU jednak obciążyło, notyfikacja
+            // COMPLETED oznaczy go jako completed (self-reconcile). Subskrypcję WSTRZYMUJEMY do
+            // ręcznej weryfikacji w panelu PayU po extOrderId - człowiek wznowi albo anuluje.
+            payu_charge_mark($ext, 'pending', $payuOrderId, 'HOLD (wynik nieznany): ' . $err);
+            payu_sub_mark_paused($id, 'Nieznany wynik obciazenia - sprawdz w PayU ext=' . $ext . '. ' . $err);
+            mada_mail_foundation($sub, 'wstrzymana');
+            cron_log("sub={$id} WSTRZYMANO - wynik NIEZNANY (ext={$ext}, sprawdz w PayU): {$err}");
         }
     }
 } finally {

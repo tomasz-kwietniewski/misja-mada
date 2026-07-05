@@ -189,6 +189,25 @@ function payu_sub_list(int $limit = 500): array {
     return $st->fetchAll();
 }
 
+/**
+ * Higiena danych: zeruje token karty dla PORZUCONYCH subskrypcji `pending_first`
+ * starszych niż $days dni (np. płatnik zaczął 3DS i nie dokończył). Taka subskrypcja
+ * i tak NIGDY nie jest obciążana (cron bierze tylko `active`), więc trzymanie w niej
+ * realnego TOKC_ to zbędna retencja wrażliwego sekretu. Zwraca liczbę wyczyszczonych.
+ * $days walidowane jako int -> bezpieczne w interpolacji INTERVAL.
+ */
+function payu_sub_purge_abandoned_tokens(int $days = 7): int {
+    $days = max(1, $days);
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions
+            SET card_token=NULL
+          WHERE status='pending_first' AND card_token IS NOT NULL
+            AND created_at < DATE_SUB(NOW(), INTERVAL $days DAY)"
+    );
+    $st->execute();
+    return $st->rowCount();
+}
+
 /** Subskrypcje do obciążenia dziś (status active, termin <= dziś). */
 function payu_sub_due(string $today): array {
     $st = payu_db()->prepare(
