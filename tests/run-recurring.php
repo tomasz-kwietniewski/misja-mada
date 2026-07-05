@@ -54,6 +54,16 @@ eq(mada_sub_max_attempts(), 3, 'max_attempts: 3');
 ok((mada_sub_retry_offset_days(1) + mada_sub_retry_offset_days(2)) <= 31, 'retry: łączny rozrzut <= 31 dni');
 ok(mada_sub_retry_offset_days(1) >= 1 && mada_sub_retry_offset_days(2) >= 1, 'retry: każdy odstęp >= 1 dzień');
 
+// ── decyzja o wyniku obciążenia STANDARD (ochrona przed double-charge) ──
+eq(mada_charge_decision('SUCCESS'), 'success', 'charge_decision: SUCCESS -> success');
+eq(mada_charge_decision(null),      'hold',    'charge_decision: brak odpowiedzi (timeout) -> hold, NIE ponawiaj');
+eq(mada_charge_decision('ERROR_VALUE_INVALID'), 'retry', 'charge_decision: jawna odmowa PayU -> retry');
+eq(mada_charge_decision('WARNING_CONTINUE_CVV'), 'retry', 'charge_decision: inny status != SUCCESS -> retry');
+eq(mada_charge_decision(''), 'hold', 'charge_decision: pusty statusCode (odpowiedź bez statusu) -> hold (niejednoznaczne)');
+// KLUCZOWE: SUCCESS nigdy nie prowadzi do ponowienia; jawna odmowa nigdy nie prowadzi do holda
+ok(mada_charge_decision('SUCCESS') !== 'hold' && mada_charge_decision('SUCCESS') !== 'retry', 'charge_decision: SUCCESS = tylko success');
+ok(mada_charge_decision('ERROR_X') === 'retry', 'charge_decision: jawny błąd = retry (PayU nie obciążyło)');
+
 // ── przejścia statusów ─────────────────────────────────────────
 ok(mada_sub_can_charge('active'),     'can_charge: active -> tak');
 ok(!mada_sub_can_charge('paused'),    'can_charge: paused -> nie');
