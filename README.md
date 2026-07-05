@@ -1,127 +1,224 @@
-# Fundacja Misja MADA — kompletny serwis (handoff)
+# Fundacja Misja MADA - serwis misjamada.pl
 
-Statyczny serwis (HTML + CSS + vanilla JS) gotowy do (a) wrzucenia na serwer
-testowy oraz (b) dalszej pracy w Claude Code nad integracjami backendowymi.
-To jest **pełna, samowystarczalna paczka** — zawiera wszystkie strony, style,
-skrypty, zdjęcia, logo i dokumenty PDF. Nic spoza tego folderu nie jest potrzebne.
+Serwis internetowy Fundacji Misja MADA (pomoc dzieciom i rodzinom na Madagaskarze).
+Strona jest **live na produkcji**: [https://misjamada.pl](https://misjamada.pl).
 
-## Jak uruchomić (test)
-1. Wgraj CAŁĄ zawartość tego folderu na serwer (FTP / panel hostingu).
-2. Wejdź na adres — `index.html` przekieruje na „index.html".
-3. `robots.txt` blokuje indeksowanie. **Przed produkcją usuń `robots.txt`.**
+Front to statyczny HTML + CSS + vanilla JS (bez frameworków, bez build-stepu). Backend to
+lekkie skrypty **PHP 8** na hostingu współdzielonym: płatności PayU (jednorazowe i cykliczne),
+newsletter, panel CMS. Serwis jest trójjęzyczny (PL / EN / FR).
 
-> Wymaga internetu: mapa Madagaskaru (D3 + Natural Earth) i fonty Google ładują się z CDN.
+- **Domena kanoniczna:** `https://misjamada.pl` (bez `www`; `www` -> 301 na bez-www).
+- **Hosting:** SEO Host (DirectAdmin, PHP 8, MySQL, cron, SSH).
+- **Języki:** polski (podstawa) + angielski + francuski (tłumaczenie po stronie przeglądarki).
 
-## Struktura (uporządkowana)
+---
+
+## Deploy (jak zmiany trafiają na produkcję)
+
+Push do gałęzi **`main`** uruchamia GitHub Actions **`Deploy na SEO Host`**
+(`.github/workflows/deploy.yml`), który przez `rsync` po SSH wgrywa pliki do `public_html`.
+Klucz SSH jest w sekrecie repo `SSH_PRIVATE_KEY`.
+
+- Deploy jest lustrzany (`rsync --delete`), ale **wyklucza** dane i sekrety, których nie
+  wolno nadpisać ani skasować: `/data/`, `/uploads/`, `*/secret/`, oraz pliki wewnętrzne repo
+  (`.git`, `.github`, `README.md`, `tests/`).
+- Przy chwilowej blokadzie SSH (fail2ban SEO Hosta) workflow ponawia do 6 razy co 40 s.
+
+> **GitHub Pages nie jest używany.** To serwis PHP - Pages (statyczny Jekyll) nie ma jak go
+> zbudować, więc jego deploy w zakładce „Deployments" bywa czerwony. To **nie dotyczy
+> produkcji** - naszą produkcję robi wyłącznie `Deploy na SEO Host`. Pages można wyłączyć
+> (Settings -> Pages -> Source: None), żeby nie zaśmiecał historii deployów.
+
+**Historia zmian na GitHubie:** commity na `main` (zakładka *Code* -> historia commitów)
+oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
+
+---
+
+## Struktura repozytorium
+
 ```
 / (root)
-├── index.html        — strona główna
-├── co-robimy.html            — projekty (Adopcja Serca, Atelier, Centrum Edukacyjne, Wolontariat)
-├── o-nas.html                — fundacja, założyciele, obszary działań, dokumenty, partnerzy
-├── wydarzenia.html           — wyróżnione + nadchodzące + ostatnie archiwalne
-├── wydarzenie.html           — szablon pojedynczego wpisu (czyta ?id=, dane z events.js.php)
-├── archiwum-wydarzen.html    — szachownica z filtrami (rok/kategoria) + paginacja (9/stronę)
-├── kontakt.html              — formularz kontaktowy + dane + newsletter
-├── polityka-prywatnosci.html
-├── regulamin-serwisu.html
-├── regulamin-adopcja-serca.html
-├── oswiadczenie-o-wizerunku.html
-├── newsletter.html           — szablon e-mail (do wklejenia w MailerLite jako Custom HTML)
-├── index.html / robots.txt   — przekierowanie + blokada indeksowania (test)
-├── assets/                   — CSS, JS, dane, skrypt backendu, mapa SVG
-│   ├── site.css
-│   ├── site-nav.js, site-a11y.js, site-search.js
-│   ├── wydarzenia-render.js, archiwum-render.js, wydarzenie-render.js — render wydarzeń z danych
-│   ├── adopcja-form.js        — formularz „Zostań rodzicem adopcyjnym" (2 ścieżki: PayU / przelew)
-│   ├── darowizna.js           — formularz darowizny PayU (kwota/waluta/typ/cel + dane)
-│   ├── newsletter.js          — modal newslettera (do podpięcia MailerLite)
-│   ├── google-apps-script.gs  — gotowy backend Apps Script (Adopcja + Kontakt)
-│   └── madagaskar.svg         — statyczny fallback mapy
-└── media/                    — WSZYSTKIE zdjęcia, logo i PDF-y (płaska, czysta struktura)
-    ├── logo-kolor.png, logo-biale.png
-    ├── <zdjęcia wydarzeń>: antoni-*, siedlce-*, londyn-*, grodzisk-*, bierzmowanie-*, klodzko-*, lezajsk-2026.jpg
-    ├── <zdjęcia stron>: 20251107_103213.jpg, My_*_web.jpg, Atelier_Nadziei_*, Centrum_Edukacyjne.jpg, Wolontariat_*, Madagaskar_1/2/3.jpg, Adopcja_Serca_chlopiec.jpg
-    ├── partner-*.png
-    └── Statut_*.pdf, Sprawozdanie_*.pdf
+├── index.html, o-nas.html, co-robimy.html, kontakt.html   strony treści
+├── wydarzenia.html, wydarzenie.html, archiwum-wydarzen.html   wydarzenia (CMS)
+├── sprawozdania.html                                       sprawozdania (CMS)
+├── polityka-prywatnosci.html, regulamin-serwisu.html,
+│   regulamin-adopcja-serca.html, oswiadczenie-o-wizerunku.html   dokumenty
+├── newsletter.html, newsletter-zapisano.html              newsletter
+├── dziekujemy.html, platnosc-nieudana.html                strony powrotu z płatności
+├── 404.html                                               strona błędu
+├── robots.txt, sitemap.xml, favicon*, apple-touch-icon.png   SEO / ikony
+├── .htaccess                                              301 www->bez-www, blokady data//secret/
+│
+├── assets/                 CSS + JS (front)
+│   ├── site.css            wspólny arkusz stylów (design tokens w :root)
+│   ├── site-nav.js, site-a11y.js, site-search.js   nawigacja, dostępność, wyszukiwarka
+│   ├── i18n.js             silnik tłumaczeń (podmiana węzłów tekstowych)
+│   ├── i18n-dict.js        słownik PL->EN     (klucz = tekst PL)
+│   ├── i18n-dict-fr.js     słownik PL->FR
+│   ├── darowizna.js        modal darowizny (jednorazowo + „co miesiąc")
+│   ├── secure-form.js      wrapper PayU Secure Form (tokenizacja karty MULTI)
+│   ├── adopcja-form.js     formularz „Zostań rodzicem adopcyjnym"
+│   ├── newsletter.js       modal newslettera
+│   ├── wydarzenia-render.js, wydarzenie-render.js, archiwum-render.js,
+│   │   sprawozdania-render.js   render treści CMS z danych
+│   ├── google-apps-script.gs   backend formularzy (Apps Script) - do wgrania w Google
+│   └── madagaskar.svg      statyczny fallback mapy
+│
+├── payu/                   backend płatności PayU (PHP)
+│   ├── create-order.php    płatność JEDNORAZOWA (hosted redirect)
+│   ├── secure-config.js.php config Secure Form dla frontu (tylko posId/env/sdkUrl)
+│   ├── recurring-first.php  pierwsza płatność cykliczna (FIRST + 3DS, zapis tokena)
+│   ├── cron-charge.php      scheduler kolejnych obciążeń (STANDARD) - uruchamiany cronem
+│   ├── notify.php           notyfikacje serwer-do-serwera (weryfikacja podpisu)
+│   ├── manage.php           link rezygnacji z subskrypcji (token + CSRF)
+│   ├── db.php               warstwa MySQL (subskrypcje, obciążenia)
+│   ├── recurring-lib.php    czysta logika (harmonogram, idempotencja, decyzje)
+│   ├── lib.php              wspólne (OAuth, żądania do PayU, podpis)
+│   ├── mail.php             maile transakcyjne subskrypcji
+│   └── migrate.php          migracja bazy (CLI)
+│
+├── newsletter/             własny double opt-in + MailerLite (PHP)
+│   ├── subscribe.php, confirm.php, lib.php, confirm-email.html
+│
+├── panel/                  panel CMS (PHP, logowanie + CSRF)
+│   ├── index.php, login.php, auth.php, layout.php, lib.php, panel.css
+│   ├── edit.php, save.php, delete.php, upload.php, media.php, categories.php
+│   ├── translate.php, glossary.php    tłumaczenia DeepL + glosariusz
+│   ├── sprawozdania.php, sprawozdania-upload.php, sprawozdania-delete.php
+│   └── subskrypcje.php     podgląd subskrypcji + ręczne anulowanie
+│
+├── events.js.php, sprawozdania.js.php   endpointy emitujące dane CMS na front
+├── media/                  zdjęcia, logo, PDF-y (płaska struktura)
+├── tests/                  run.php (logika CMS), run-recurring.php (logika płatności)
+└── .github/workflows/      deploy.yml (SEO Host), ci.yml (lint + testy)
 ```
-> Uwaga porządkowa: wcześniejsza długa ścieżka logo i foldery `uploads/output`,
-> `uploads/fixed` zostały skonsolidowane do jednego folderu **`media/`**.
 
-## Design tokens (`assets/site.css`, `:root`)
-| Token | Wartość | Rola |
-|---|---|---|
-| `--brown` | `#422918` | nagłówki, tekst, ciemne sekcje, przyciski |
-| `--brownDk` | `#2a1a0e` | stopka, hover |
-| `--gold` | `#c99d66` | akcent: eyebrows, ikony, CTA, podkreślenia |
-| `--cream` | `#faf5ee` | główne tło |
-| `--pinkBeige` | `#efe4dc` | tła kart |
-| `--rule` | `rgba(66,41,24,.12)` | linie/obramowania |
-| `--font-head` | Libre Caslon Text (serif) | nagłówki |
-| `--font-body` | Plus Jakarta Sans | tekst |
+Nie są w repo (żyją tylko na serwerze, poza deployem): katalogi `data/`, `uploads/`
+oraz wszystkie `*/secret/` (patrz „Sekrety i dane").
 
-## DO DOKOŃCZENIA backendowo (główny cel pracy w Claude Code)
+---
 
-### 0. Funkcje frontu już zaimplementowane (kontekst)
-- **Wersja PL/EN/FR** — przełącznik w menu (wyśrodkowane menu, narzędzia po prawej), silnik `assets/i18n.js` (wielojęzyczny) + słowniki `assets/i18n-dict.js` (EN) i `assets/i18n-dict-fr.js` (FR), klucz = tekst PL. Polski jest podstawą; brak wpisu = fallback do PL.
-- **Galeria Madagaskaru** — przycisk na stronie głównej otwiera modal-siatkę (`media/galeria-01..32.jpg`) z lightboxem; pierwsze 3 zdjęcia to też kafelki w sekcji Madagaskar.
-- **Darowizna z preselekcją celu** — przyciski „Wesprzyj Atelier" / „Wesprzyj rozbudowę" (Co robimy) otwierają formularz darowizny z ustawionym celem (`data-cel="atelier"` / `"centrum"` → `darowizna.js`).
-- **Darowizna - cel „Adopcja Serca"**: specjalna logika w `darowizna.js` - zamiast pola kwoty pojawia się selektor LICZBY DZIECI (każde = 70 zł PLN / 18 € EUR, kwota zawsze wielokrotność), typ zablokowany na „co miesiąc" (min. 12 mies.), bez pola „inna kwota". Payload: `{ type:'adopcja-online', recurring:true, amount, currency, dzieci:N, goal:'adopcja', imie, nazwisko, email }`.
-- **Responsywność mobilna** — szuflada (hamburger) z ujednoliconymi ikonami (lupka + FB + PL/EN/FR), zredukowane paddingi kart na ekranach ≤560px.
-- **Zasady redakcyjne** (patrz `CLAUDE.md`): bez długich myślników, „Msza Święta" wielką literą, pełna nazwa „Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)", „Centrum Edukacyjne".
+## Wielojęzyczność (PL / EN / FR)
 
-### 1. Płatności PayU — `assets/darowizna.js` + `assets/adopcja-form.js`
-UI gotowe. Oba wysyłają `POST` na `window.MADA_PAYU_URL` i oczekują `{ redirectUri }`.
-Trzeba dopisać backend serwer-do-serwera (klucz `client_secret` NIE może być w przeglądarce):
-OAuth PayU → OrderCreate → zwrot `redirectUri`. Dla wpłat cyklicznych (Adopcja 70 zł/mies.,
-darowizna „co miesiąc") — PayU recurring/tokenizacja. Ustaw `window.MADA_PAYU_URL`.
-- **Darowizna**: payload `{ amount, currency, recurring, goal, goalLabel, imie, nazwisko, email }`. Dla celu „Adopcja Serca" online: `{ type:'adopcja-online', recurring:true, amount, currency, dzieci:N, goal:'adopcja', ... }` (kwota = N × 70 zł / N × 18 €, zawsze cykliczna).
-- **Adopcja → PayU**: `{ type:'adopcja', recurring:true, amount:70, currency:'PLN', goal:'adopcja', imie, nazwisko, email, telefon, adres, forma, okres }`.
-- **Adopcja → przelew**: idzie do Apps Script (double opt-in), ekran sukcesu pokazuje dane do przelewu.
+Polski jest oryginałem. `assets/i18n.js` po przełączeniu języka podmienia teksty w węzłach DOM
+na podstawie słowników (`i18n-dict.js` = EN, `i18n-dict-fr.js` = FR), gdzie **kluczem jest
+tekst polski**. Brak wpisu = tekst zostaje po polsku (bezpieczny fallback). Wybór języka
+zapamiętywany w `localStorage`, wspólny dla podstron.
 
-### 2. Formularze Adopcja + Kontakt — `assets/google-apps-script.gs`
-Gotowy skrypt (double opt-in dla Adopcji, osobny arkusz dla Kontaktu). Instrukcja w
-`DEPLOY-FORMULARZ.md`. Ustaw `window.MADA_SUBMIT_URL`. E-mail fundacji: **kontakt@misjamada.pl**.
-- **Kontakt** (`kontakt.html`): pola **imię, nazwisko, e-mail, temat, treść** + zgoda RODO.
-  Payload: `{ type:'kontakt', imie, nazwisko, email, temat, tresc }`. Apps Script (`handleKontakt`)
-  wysyła e-mail do fundacji z `Reply-To` = e-mail nadawcy (bez double opt-in).
+---
 
-### 3. Newsletter — `assets/newsletter.js`
-Modal gotowy; podpiąć embed/API MailerLite (plan darmowy).
+## Płatności PayU
 
-### 4. CMS wydarzeń (panel PHP)
-Panel pod `/panel/` (logowanie: konta w `panel/secret/users.php`). Redaktorzy dodają/edytują/usuwają
-wydarzenia oraz galerię (zdjęcia w `uploads/wydarzenia/`, filmy jako linki YouTube/Facebook).
-- **Źródło prawdy:** `data/wydarzenia/<id>.json` (poza repo i deployem; chronione `data/.htaccess`).
-- **Endpoint:** `events.js.php` czyta JSON-y i emituje `window.MADA_EVENTS` + dosypuje tłumaczenia
-  do słowników i18n. Front (index, wydarzenia, wydarzenie, archiwum) renderuje się z tego.
-- **Status z daty:** `dateISO` w przyszłości → „nadchodzące", w przeszłości → „archiwum" (automatycznie).
-- **Wyróżnione:** ręczna flaga `featured` (maks. 1) albo fallback na najbliższe nadchodzące.
-- **Tłumaczenia EN/FR:** DeepL API Free przy zapisie (`panel/secret/deepl-config.php`) + glosariusz terminów.
-- Sekrety i dane (`panel/secret/`, `data/`, `uploads/`) są poza repo i wykluczone z deployu (rsync `--delete`).
+POS produkcyjny **4432411**, sklep `misjamada.pl`. Wszystkie sekrety (OAuth `client_secret`,
+klucz podpisu, dane bazy) są po stronie serwera w `payu/secret/` - nigdy w przeglądarce.
 
-### 5. Sprawozdania (CMS) — `panel/sprawozdania.php`
-Drugi typ treści obok wydarzeń (ten sam wzorzec). Redaktorzy wgrywają PDF-y sprawozdań
-finansowych i merytorycznych za kolejne lata; pojawiają się na podstronie `sprawozdania.html`
-i jako „Najnowszy rok" na kaflach `o-nas.html`.
-- **Źródło prawdy:** `data/sprawozdania.json` (poza repo/deployem). Endpoint `sprawozdania.js.php`
-  → `window.MADA_SPRAWOZDANIA`; render w `assets/sprawozdania-render.js`.
-- PDF-y nowe: `uploads/sprawozdania/` (upload waliduje `application/pdf`, limit 20 MB).
-  Wpisy 2024 seedują się z istniejących `media/Sprawozdanie_*.pdf` (bez przenoszenia plików).
+### Jednorazowe (live)
+`payu/create-order.php`: walidacja -> OAuth -> OrderCreate -> zwrot `redirectUri`.
+Karta wpisywana **na stronie PayU** (hosted redirect), 3DS automatyczne, zero danych karty
+u nas. Status potwierdza `payu/notify.php` (weryfikacja podpisu).
+
+### Cykliczne (etap 6, live)
+Model recurring PayU z tokenizacją karty (Secure Form):
+
+1. **Pobranie karty** - `assets/secure-form.js` renderuje Secure Form (SDK PayU w iframe)
+   i tokenizuje kartę jako **MULTI**.
+2. **Pierwsza płatność** - `payu/recurring-first.php` tworzy zamówienie `recurring=FIRST`
+   z wymuszonym **3DS (challenge MANDATE)**. Token wielorazowy `TOKC_` i maska karty
+   przychodzą w **synchronicznej odpowiedzi** i są zapisywane na subskrypcji.
+3. **Aktywacja** - po notyfikacji `COMPLETED` (`payu/notify.php`) subskrypcja przechodzi
+   w stan `active`, idzie mail powitalny, ustawiany jest termin kolejnego obciążenia.
+4. **Kolejne obciążenia** - `payu/cron-charge.php` (cron, raz dziennie) obciąża token
+   w trybie `recurring=STANDARD` (serwer-do-serwera, bez 3DS). Idempotencja przez
+   `extOrderId` + tabela `charges`; ponowienia po odmowie: max 1x/dobę, do 3 prób.
+   Przy nieznanym wyniku (timeout) subskrypcja jest wstrzymywana zamiast ponawiania
+   (ochrona przed podwójnym obciążeniem).
+5. **Rezygnacja** - link z tokenem (`payu/manage.php`) w każdym mailu, oraz ręcznie
+   w panelu (`panel/subskrypcje.php`).
+
+> **Wymóg produkcyjny:** obciążenia STANDARD działają tylko, gdy na serwerze jest ustawiony
+> **cron** na `payu/cron-charge.php` (codziennie ~05:00). Bez crona pierwsza płatność przejdzie,
+> ale kolejne miesiące się nie naliczą.
+
+Baza MySQL zakłada się sama przy pierwszym użyciu (`payu/db.php`, idempotentna migracja).
+
+---
+
+## Newsletter
+
+`newsletter/` - własny double opt-in (zapis -> mail z potwierdzeniem -> dopisanie do listy),
+zintegrowany z MailerLite. Modal na froncie: `assets/newsletter.js`.
+
+## Formularze (kontakt, adopcja)
+
+`assets/adopcja-form.js` i formularz kontaktowy wysyłają dane do backendu w Google Apps Script
+(`assets/google-apps-script.gs`) - kontakt: mail do fundacji z `Reply-To`; adopcja przez przelew:
+double opt-in + dane do przelewu na ekranie sukcesu. E-mail fundacji: `kontakt@misjamada.pl`.
+
+## Panel CMS
+
+Pod `/panel/` (logowanie: konta imienne w `panel/secret/users.php`, sesje + CSRF + throttling).
+Redaktorzy zarządzają dwoma typami treści:
+
+- **Wydarzenia** - źródło prawdy `data/wydarzenia/<id>.json`; endpoint `events.js.php` emituje
+  `window.MADA_EVENTS`; status (nadchodzące/archiwum) liczony z daty; zdjęcia do `uploads/`,
+  filmy jako linki YouTube/Facebook; tłumaczenia EN/FR przez DeepL przy zapisie + glosariusz.
+- **Sprawozdania** - `data/sprawozdania.json`; PDF-y do `uploads/sprawozdania/`; render na
+  `sprawozdania.html` i kaflach `o-nas.html`.
+- **Subskrypcje** - podgląd płatności cyklicznych + ręczne anulowanie.
+
+---
+
+## Rozwój lokalny
+
+Wymagany PHP 8. Serwis to zwykłe pliki - wystarczy serwer PHP:
+
+```bash
+php -S 127.0.0.1:8099        # w katalogu repo, potem http://127.0.0.1:8099/index.html
+```
+
+Backend PayU/panel wymaga lokalnie plików `*/secret/` (config bazy, PayU, DeepL) - na czysto
+front i logika renderują się bez nich (endpointy zwrócą błąd konfiguracji, co jest oczekiwane).
 
 ## Testy i CI
-- **Testy logiki CMS:** `php tests/run.php` — minimalny runner bez zależności; sprawdza czyste
-  funkcje z `panel/lib.php` (slug, walidacja id/typu/roku, status z daty, seed i sort sprawozdań,
-  ochrona usuwania plików). Działa w katalogu tymczasowym — nie rusza realnych danych.
-- **CI:** `.github/workflows/ci.yml` przy każdym pushu/PR robi `php -l` na wszystkich `.php`,
-  sprawdza składnię `assets/*.js` i uruchamia testy. Niezależne od deployu; `tests/` nie idzie na produkcję.
 
-## Dane fundacji (zachować)
-- Fundacja Misja MADA · ul. Szosa Chełmińska 271A, 87-100 Toruń
-- kontakt@misjamada.pl · tel. 604 181 301 / 690 623 252 · domena docelowa: misjamada.pl
+```bash
+php tests/run.php             # czysta logika panelu CMS (slug, walidacje, sprawozdania)
+php tests/run-recurring.php   # czysta logika płatności cyklicznych (harmonogram, idempotencja,
+                              # ekstrakcja tokena, decyzja o obciążeniu)
+```
+
+CI (`.github/workflows/ci.yml`) przy każdym pushu/PR: `php -l` na wszystkich `.php`,
+`node --check` na `assets/*.js`, oraz oba runnery testów. Niezależne od deployu;
+`tests/` nie trafia na produkcję.
+
+## Sekrety i dane (poza repo)
+
+Nigdy nie ma ich w repo ani w deployu; muszą istnieć na serwerze:
+
+- `payu/secret/` - `db-config.php` (baza), config PayU (client_id/secret, klucz podpisu).
+- `newsletter/secret/`, `panel/secret/` - konfiguracja newslettera; `users.php` (hasła redaktorek),
+  `deepl-config.php` (klucz DeepL).
+- `data/` - treść CMS (wydarzenia, sprawozdania). `uploads/` - wgrane zdjęcia i PDF-y.
+
+Dostęp do `data/` i `*/secret/` z weba jest zablokowany (`.htaccess` w repo + na serwerze),
+a pliki `*.log`/`*.sql` odmawiane. **Uwaga:** `data/` i `uploads/` żyją tylko na serwerze -
+warto je okresowo backupować (DirectAdmin / backup hostingu).
+
+---
+
+## Dane fundacji
+
+- **Fundacja Misja MADA**, ul. Szosa Chełmińska 271A, 87-100 Toruń
+- `kontakt@misjamada.pl` · tel. 604 181 301 / 690 623 252 · [misjamada.pl](https://misjamada.pl)
 - KRS 0001099359 · NIP 9562392375 · REGON 528347054
-- Konta: PLN 70 1090 1056 0000 0001 5832 5871 · EUR 49 1090 1056 0000 0001 6067 9663 · GBP 34 1090 1056 0000 0001 6645 4246
+- Konta: PLN `70 1090 1056 0000 0001 5832 5871` · EUR `PL49 1090 1056 0000 0001 6067 9663`
+  · GBP `PL34 1090 1056 0000 0001 6645 4246` (bank: Erste Bank Polska S.A., SWIFT WBKPPLPP)
 - Facebook: facebook.com/MisjaMADA
-- Partnerzy: Pallotyńska Fundacja Misyjna Salvatti, Stowarzyszenie MISEVI Polska, Siostry Małe Misjonarki Miłosierdzia (Orionistki)
+- Partnerzy: Pallotyńska Fundacja Misyjna Salvatti, Stowarzyszenie MISEVI Polska,
+  Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)
 
-## Podgląd
-Zrzuty kluczowych stron w folderze `screenshots/`.
+## Konwencje redakcyjne
+
+Bez długich myślników (tylko `-`), „Msza Święta" wielką literą, pełna nazwa
+„Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)", „Centrum Edukacyjne".
+Autor witryny: [tomaszkwietniewski.pl](https://tomaszkwietniewski.pl).
