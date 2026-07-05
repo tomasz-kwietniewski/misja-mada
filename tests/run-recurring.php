@@ -39,10 +39,10 @@ eq(mada_sub_expiry_date('2026-01-31'), '2027-01-28', 'expiry: 31 sty -> 28 sty n
 eq(mada_sub_expiry_date('2026-06-20', 6), '2026-12-20', 'expiry: +6 mies.');
 
 // ── ext_order_id: idempotencja ─────────────────────────────────
-eq(mada_sub_ext_order_id(42, '202606'),    'mada_sub42_202606',    'ext_order_id: pierwsza próba');
-eq(mada_sub_ext_order_id(42, '202606', 1), 'mada_sub42_202606',    'ext_order_id: attempt=1 bez sufiksu');
-eq(mada_sub_ext_order_id(42, '202606', 2), 'mada_sub42_202606_r2', 'ext_order_id: ponowienie ma sufiks _r2');
-eq(mada_sub_ext_order_id(7,  '202612', 3), 'mada_sub7_202612_r3',  'ext_order_id: inna sub/okres/próba');
+eq(mada_sub_ext_order_id(42, '202606'),    'mada548242_202606',    'ext_order_id: pierwsza próba (publicId = 42+offset)');
+eq(mada_sub_ext_order_id(42, '202606', 1), 'mada548242_202606',    'ext_order_id: attempt=1 bez sufiksu');
+eq(mada_sub_ext_order_id(42, '202606', 2), 'mada548242_202606_r2', 'ext_order_id: ponowienie ma sufiks _r2');
+eq(mada_sub_ext_order_id(7,  '202612', 3), 'mada548207_202612_r3', 'ext_order_id: inna sub/okres/próba');
 ok(mada_sub_ext_order_id(1,'202601') !== mada_sub_ext_order_id(1,'202602'), 'ext_order_id: różne okresy != ');
 
 // ── retry: max 1x/dzień, max 3 próby ───────────────────────────
@@ -71,16 +71,17 @@ eq(mada_sub_description('Darowizna', 12550, 'PLN', '2027-01-10'),
    'description: grosze zachowane');
 
 // ── first_ext_order_id + klasyfikacja extOrderId (dla notyfikacji) ──
-eq(mada_sub_first_ext_order_id(42), 'mada_first42', 'first_ext: format');
-$cf = mada_sub_classify_ext('mada_first42');
+eq(mada_sub_first_ext_order_id(42), 'mada548242', 'first_ext: format (publicId = 42+offset, maskuje surowe id)');
+// klasyfikacja karmiona wyjściem generatorów (odporna na zmianę offsetu)
+$cf = mada_sub_classify_ext(mada_sub_first_ext_order_id(42));
 eq($cf['type'], 'first', 'classify: FIRST typ');
-eq($cf['subId'], 42, 'classify: FIRST subId');
-$cs = mada_sub_classify_ext('mada_sub7_202606');
+eq($cf['subId'], 42, 'classify: FIRST subId (odwrócony z publicId)');
+$cs = mada_sub_classify_ext(mada_sub_ext_order_id(7, '202606'));
 eq($cs['type'], 'standard', 'classify: STANDARD typ');
 eq($cs['subId'], 7, 'classify: STANDARD subId');
 eq($cs['period'], '202606', 'classify: STANDARD period');
 eq($cs['attempt'], 1, 'classify: STANDARD attempt domyslny 1');
-$cr = mada_sub_classify_ext('mada_sub7_202606_r3');
+$cr = mada_sub_classify_ext(mada_sub_ext_order_id(7, '202606', 3));
 eq($cr['attempt'], 3, 'classify: STANDARD ponowienie attempt=3');
 $co = mada_sub_classify_ext('mada_5f3a9b');
 eq($co['type'], 'other', 'classify: jednorazowe -> other');
@@ -89,6 +90,14 @@ eq($co['subId'], null, 'classify: other subId null');
 $rt = mada_sub_classify_ext(mada_sub_ext_order_id(99, '202701', 2));
 eq($rt['subId'], 99, 'classify round-trip: subId');
 eq($rt['attempt'], 2, 'classify round-trip: attempt');
+// wsteczna zgodność: stary format (mada_first{id} / mada_sub{id}_...) nadal rozpoznawany
+$obc = mada_sub_classify_ext('mada_first1');
+eq($obc['type'], 'first', 'classify back-compat: stary FIRST typ');
+eq($obc['subId'], 1, 'classify back-compat: stary FIRST subId (bez offsetu)');
+$obs = mada_sub_classify_ext('mada_sub7_202606_r3');
+eq($obs['type'], 'standard', 'classify back-compat: stary STANDARD typ');
+eq($obs['subId'], 7, 'classify back-compat: stary STANDARD subId');
+eq($obs['attempt'], 3, 'classify back-compat: stary STANDARD attempt');
 
 // ── ekstrakcja tokena TOKC_ + maski z odpowiedzi PayU ──────────
 $resp = ['payMethods' => ['payMethod' => [

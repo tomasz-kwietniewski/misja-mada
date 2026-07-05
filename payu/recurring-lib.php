@@ -47,11 +47,22 @@ function mada_sub_expiry_date(string $startDate, int $minMonths = 12): string {
 }
 
 /**
+ * Publiczny numer subskrypcji w extOrderId = subId + stały offset. Widoczny jest
+ * w mailu PayU jako „numer zlecenia"; sam offset ukrywa niską, kolejną liczbę
+ * (np. „1" = pierwszy darczyńca). Odwracalny - notyfikacje wciąż trafiają do
+ * właściwej subskrypcji. Offset to tylko zaciemnienie kosmetyczne, NIE zabezpieczenie.
+ */
+function mada_sub_id_offset(): int { return 548200; }
+function mada_sub_public_id(int $subId): int { return $subId + mada_sub_id_offset(); }
+function mada_sub_id_from_public(int $publicId): int { return $publicId - mada_sub_id_offset(); }
+
+/**
  * Klucz idempotencji obciążenia - unikalny w obrębie POS (PayU odrzuca duplikat
- * extOrderId). Format: mada_sub{id}_{RRRRMM} (+ _r{n} przy ponowieniu > 1).
+ * extOrderId). Format: mada{publicId}_{RRRRMM} (+ _r{n} przy ponowieniu > 1),
+ * gdzie publicId = subId + offset (patrz mada_sub_public_id).
  */
 function mada_sub_ext_order_id(int $subId, string $period, int $attempt = 1): string {
-    $base = 'mada_sub' . $subId . '_' . $period;
+    $base = 'mada' . mada_sub_public_id($subId) . '_' . $period;
     return $attempt > 1 ? $base . '_r' . $attempt : $base;
 }
 
@@ -93,16 +104,28 @@ function mada_sub_description(string $goalLabel, int $amountGrosze, string $curr
     return sprintf('%s, %s %s/mies., obciążenie co miesiąc do %s', $goalLabel, $amount, $currency, $expiry);
 }
 
-/** Klucz idempotencji PIERWSZEJ płatności (FIRST) - unikalny w obrębie POS. */
+/** Klucz idempotencji PIERWSZEJ płatności (FIRST) - unikalny w obrębie POS. Format: mada{publicId}. */
 function mada_sub_first_ext_order_id(int $subId): string {
-    return 'mada_first' . $subId;
+    return 'mada' . mada_sub_public_id($subId);
 }
 
 /**
  * Rozpoznaje typ zamówienia po extOrderId z notyfikacji PayU.
  * Zwraca ['type' => 'first'|'standard'|'other', 'subId' => ?int, 'period' => ?string, 'attempt' => int].
+ * Rozpoznaje format bieżący (mada{publicId}[...]) ORAZ - dla wstecznej zgodności -
+ * stary (mada_first{id} / mada_sub{id}_...), by nie zgubić notyfikacji subskrypcji
+ * założonych przed zmianą numeracji.
  */
 function mada_sub_classify_ext(string $ext): array {
+    // Bieżący format: publicId = subId + offset (odwracany do subId).
+    if (preg_match('/^mada(\d+)$/', $ext, $m)) {
+        return ['type' => 'first', 'subId' => mada_sub_id_from_public((int) $m[1]), 'period' => null, 'attempt' => 1];
+    }
+    if (preg_match('/^mada(\d+)_(\d{6})(?:_r(\d+))?$/', $ext, $m)) {
+        return ['type' => 'standard', 'subId' => mada_sub_id_from_public((int) $m[1]), 'period' => $m[2],
+                'attempt' => isset($m[3]) ? (int) $m[3] : 1];
+    }
+    // Wsteczna zgodność: stary format bez offsetu (surowy subId).
     if (preg_match('/^mada_first(\d+)$/', $ext, $m)) {
         return ['type' => 'first', 'subId' => (int) $m[1], 'period' => null, 'attempt' => 1];
     }
