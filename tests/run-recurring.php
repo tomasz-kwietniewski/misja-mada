@@ -70,6 +70,41 @@ eq(mada_sub_description('Darowizna', 12550, 'PLN', '2027-01-10'),
    'Darowizna, 125.50 PLN/mies., obciążenie co miesiąc do 2027-01-10',
    'description: grosze zachowane');
 
+// ── first_ext_order_id + klasyfikacja extOrderId (dla notyfikacji) ──
+eq(mada_sub_first_ext_order_id(42), 'mada_first42', 'first_ext: format');
+$cf = mada_sub_classify_ext('mada_first42');
+eq($cf['type'], 'first', 'classify: FIRST typ');
+eq($cf['subId'], 42, 'classify: FIRST subId');
+$cs = mada_sub_classify_ext('mada_sub7_202606');
+eq($cs['type'], 'standard', 'classify: STANDARD typ');
+eq($cs['subId'], 7, 'classify: STANDARD subId');
+eq($cs['period'], '202606', 'classify: STANDARD period');
+eq($cs['attempt'], 1, 'classify: STANDARD attempt domyslny 1');
+$cr = mada_sub_classify_ext('mada_sub7_202606_r3');
+eq($cr['attempt'], 3, 'classify: STANDARD ponowienie attempt=3');
+$co = mada_sub_classify_ext('mada_5f3a9b');
+eq($co['type'], 'other', 'classify: jednorazowe -> other');
+eq($co['subId'], null, 'classify: other subId null');
+// round-trip: ext_order_id -> classify
+$rt = mada_sub_classify_ext(mada_sub_ext_order_id(99, '202701', 2));
+eq($rt['subId'], 99, 'classify round-trip: subId');
+eq($rt['attempt'], 2, 'classify round-trip: attempt');
+
+// ── ekstrakcja tokena TOKC_ + maski z odpowiedzi PayU ──────────
+$resp = ['payMethods' => ['payMethod' => [
+    'card' => ['number' => '424242******4242', 'expirationMonth' => '12', 'expirationYear' => '2030'],
+    'type' => 'CARD_TOKEN', 'value' => 'TOKC_KPNZVSLJUNR4DHF5NPVKDPJGMX7',
+]]];
+$ext = mada_sub_extract_token($resp);
+eq($ext['token'], 'TOKC_KPNZVSLJUNR4DHF5NPVKDPJGMX7', 'extract: token TOKC_');
+eq($ext['mask'],  '424242******4242', 'extract: maska karty');
+// zagniezdzone w orders[] (pobranie zamowienia)
+$nested = ['orders' => [['payMethod' => ['card' => ['number' => '555544******1111'], 'value' => 'TOKC_ABC123']]]];
+eq(mada_sub_extract_token($nested)['token'], 'TOKC_ABC123', 'extract: token z orders[]');
+// brak tokena (np. jednorazowy TOK_) -> null
+ok(mada_sub_extract_token(['payMethods' => ['payMethod' => ['value' => 'TOK_oneuse']]]) === null, 'extract: brak TOKC_ -> null');
+ok(mada_sub_extract_token([]) === null, 'extract: pusta odpowiedz -> null');
+
 // ── manage_token: 64 hex, losowy ───────────────────────────────
 $tok = mada_sub_gen_manage_token();
 ok(strlen($tok) === 64, 'manage_token: długość 64');

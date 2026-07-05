@@ -93,6 +93,47 @@ function mada_sub_description(string $goalLabel, int $amountGrosze, string $curr
     return sprintf('%s, %s %s/mies., obciążenie co miesiąc do %s', $goalLabel, $amount, $currency, $expiry);
 }
 
+/** Klucz idempotencji PIERWSZEJ płatności (FIRST) - unikalny w obrębie POS. */
+function mada_sub_first_ext_order_id(int $subId): string {
+    return 'mada_first' . $subId;
+}
+
+/**
+ * Rozpoznaje typ zamówienia po extOrderId z notyfikacji PayU.
+ * Zwraca ['type' => 'first'|'standard'|'other', 'subId' => ?int, 'period' => ?string, 'attempt' => int].
+ */
+function mada_sub_classify_ext(string $ext): array {
+    if (preg_match('/^mada_first(\d+)$/', $ext, $m)) {
+        return ['type' => 'first', 'subId' => (int) $m[1], 'period' => null, 'attempt' => 1];
+    }
+    if (preg_match('/^mada_sub(\d+)_(\d{6})(?:_r(\d+))?$/', $ext, $m)) {
+        return ['type' => 'standard', 'subId' => (int) $m[1], 'period' => $m[2],
+                'attempt' => isset($m[3]) ? (int) $m[3] : 1];
+    }
+    return ['type' => 'other', 'subId' => null, 'period' => null, 'attempt' => 1];
+}
+
+/**
+ * Wyłuskuje token wielokrotny (TOKC_) i zamaskowany numer karty z odpowiedzi PayU
+ * (synchronicznej lub z pobranego zamówienia). Przeszukuje strukturę rekurencyjnie,
+ * bo PayU umieszcza je w różnych miejscach (payMethods.payMethod / orders[].payMethod).
+ * Zwraca ['token' => 'TOKC_...', 'mask' => '4444...1111'|null] albo null, gdy brak.
+ */
+function mada_sub_extract_token(array $data): ?array {
+    $token = null;
+    $mask  = null;
+    $walk = function ($node) use (&$walk, &$token, &$mask) {
+        if (is_array($node)) {
+            foreach ($node as $v) $walk($v);
+        } elseif (is_string($node)) {
+            if ($token === null && strncmp($node, 'TOKC_', 5) === 0) $token = $node;
+            if ($mask === null && preg_match('/^\d{4,6}\*+\d{2,4}$/', $node))  $mask  = $node;
+        }
+    };
+    $walk($data);
+    return $token === null ? null : ['token' => $token, 'mask' => $mask];
+}
+
 /** Token do linku zarządzania/anulowania subskrypcji (losowy, 64 hex). */
 function mada_sub_gen_manage_token(): string {
     return bin2hex(random_bytes(32));

@@ -123,6 +123,70 @@ function payu_verify_signature($rawBody, $signatureHeader) {
     return hash_equals($expected, strtolower($parts['signature']));
 }
 
+/**
+ * Wysyła OrderCreate i zwraca SUROWĄ odpowiedź (bez wymogu redirectUri).
+ * Do płatności cyklicznych: FIRST (token jednorazowy) i STANDARD (token TOKC_),
+ * gdzie SUCCESS nie ma redirectUri, a może wystąpić WARNING_CONTINUE_3DS/CVV.
+ * Zwraca ['http' => int, 'statusCode' => string, 'data' => array].
+ * (payu_create_order() zostaje dla płatności jednorazowych - wymaga redirectUri.)
+ */
+function payu_order_request(array $order, $token) {
+    $ch = curl_init(PAYU_BASE . '/api/v2_1/orders');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_POSTFIELDS => json_encode($order, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $token,
+        ],
+    ]);
+    $res  = curl_exec($ch);
+    $err  = curl_error($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($res === false) throw new Exception('OrderCreate - blad polaczenia: ' . $err);
+    $data = json_decode($res, true);
+    if (!is_array($data)) {
+        throw new Exception('OrderCreate - nieprawidlowa odpowiedz (HTTP ' . $code . '): ' . $res);
+    }
+    return [
+        'http'       => $code,
+        'statusCode' => isset($data['status']['statusCode']) ? $data['status']['statusCode'] : '',
+        'data'       => $data,
+    ];
+}
+
+/**
+ * Pobiera zamówienie (GET /orders/{id}) - BEZ body (RFC: body w GET -> 403).
+ * Używane do odebrania tokena TOKC_ po płatności FIRST przechodzącej przez 3DS.
+ * Zwraca tablicę dekodowanej odpowiedzi (m.in. `orders`).
+ */
+function payu_get_order($orderId, $token) {
+    $ch = curl_init(PAYU_BASE . '/api/v2_1/orders/' . rawurlencode($orderId));
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPGET => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+    ]);
+    $res  = curl_exec($ch);
+    $err  = curl_error($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($res === false) throw new Exception('GetOrder - blad polaczenia: ' . $err);
+    $data = json_decode($res, true);
+    if (!is_array($data)) {
+        throw new Exception('GetOrder - nieprawidlowa odpowiedz (HTTP ' . $code . '): ' . $res);
+    }
+    return $data;
+}
+
 /** IP klienta (uwzględnia proxy/LiteSpeed). */
 function payu_client_ip() {
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
