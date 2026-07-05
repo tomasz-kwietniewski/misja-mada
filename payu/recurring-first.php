@@ -146,19 +146,27 @@ try {
         payu_sub_set_first_order($subId, $payuOrderId);
     }
 
+    // Token wielorazowy (TOKC_) i maska karty przychodzą w SYNCHRONICZNEJ odpowiedzi na
+    // utworzenie zamówienia (payMethods.payMethod), TAKŻE przy WARNING_CONTINUE_3DS -
+    // czyli PRZED zakończeniem 3DS. Zapisujemy je od razu na subskrypcji; sama aktywacja
+    // (status=active) nastąpi dopiero po notyfikacji COMPLETED (notify.php). Bez tego kroku
+    // przy płatności z 3DS token przepadał i notify.php nie miał czym aktywować.
+    $tok = mada_sub_extract_token($resp['data']);
+    if ($tok) {
+        payu_sub_set_card($subId, $tok['token'], (string)($tok['mask'] ?? ''));
+    }
+
     if ($sc === 'SUCCESS') {
-        // Tokenizacja od razu (bez 3DS) - aktywuj subskrypcję
-        $tok = mada_sub_extract_token($resp['data']);
+        // Płatność opłacona od razu (bez 3DS) - aktywuj subskrypcję natychmiast.
         if ($tok && payu_sub_activate($subId, $tok['token'], (string)($tok['mask'] ?? ''), $payuOrderId, $nextCharge)) {
             $fresh = payu_sub_get($subId);
             if ($fresh) { mada_mail_welcome($fresh); mada_mail_foundation($fresh, 'nowa'); }
         }
-        // Jeśli token nie przyszedł synchronicznie - dojdzie notyfikacją (notify.php).
         payu_json(['status' => 'active']);
     }
 
     if ($sc === 'WARNING_CONTINUE_3DS' && !empty($resp['data']['redirectUri'])) {
-        // Płatnik przechodzi 3DS; aktywacja po notyfikacji COMPLETED.
+        // Płatnik przechodzi 3DS; token już zapisany, aktywacja po notyfikacji COMPLETED.
         payu_json(['redirectUri' => $resp['data']['redirectUri']]);
     }
 

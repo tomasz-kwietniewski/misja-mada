@@ -182,6 +182,18 @@ function payu_sub_set_first_order(int $id, string $payuOrderId): void {
     $st->execute([$payuOrderId, $id]);
 }
 
+/**
+ * Zapisuje token wielorazowy (TOKC_) i maskę karty BEZ zmiany statusu.
+ * Token przychodzi w SYNCHRONICZNEJ odpowiedzi na utworzenie zamówienia FIRST
+ * (także przy 3DS/WARNING_CONTINUE_3DS), więc zapisujemy go od razu; sama aktywacja
+ * (status=active) następuje dopiero po notyfikacji COMPLETED. Nadpisuje tylko gdy jest token.
+ */
+function payu_sub_set_card(int $id, string $cardToken, string $cardMask): void {
+    if ($cardToken === '') return;
+    $st = payu_db()->prepare('UPDATE subscriptions SET card_token=?, card_mask=? WHERE id=?');
+    $st->execute([$cardToken, $cardMask, $id]);
+}
+
 /** Lista subskrypcji do panelu (najnowsze pierwsze). */
 function payu_sub_list(int $limit = 500): array {
     $limit = max(1, min(2000, $limit));
