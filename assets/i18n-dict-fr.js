@@ -169,6 +169,7 @@ window.MADA_I18N_FR = {
   "Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki)": "Petites Sœurs Missionnaires de la Charité (Sœurs Orionistes)",
   "© 2026 Fundacja Misja MADA · Wszelkie prawa zastrzeżone": "© 2026 Fondation Misja MADA · Tous droits réservés",
   "Toruń · Itaosy · Antananarywa": "Toruń · Itaosy · Antananarivo",
+  "Autor witryny:": "Site réalisé par :",
   "Szukaj na stronie": "Rechercher sur le site",
   "Facebook Fundacji": "Facebook de la Fondation",
   "Kopiuj numer konta PLN": "Copier le numéro de compte PLN",
