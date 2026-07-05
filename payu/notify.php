@@ -53,18 +53,25 @@ $cls = mada_sub_classify_ext($extOrderId);
 
 try {
     if ($cls['type'] === 'first' && $status === 'COMPLETED') {
-        // Pierwsza płatność zakończona (po 3DS) -> odbierz token TOKC_ i aktywuj.
+        // Pierwsza płatność zakończona (po 3DS) -> aktywuj subskrypcję.
         $sub = payu_sub_get((int) $cls['subId']);
         if ($sub && $sub['status'] === 'pending_first') {
-            $tok = mada_sub_extract_token($data);
-            if (!$tok && $payuOrderId) {
-                // Token nie przyszedł w notyfikacji - pobierz zamówienie.
-                $full = payu_get_order($payuOrderId, payu_get_token());
-                $tok  = mada_sub_extract_token($full);
+            // Token wielorazowy zapisaliśmy już przy tworzeniu zamówienia (synchroniczna
+            // odpowiedź PayU, recurring-first.php). To jest źródło prawdy - tu go tylko używamy.
+            $cardToken = (string) ($sub['card_token'] ?? '');
+            $cardMask  = (string) ($sub['card_mask'] ?? '');
+            // Fallback (starsze subskrypcje / brak zapisu): spróbuj z notyfikacji, potem z GET order.
+            if ($cardToken === '') {
+                $tok = mada_sub_extract_token($data);
+                if (!$tok && $payuOrderId) {
+                    $full = payu_get_order($payuOrderId, payu_get_token());
+                    $tok  = mada_sub_extract_token($full);
+                }
+                if ($tok) { $cardToken = $tok['token']; $cardMask = (string)($tok['mask'] ?? ''); }
             }
-            if ($tok) {
+            if ($cardToken !== '') {
                 $activated = payu_sub_activate(
-                    (int) $sub['id'], $tok['token'], (string)($tok['mask'] ?? ''),
+                    (int) $sub['id'], $cardToken, $cardMask,
                     $payuOrderId, $sub['next_charge_at']
                 );
                 if ($activated) {
