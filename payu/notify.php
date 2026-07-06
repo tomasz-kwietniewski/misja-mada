@@ -8,6 +8,7 @@ require __DIR__ . '/lib.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
+require __DIR__ . '/sheet.php';
 
 $raw = file_get_contents('php://input');
 
@@ -78,6 +79,23 @@ try {
                     $fresh = payu_sub_get((int) $sub['id']);
                     mada_mail_welcome($fresh);
                     mada_mail_foundation($fresh, 'nowa');
+                    // Adopcja przez karte z 3DS - dane adopcyjne zapisane efemerycznie przy zakladaniu subskrypcji.
+                    $adf = __DIR__ . '/../data/adopcja-card-pending/' . (int)$sub['id'] . '.json';
+                    if (is_readable($adf)) {
+                        $ad = json_decode((string) @file_get_contents($adf), true);
+                        if (is_array($ad)) {
+                            mada_sheet_post(array_merge(['type' => 'adopcja', 'status' => 'oplacone-PayU'], [
+                                'imie' => $ad['imie'] ?? '', 'nazwisko' => $ad['nazwisko'] ?? '', 'email' => $ad['email'] ?? '',
+                                'telefon' => $ad['telefon'] ?? '', 'adres' => $ad['adres'] ?? '', 'forma' => $ad['forma'] ?? '',
+                                'okres' => $ad['okres'] ?? '', 'dzieci' => $ad['dzieci'] ?? '',
+                                'zgoda_wizerunek' => !empty($ad['wizerunek']) ? 'TAK' : '', 'newsletter' => !empty($ad['newsletter']) ? 'TAK' : '',
+                            ]));
+                            if (!empty($ad['newsletter'])) {
+                                mada_newsletter_add_verified($ad['email'] ?? '', $ad['imie'] ?? '');
+                            }
+                            @unlink($adf);
+                        }
+                    }
                 }
             } else {
                 error_log('[PayU notify] FIRST sub=' . $cls['subId'] . ' COMPLETED bez tokena TOKC_.');
@@ -88,6 +106,29 @@ try {
         $chargeStatus = $status === 'COMPLETED' ? 'completed'
                       : (($status === 'CANCELED') ? 'failed' : 'pending');
         payu_charge_mark($extOrderId, $chargeStatus, $payuOrderId);
+    } elseif (mada_donation_is_ext($extOrderId) && $status === 'COMPLETED') {
+        // Jednorazowa darowizna OPŁACONA -> zaloguj do arkusza „Darowizny" + powiadom fundację.
+        // Idempotencja: rekord pending kasujemy po zapisie; brak pliku = już przetworzone (PayU ponawia).
+        $pf = __DIR__ . '/../data/donation-pending/' . preg_replace('/[^a-z0-9]/i', '', $extOrderId) . '.json';
+        if (is_readable($pf)) {
+            $rec = json_decode((string) @file_get_contents($pf), true);
+            if (is_array($rec)) {
+                $amountPln = isset($order['totalAmount']) ? number_format(((int) $order['totalAmount']) / 100, 2, '.', '') : ($rec['amount'] ?? '');
+                $ok = mada_sheet_post([
+                    'type'        => 'darowizna',
+                    'imie'        => $rec['imie'] ?? '',
+                    'nazwisko'    => $rec['nazwisko'] ?? '',
+                    'email'       => $rec['email'] ?? '',
+                    'goal'        => $rec['goal'] ?? '',
+                    'goalLabel'   => $rec['goalLabel'] ?? '',
+                    'amount'      => $rec['amount'] ?? $amountPln,
+                    'currency'    => $rec['currency'] ?? (isset($order['currencyCode']) ? $order['currencyCode'] : 'PLN'),
+                    'extOrderId'  => $extOrderId,
+                    'payuOrderId' => $payuOrderId,
+                ]);
+                if ($ok) { @unlink($pf); }
+            }
+        }
     }
 } catch (Throwable $e) {
     // Nie blokujemy odpowiedzi 200 - błąd logujemy, PayU i tak ponowi przy potrzebie.

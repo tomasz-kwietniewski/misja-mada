@@ -162,7 +162,9 @@
           <span class="dar-eyebrow">Wesprzyj nas</span>
           <h2 id="dar-title">Przekaż darowiznę</h2>
 
-          <div class="dar-field">
+          <!-- Wybór waluty ukryty do czasu uruchomienia EUR (na razie tylko PLN).
+               Przywrócenie: usuń style="display:none". Logika EUR nietknięta. -->
+          <div class="dar-field" style="display:none;">
             <label class="dar-label">Waluta</label>
             <div class="dar-seg" data-group="waluta">
               <button type="button" class="${cur==='PLN'?'is-active':''}" data-val="PLN">PLN</button>
@@ -253,6 +255,17 @@
       }));
 
       modal.querySelector('#dar-next').addEventListener('click', () => {
+        // Cel „Adopcja Serca" ma własny pełny formularz (dane adopcyjne + forma + zgody).
+        // Zamiast skróconego kroku 2 - przełącz na modal „Zostań rodzicem adopcyjnym"
+        // z przeniesioną liczbą dzieci; komplet danych spływa tam w jedno miejsce.
+        if (isAdopcja()) {
+          if (window.MadaAdopcja && typeof window.MadaAdopcja.open === 'function') {
+            close();
+            window.MadaAdopcja.open({ dzieci: state.dzieci });
+            return;
+          }
+          // Fallback (skrypt adopcji niezaładowany): zostaw dotychczasowy krok 2.
+        }
         const amt = kwotaAktualna();
         if (!amt || amt < 1) { alert('Podaj prawidłową kwotę darowizny.'); return; }
         renderStep2();

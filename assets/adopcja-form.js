@@ -4,6 +4,20 @@
 (function () {
   'use strict';
 
+  // Ładuje moduł Secure Form (assets/secure-form.js) na żądanie - raz.
+  function loadSecureFormLib() {
+    if (window.MadaSecureForm) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = '/assets/secure-form.js'; s.async = true;
+      s.onload = function () { res(); };
+      s.onerror = function () { rej(new Error('Nie udało się załadować modułu płatności cyklicznej.')); };
+      document.head.appendChild(s);
+    });
+  }
+  // Backend płatności cyklicznej (Secure Form -> recurring FIRST).
+  window.MADA_RECURRING_URL = '/payu/recurring-first.php';
+
   /* ────────── KONFIGURACJA ────────────────────────────────────
      Po wdrożeniu wklej tutaj URL do swojego Google Apps Script
      Web App. Ten sam URL obsługuje formularz Adopcji Serca
@@ -35,8 +49,29 @@
     const closeBtn = modal.querySelector('.am-close');
     const successPane = modal.querySelector('.am-success');
 
-    function open(e) {
-      if (e) e.preventDefault();
+    // Liczba dzieci (kwota = dzieci × 70 zł). Ustawiana też przez window.MadaAdopcja.open({dzieci}).
+    let dzieci = 1;
+    const STAWKA = 70;
+    const dziSpan = form.querySelector('#am-dzieci');
+    const calcEl = form.querySelector('#am-calc');
+    function refreshDzieci() {
+      if (dziSpan) dziSpan.textContent = dzieci;
+      if (calcEl) calcEl.innerHTML = `${dzieci} × ${STAWKA} zł = <strong>${dzieci * STAWKA} zł/mies.</strong>`;
+    }
+    // Kwota w zgodzie cyklicznej (PayU) nadąża za liczbą dzieci - deklarujemy wysoko,
+    // by stepper i handler metody korzystały z tej samej funkcji.
+    const cyklAmount = form.querySelector('.am-cykl-amount');
+    function refreshCyklAmount() { if (cyklAmount) cyklAmount.textContent = (dzieci * STAWKA) + ' zł'; }
+    const minusBtn = form.querySelector('#am-minus');
+    const plusBtn = form.querySelector('#am-plus');
+    if (minusBtn) minusBtn.addEventListener('click', () => { if (dzieci > 1) { dzieci--; refreshDzieci(); refreshCyklAmount(); } });
+    if (plusBtn) plusBtn.addEventListener('click', () => { if (dzieci < 20) { dzieci++; refreshDzieci(); refreshCyklAmount(); } });
+
+    function open(e, opts) {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      // Liczba dzieci: z opcji (przejście z darowizny) lub domyślnie 1.
+      dzieci = (opts && opts.dzieci && opts.dzieci > 0) ? Math.min(20, opts.dzieci) : 1;
+      refreshDzieci();
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
@@ -59,6 +94,10 @@
     }
 
     triggers.forEach(t => t.addEventListener('click', open));
+
+    // Publiczny hook - inny modal (darowizna) otwiera ten formularz z przeniesioną liczbą dzieci.
+    window.MadaAdopcja = { open: function (opts) { open(null, opts); } };
+
     closeBtn.addEventListener('click', close);
     modal.addEventListener('click', e => { if (e.target === modal) close(); });
     document.addEventListener('keydown', e => {
@@ -103,10 +142,26 @@
     const metodaRadios = form.querySelectorAll('input[name="metoda"]');
     const czestWrap = form.querySelector('.am-czestotliwosc');
     const submitBtnEl = form.querySelector('button[type="submit"]');
+    let cardMounted = false;
+    const cardWrap = form.querySelector('.am-card-wrap');
+    const cyklConsent = form.querySelector('.am-cykl-consent');
     metodaRadios.forEach(r => r.addEventListener('change', () => {
       const val = form.querySelector('input[name="metoda"]:checked').value;
       czestWrap.style.display = val === 'przelew' ? '' : 'none';
+      cardWrap.style.display = val === 'payu' ? '' : 'none';
+      cyklConsent.style.display = val === 'payu' ? '' : 'none';
       submitBtnEl.textContent = val === 'payu' ? 'Przejdź do płatności PayU →' : 'Wyślij zgłoszenie →';
+      if (val === 'payu' && !cardMounted) {
+        refreshCyklAmount();
+        const loadingEl = form.querySelector('#am-card-loading');
+        loadSecureFormLib()
+          .then(() => window.MadaSecureForm.mount('am-card'))
+          .then(() => { cardMounted = true; if (loadingEl) loadingEl.style.display = 'none'; })
+          .catch(err => {
+            if (loadingEl) loadingEl.style.display = 'none';
+            showErrors(form, [{ field: null, msg: (err && err.message) ? err.message : 'Nie udało się załadować formularza karty.' }]);
+          });
+      }
     }));
 
     // Submit handler
@@ -116,7 +171,7 @@
       form.querySelectorAll('.field-error').forEach(el => el.remove());
       form.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
 
-      const data = collectData(form);
+      const data = collectData(form, dzieci);
       const errors = validate(data);
       if (errors.length) {
         showErrors(form, errors);
@@ -129,32 +184,27 @@
       submitBtn.disabled = true;
       submitBtn.textContent = data.metoda === 'payu' ? 'Łączę z PayU…' : 'Wysyłam…';
 
-      // ŚCIEŻKA A - automatyczna płatność cykliczna PayU
+      // ŚCIEŻKA A - automatyczna płatność cykliczna PayU (Secure Form + recurring FIRST)
       if (data.metoda === 'payu') {
-        const PAYU = window.MADA_PAYU_URL || '';
-        const payload = {
-          type: 'adopcja',
-          recurring: true,
-          amount: 70,
-          currency: 'PLN',
-          goal: 'adopcja',
-          goalLabel: 'Adopcja Serca - 70 zł/mies.',
-          imie: data.imie, nazwisko: data.nazwisko, email: data.email,
-          telefon: data.telefon, adres: data.adres,
-          forma: data.formaLabel, okres: data.okres,
-        };
-        if (!PAYU) {
-          showErrors(form, [{ field: null, msg: 'Bramka płatności jest w trakcie konfiguracji. Wybierz na razie „Przelew tradycyjny” lub spróbuj ponownie wkrótce.' }]);
-          submitBtn.disabled = false; submitBtn.textContent = 'Przejdź do płatności PayU →';
-          return;
-        }
+        const RURL = window.MADA_RECURRING_URL || '/payu/recurring-first.php';
         try {
-          const res = await fetch(PAYU, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+          if (!window.MadaSecureForm) throw new Error('Formularz karty nie jest gotowy. Odśwież stronę.');
+          const cardToken = await window.MadaSecureForm.tokenize();
+          const payload = {
+            token: cardToken, consent: true,
+            imie: data.imie, nazwisko: data.nazwisko, email: data.email, telefon: data.telefon,
+            goal: 'adopcja', goalLabel: 'Adopcja Serca - ' + data.dzieci + ' dziecko/dzieci',
+            amount: data.amount, currency: 'PLN', dzieci: data.dzieci,
+            adres: data.adres, forma: data.formaLabel, okres: data.okres,
+            zgoda_wizerunek: data.zgoda_wizerunek, newsletter: data.newsletter,
+          };
+          const res = await fetch(RURL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
           const json = await res.json();
           if (json && json.redirectUri) { window.location.href = json.redirectUri; return; }
-          throw new Error('brak redirectUri');
+          if (json && json.status === 'active') { window.location.href = 'dziekujemy.html'; return; }
+          throw new Error((json && json.error) ? json.error : 'Nie udało się rozpocząć płatności cyklicznej.');
         } catch (err2) {
-          showErrors(form, [{ field: null, msg: 'Nie udało się połączyć z bramką PayU. Spróbuj ponownie lub wybierz przelew tradycyjny.' }]);
+          showErrors(form, [{ field: null, msg: (err2 && err2.message) ? err2.message : 'Nie udało się połączyć z bramką PayU. Spróbuj ponownie lub wybierz przelew tradycyjny.' }]);
           submitBtn.disabled = false; submitBtn.textContent = 'Przejdź do płatności PayU →';
           return;
         }
@@ -200,7 +250,7 @@
     });
   }
 
-  function collectData(form) {
+  function collectData(form, dzieci) {
     const fd = new FormData(form);
     const forma = fd.get('forma') || '';
     const imie = (fd.get('imie') || '').toString().trim();
@@ -212,6 +262,8 @@
       email: (fd.get('email') || '').toString().trim(),
       telefon: (fd.get('telefon') || '').toString().trim(),
       adres: (fd.get('adres') || '').toString().trim(),
+      dzieci: dzieci || 1,
+      amount: (dzieci || 1) * 70,
       forma: forma,
       formaLabel: forma === 'nieokreslony' ? 'Na czas nieokreślony' :
                   forma === 'czasowa' ? 'Czasowa (min. 1 rok)' : '',
@@ -223,6 +275,8 @@
       zgoda_regulamin: !!fd.get('zgoda_regulamin'),
       zgoda_wizerunek: !!fd.get('zgoda_wizerunek'),
       zgoda_rodo: !!fd.get('zgoda_rodo'),
+      zgoda_cykl: !!fd.get('zgoda_cykl'),
+      newsletter: !!fd.get('newsletter'),
       ts: new Date().toISOString(),
     };
   }
@@ -238,6 +292,7 @@
     if (d.forma === 'czasowa' && (!d.okres || d.okres.trim() === '-')) errs.push({ field: 'od', msg: 'Wskaż okres trwania (od - do).' });
     if (!d.metoda) errs.push({ field: 'metoda', msg: 'Wybierz sposób przekazywania wsparcia.' });
     if (d.metoda === 'przelew' && !d.czestotliwosc) errs.push({ field: 'czestotliwosc', msg: 'Wybierz częstotliwość wpłat.' });
+    if (d.metoda === 'payu' && !d.zgoda_cykl) errs.push({ field: 'zgoda_cykl', msg: 'Zaznacz zgodę na cykliczne obciążanie karty.' });
     if (!d.zgoda_regulamin) errs.push({ field: 'zgoda_regulamin', msg: 'Wymagana zgoda na regulamin.' });
     if (!d.zgoda_wizerunek) errs.push({ field: 'zgoda_wizerunek', msg: 'Wymagana zgoda na oświadczenie o wizerunku.' });
     if (!d.zgoda_rodo) errs.push({ field: 'zgoda_rodo', msg: 'Wymagana zgoda na przetwarzanie danych.' });
@@ -275,6 +330,16 @@
             <h2 id="am-title">Zostań rodzicem adopcyjnym</h2>
             <p>Wypełnij poniższy formularz - odezwiemy się do Ciebie z dalszymi krokami. Otrzymasz informację o dziecku objętym Twoim wsparciem. Wszystkie pola są wymagane.</p>
           </header>
+
+          <fieldset class="am-fieldset am-dzieci-set">
+            <legend>Liczba dzieci, które chcesz wesprzeć</legend>
+            <div class="am-stepper">
+              <button type="button" class="am-step-btn" id="am-minus" aria-label="Mniej dzieci">−</button>
+              <div class="am-step-val"><span id="am-dzieci">1</span></div>
+              <button type="button" class="am-step-btn" id="am-plus" aria-label="Więcej dzieci">+</button>
+              <div class="am-step-calc" id="am-calc">1 × 70 zł = <strong>70 zł/mies.</strong></div>
+            </div>
+          </fieldset>
 
           <div class="am-toperror" style="display:none;" role="alert"></div>
 
@@ -364,7 +429,18 @@
             </div>
           </fieldset>
 
+          <div class="am-card-wrap" style="display:none;">
+            <span class="am-label">Dane karty (płatność cykliczna)</span>
+            <div id="am-card" class="dar-card-form"></div>
+            <p class="am-card-loading" id="am-card-loading">Ładowanie bezpiecznego formularza karty…</p>
+            <p class="am-note">Dane karty wpisujesz w bezpiecznym formularzu PayU. Zapisujemy wyłącznie token - nie mamy dostępu do numeru karty.</p>
+          </div>
+
           <div class="am-consents">
+            <label class="am-check am-field am-cykl-consent" style="display:none;">
+              <input type="checkbox" name="zgoda_cykl" value="1" />
+              <span>Wyrażam zgodę na cykliczne (comiesięczne) obciążanie mojej karty kwotą <strong class="am-cykl-amount">70 zł</strong> na rzecz Fundacji Misja MADA (Adopcja Serca), minimum przez 12 miesięcy. Mogę zrezygnować w każdej chwili (link w mailu).</span>
+            </label>
             <label class="am-check am-field">
               <input type="checkbox" name="zgoda_regulamin" value="1" />
               <span>Akceptuję <a href="regulamin-adopcja-serca.html" target="_blank" rel="noopener">regulamin</a> programu Adopcja Serca.</span>
@@ -376,6 +452,10 @@
             <label class="am-check am-field">
               <input type="checkbox" name="zgoda_rodo" value="1" />
               <span>Wyrażam zgodę na przetwarzanie moich danych osobowych przez Fundację Misja MADA zgodnie z <a href="polityka-prywatnosci.html" target="_blank" rel="noopener">Polityką prywatności</a>.</span>
+            </label>
+            <label class="am-check am-field">
+              <input type="checkbox" name="newsletter" value="1" />
+              <span>Chcę też otrzymywać newsletter Fundacji Misja MADA (dobrowolne, możesz zrezygnować w każdej chwili).</span>
             </label>
           </div>
 

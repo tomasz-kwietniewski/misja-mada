@@ -46,6 +46,25 @@ if ($amount < 1 || $amount > 100000) {
 $grosze = (string) intval(round($amount * 100));   // PayU oczekuje kwoty w groszach
 $descr  = mb_substr($goalLabel, 0, 200);
 
+$extOrderId = 'madaone_' . uniqid('', true);
+$extOrderId = str_replace('.', '', $extOrderId);   // bez kropki (czystszy identyfikator)
+
+// Efemeryczny rekord - notify.php użyje go po COMPLETED do zapisu w arkuszu „Darowizny".
+// Nadpisywany dopiero po realnej wpłacie; porzucone (nieopłacone) sprząta cron/TTL.
+$pendingDir = __DIR__ . '/../data/donation-pending';
+if (!is_dir($pendingDir)) { @mkdir($pendingDir, 0755, true); }
+$pendingFile = $pendingDir . '/' . preg_replace('/[^a-z0-9]/i', '', $extOrderId) . '.json';
+@file_put_contents($pendingFile, json_encode([
+    'imie'      => mb_substr($imie, 0, 100),
+    'nazwisko'  => mb_substr($nazwisko, 0, 100),
+    'email'     => $email,
+    'goal'      => trim((string)($data['goal'] ?? '')),
+    'goalLabel' => $goalLabel,
+    'amount'    => $amount,
+    'currency'  => 'PLN',
+    'ts'        => time(),
+], JSON_UNESCAPED_UNICODE), LOCK_EX);
+
 $order = [
     'notifyUrl'     => SITE_BASE . '/payu/notify.php',
     'continueUrl'   => SITE_BASE . '/dziekujemy.html',
@@ -54,7 +73,7 @@ $order = [
     'description'   => $descr,
     'currencyCode'  => 'PLN',
     'totalAmount'   => $grosze,
-    'extOrderId'    => uniqid('mada_', true),
+    'extOrderId'    => $extOrderId,
     'buyer' => [
         'email'     => $email,
         'firstName' => mb_substr($imie, 0, 100),

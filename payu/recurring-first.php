@@ -15,8 +15,36 @@ require __DIR__ . '/lib.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
+require __DIR__ . '/sheet.php';
 
 const SITE_BASE = 'https://misjamada.pl';
+
+/**
+ * Po zalozeniu subskrypcji adopcji przez karte: zaloguj komplet danych adopcyjnych
+ * do arkusza „Adopcja Serca" (status oplacone-PayU, bez DOI - karta zweryfikowala mail)
+ * oraz - jesli zaznaczono - dopisz na newsletter (mail juz zweryfikowany karta).
+ * mada_sheet_post() i mada_newsletter_add_verified() pochodza z payu/sheet.php.
+ */
+function mada_adopcja_after_card(string $goal, array $ctx): void {
+    if ($goal !== 'adopcja') return;
+    mada_sheet_post([
+        'type'            => 'adopcja',
+        'status'          => 'oplacone-PayU',
+        'imie'            => $ctx['imie'],
+        'nazwisko'        => $ctx['nazwisko'],
+        'email'           => $ctx['email'],
+        'telefon'         => $ctx['telefon'],
+        'adres'           => $ctx['adres'],
+        'forma'           => $ctx['forma'],
+        'okres'           => $ctx['okres'],
+        'dzieci'          => $ctx['dzieci'],
+        'zgoda_wizerunek' => $ctx['wizerunek'] ? 'TAK' : '',
+        'newsletter'      => $ctx['newsletter'] ? 'TAK' : '',
+    ]);
+    if ($ctx['newsletter']) {
+        mada_newsletter_add_verified($ctx['email'], $ctx['imie']);
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     payu_json(['error' => 'Metoda niedozwolona.'], 405);
@@ -39,6 +67,11 @@ $goal      = trim((string)($data['goal'] ?? ''));
 $goalLabel = trim((string)($data['goalLabel'] ?? 'Darowizna cykliczna na rzecz Fundacji Misja MADA'));
 $amount    = isset($data['amount']) ? (float)$data['amount'] : 0;
 $dzieci    = isset($data['dzieci']) ? (int)$data['dzieci'] : null;
+$adres     = trim((string)($data['adres'] ?? ''));
+$forma     = trim((string)($data['forma'] ?? ''));
+$okres     = trim((string)($data['okres'] ?? ''));
+$wizerunek = !empty($data['zgoda_wizerunek']);
+$newsletter = !empty($data['newsletter']);
 $consent   = !empty($data['consent']);
 
 $GOALS = ['statutowe', 'adopcja', 'centrum', 'atelier'];
@@ -94,6 +127,19 @@ try {
         'expiry_date'    => $expiry,
         'min_months'     => $minMonths,
     ]);
+
+    // Dane adopcyjne z formularza sa potrzebne przy aktywacji subskrypcji. Sciezka 3DS
+    // aktywuje ja dopiero w notify.php, gdzie tych danych juz nie ma - zapisujemy je
+    // efemerycznie (poza repo, wykluczone z deployu; kasowane po zuzyciu).
+    if ($goal === 'adopcja') {
+        $adDir = __DIR__ . '/../data/adopcja-card-pending';
+        if (!is_dir($adDir)) { @mkdir($adDir, 0755, true); }
+        @file_put_contents($adDir . '/' . (int)$subId . '.json', json_encode([
+            'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email, 'telefon' => $telefon,
+            'adres' => $adres, 'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
+            'wizerunek' => $wizerunek, 'newsletter' => $newsletter, 'ts' => time(),
+        ], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
 
     // 2) Zamówienie FIRST (tokenizacja + 3DS)
     $order = [
@@ -161,6 +207,13 @@ try {
         if ($tok && payu_sub_activate($subId, $tok['token'], (string)($tok['mask'] ?? ''), $payuOrderId, $nextCharge)) {
             $fresh = payu_sub_get($subId);
             if ($fresh) { mada_mail_welcome($fresh); mada_mail_foundation($fresh, 'nowa'); }
+            mada_adopcja_after_card($goal, [
+                'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email, 'telefon' => $telefon,
+                'adres' => $adres, 'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
+                'wizerunek' => $wizerunek, 'newsletter' => $newsletter,
+            ]);
+            // SUCCESS synchroniczny nie przechodzi przez notify FIRST - skasuj rekord tutaj.
+            @unlink(__DIR__ . '/../data/adopcja-card-pending/' . (int)$subId . '.json');
         }
         payu_json(['status' => 'active']);
     }

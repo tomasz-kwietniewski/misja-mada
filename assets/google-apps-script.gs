@@ -36,15 +36,23 @@ const FOUNDATION_EMAIL = 'kontakt@misjamada.pl';
 const FOUNDATION_NAME  = 'Fundacja Misja MADA';
 const SITE_URL         = 'https://misjamada.pl';
 
+// Shared secret dla wywołań serwer-do-serwera (PHP -> Apps Script). USTAW przy wdrożeniu.
+const SHEET_SECRET = 'USTAW_TEN_SAM_CO_W_PHP';
+// Endpoint dopisu na newsletter (zweryfikowany mail) + jego sekret.
+const NL_ADD_VERIFIED_URL = 'https://misjamada.pl/newsletter/add-verified.php';
+const NL_VERIFIED_SECRET  = 'USTAW_TEN_SAM_CO_W_PHP';
+const SHEET_DAROWIZNY = 'Darowizny';
+
 // Nazwy zakładek (skrypt tworzy je automatycznie z nagłówkami przy pierwszym użyciu).
 const SHEET_ADOPCJA    = 'Adopcja Serca';
 const SHEET_NEWSLETTER = 'Newsletter';
 
 const HEADERS_ADOPCJA = [
   'token', 'status', 'ts_received', 'ts_verified', 'imie', 'nazwisko', 'email',
-  'telefon', 'adres', 'forma', 'okres', 'czestotliwosc',
-  'zgoda_regulamin', 'zgoda_wizerunek', 'zgoda_rodo',
+  'telefon', 'adres', 'forma', 'okres', 'czestotliwosc', 'dzieci',
+  'zgoda_regulamin', 'zgoda_wizerunek', 'zgoda_rodo', 'newsletter',
 ];
+const HEADERS_DAROWIZNY = ['ts', 'imie', 'nazwisko', 'email', 'cel', 'kwota', 'waluta', 'extOrderId', 'payuOrderId'];
 const HEADERS_NEWSLETTER = ['ts', 'imie', 'email', 'zgoda_rodo'];
 
 /**
@@ -80,12 +88,25 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
 
+    // Wywołania serwer-do-serwera (PHP) wymagają sekretu.
+    if (data.type === 'darowizna') {
+      if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
+      return handleDarowizna(data);
+    }
+    if (data.type === 'adopcja' && data.status === 'oplacone-PayU') {
+      if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
+      return handleAdopcjaPaid(data);
+    }
     if (data.type === 'kontakt')    return handleKontakt(data);
     if (data.type === 'newsletter') return handleNewsletter(data);
-    return handleAdopcja(data);  // brak type lub type='adopcja' -> double opt-in
+    return handleAdopcja(data);  // domyślnie: adopcja-przelew (double opt-in)
   } catch (err) {
     return jsonOut({ ok: false, error: err.toString() });
   }
+}
+
+function secretOk(data) {
+  return SHEET_SECRET !== '' && String(data.secret || '') === SHEET_SECRET;
 }
 
 function handleAdopcja(data) {
@@ -94,21 +115,14 @@ function handleAdopcja(data) {
   const ts = new Date();
 
   sheet.appendRow([
-    token,
-    'pending',
-    ts,
-    '', // ts_verified - puste do potwierdzenia
-    data.imie || '',
-    data.nazwisko || '',
-    data.email || '',
-    data.telefon || '',
-    data.adres || '',
-    data.formaLabel || '',
-    data.okres || '',
-    data.czestotliwosc || '',
+    token, 'pending', ts, '',
+    data.imie || '', data.nazwisko || '', data.email || '',
+    data.telefon || '', data.adres || '', data.formaLabel || '', data.okres || '',
+    data.czestotliwosc || '', data.dzieci || '',
     data.zgoda_regulamin ? 'TAK' : '',
     data.zgoda_wizerunek ? 'TAK' : '',
     data.zgoda_rodo ? 'TAK' : '',
+    data.newsletter ? 'TAK' : '',
   ]);
 
   sendConfirmationEmail(data, token);
@@ -193,6 +207,8 @@ function doGet(e) {
       sheet.getRange(i + 1, tsVerCol + 1).setValue(new Date());
 
       notifyFoundation(data[i], headers);
+      sendWelcomeEmail(data[i], headers);
+      maybeAddNewsletter(data[i], headers);
 
       return htmlSuccess(
         'Dziękujemy za potwierdzenie zgłoszenia.',
@@ -204,47 +220,75 @@ function doGet(e) {
   return htmlError('Nie znaleziono zgłoszenia o podanym tokenie. Link mógł wygasnąć.');
 }
 
+/** Wspólna skorupa HTML maila (kolory fundacji). */
+function emailShell(inner) {
+  return '<!doctype html><html lang="pl"><head><meta charset="utf-8"></head>'
+    + '<body style="margin:0;padding:40px 20px;background:#faf5ee;font-family:\'Helvetica Neue\',Arial,sans-serif;color:#1b140e;">'
+    + '<table cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;">'
+    + '<tr><td style="padding:32px 40px;border-bottom:1px solid rgba(66,41,24,.12);">'
+    + '<h1 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0;">' + FOUNDATION_NAME + '</h1>'
+    + '<p style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#c99d66;font-weight:700;margin:6px 0 0;">Program Adopcja Serca</p></td></tr>'
+    + '<tr><td style="padding:32px 40px;">' + inner + '</td></tr>'
+    + '<tr><td style="padding:22px 40px;background:#2a1a0e;color:#faf5ee;font-size:12px;line-height:1.6;">'
+    + '<strong style="color:#c99d66;">' + FOUNDATION_NAME + '</strong><br>'
+    + 'ul. Szosa Chełmińska 271A, 87-100 Toruń<br>'
+    + '<a href="' + SITE_URL + '" style="color:#c99d66;">' + SITE_URL + '</a> - '
+    + '<a href="mailto:' + FOUNDATION_EMAIL + '" style="color:#c99d66;">' + FOUNDATION_EMAIL + '</a>'
+    + '</td></tr></table></body></html>';
+}
+
+/** Mail powitalny po weryfikacji zgłoszenia adopcji (dane do przelewu, info o dziecku). */
+function sendWelcomeEmail(row, headers) {
+  const get = (c) => row[headers.indexOf(c)];
+  const imie = esc(get('imie'));
+  const nazwisko = esc(get('nazwisko'));
+  const dzieci = parseInt(get('dzieci'), 10) || 1;
+  const kwota = dzieci * 70;
+  const tytul = 'Adopcja Serca Madagaskar - ' + get('imie') + ' ' + get('nazwisko');
+  const inner =
+      '<h2 style="font-family:Georgia,serif;font-size:26px;color:#422918;margin:0 0 16px;">Witaj w programie Adopcja Serca, ' + imie + '!</h2>'
+    + '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Dziękujemy, że zdecydowałaś/eś się wesprzeć '
+    + (dzieci === 1 ? 'dziecko' : (dzieci + ' dzieci')) + ' na Madagaskarze. Poniżej znajdziesz dane do przelewu.</p>'
+    + '<div style="background:#faf5ee;border-radius:12px;padding:20px 22px;margin:0 0 18px;font-size:14px;line-height:1.7;">'
+    + '<strong style="color:#c99d66;">Dane do przelewu (zlecenie stałe)</strong><br>'
+    + 'Odbiorca: <strong>Fundacja Misja MADA</strong><br>'
+    + 'Konto PLN: <strong>70 1090 1056 0000 0001 5832 5871</strong><br>'
+    + 'Kwota: <strong>' + kwota + ' zł miesięcznie</strong> (' + dzieci + ' × 70 zł)<br>'
+    + 'Tytuł przelewu: <strong>' + esc(tytul) + '</strong></div>'
+    + '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Szczegóły dotyczące konkretnego dziecka objętego Twoim '
+    + 'wsparciem przygotowujemy ręcznie - <strong>odezwiemy się do Ciebie w ciągu kilku dni roboczych</strong>, aby je przedstawić.</p>'
+    + '<p style="font-size:14px;line-height:1.6;color:#5a4836;margin:0;">Z serca dziękujemy, że jesteś z nami. ❤︎</p>';
+  GmailApp.sendEmail(get('email'), 'Witaj w programie Adopcja Serca - Fundacja Misja MADA', '', {
+    htmlBody: emailShell(inner), name: FOUNDATION_NAME, replyTo: FOUNDATION_EMAIL,
+  });
+}
+
+/** Jeśli w zgłoszeniu zaznaczono newsletter - dopisz zweryfikowany mail do MailerLite. */
+function maybeAddNewsletter(row, headers) {
+  const get = (c) => row[headers.indexOf(c)];
+  if (String(get('newsletter')) !== 'TAK') return;
+  try {
+    UrlFetchApp.fetch(NL_ADD_VERIFIED_URL, {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({ email: get('email'), imie: get('imie'), secret: NL_VERIFIED_SECRET }),
+    });
+  } catch (err) {
+    // Best-effort - nie blokuj potwierdzenia zgłoszenia.
+  }
+}
+
 /* ────────── E-mail potwierdzający (do darczyńcy) ────────────── */
 function sendConfirmationEmail(data, token) {
   const confirmUrl = ScriptApp.getService().getUrl() + '?confirm=' + token;
-  const subject = 'Potwierdź swoje zgłoszenie - Adopcja Serca · ' + FOUNDATION_NAME;
+  const subject = 'Potwierdź swoje zgłoszenie - Adopcja Serca - ' + FOUNDATION_NAME;
 
-  const html = `<!doctype html>
-<html lang="pl"><head><meta charset="utf-8"></head>
-<body style="margin:0; padding:40px 20px; background:#faf5ee; font-family:'Helvetica Neue',Arial,sans-serif; color:#1b140e;">
-  <table cellpadding="0" cellspacing="0" border="0" style="max-width:560px; margin:0 auto; background:white; border-radius:14px; overflow:hidden;">
-    <tr><td style="padding:36px 40px; border-bottom:1px solid rgba(66,41,24,.12);">
-      <h1 style="font-family:Georgia,serif; font-size:24px; color:#422918; margin:0;">Fundacja Misja MADA</h1>
-      <p style="font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:#c99d66; font-weight:700; margin:6px 0 0;">Program Adopcja Serca</p>
-    </td></tr>
-    <tr><td style="padding:36px 40px;">
-      <h2 style="font-family:Georgia,serif; font-size:26px; color:#422918; margin:0 0 18px; line-height:1.2;">Cześć ${esc(data.imie)}!</h2>
-      <p style="font-size:15px; line-height:1.65; color:#3c2913; margin:0 0 14px;">
-        Otrzymaliśmy Twoje zgłoszenie do programu <strong>Adopcja Serca</strong>. Aby dokończyć proces zgłoszenia, prosimy o potwierdzenie, że e-mail <strong>${esc(data.email)}</strong> należy do Ciebie.
-      </p>
-      <p style="font-size:15px; line-height:1.65; color:#3c2913; margin:0 0 28px;">
-        Kliknij w przycisk poniżej. Bez tego kroku zgłoszenie nie trafi do fundacji.
-      </p>
-      <div style="text-align:center; margin:28px 0;">
-        <a href="${confirmUrl}" style="display:inline-block; background:#c99d66; color:#2a1a0e; padding:16px 34px; border-radius:10px; font-weight:700; font-size:15px; text-decoration:none;">Potwierdzam zgłoszenie →</a>
-      </div>
-      <p style="font-size:13px; color:#6b5a4a; line-height:1.6; margin:0 0 14px;">
-        Jeśli przycisk nie działa, skopiuj poniższy link i wklej do przeglądarki:
-      </p>
-      <p style="font-size:12px; color:#6b5a4a; word-break:break-all; background:#faf5ee; padding:10px 14px; border-radius:8px; margin:0;">
-        ${confirmUrl}
-      </p>
-      <p style="font-size:13px; color:#6b5a4a; line-height:1.6; margin:24px 0 0;">
-        Jeśli to nie Ty wypełniałeś/wypełniałaś formularz - możesz spokojnie zignorować tę wiadomość. Zgłoszenie pozostanie nieaktywne i zostanie automatycznie usunięte.
-      </p>
-    </td></tr>
-    <tr><td style="padding:24px 40px; background:#2a1a0e; color:#faf5ee; font-size:12px; line-height:1.6;">
-      <strong style="color:#c99d66;">Fundacja Misja MADA</strong><br/>
-      ul. Szosa Chełmińska 271A, 87-100 Toruń<br/>
-      <a href="${SITE_URL}" style="color:#c99d66;">${SITE_URL}</a> · <a href="mailto:${FOUNDATION_EMAIL}" style="color:#c99d66;">${FOUNDATION_EMAIL}</a>
-    </td></tr>
-  </table>
-</body></html>`;
+  const inner =
+      '<h2 style="font-family:Georgia,serif;font-size:26px;color:#422918;margin:0 0 18px;">Cześć ' + esc(data.imie) + '!</h2>'
+    + '<p style="font-size:15px;line-height:1.65;margin:0 0 14px;">Otrzymaliśmy Twoje zgłoszenie do programu <strong>Adopcja Serca</strong>. '
+    + 'Aby je dokończyć, potwierdź, że e-mail <strong>' + esc(data.email) + '</strong> należy do Ciebie.</p>'
+    + '<div style="text-align:center;margin:24px 0;"><a href="' + confirmUrl + '" style="display:inline-block;background:#c99d66;color:#2a1a0e;padding:16px 34px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;">Potwierdzam zgłoszenie →</a></div>'
+    + '<p style="font-size:12px;color:#6b5a4a;word-break:break-all;background:#faf5ee;padding:10px 14px;border-radius:8px;margin:0;">' + confirmUrl + '</p>';
+  const html = emailShell(inner);
 
   GmailApp.sendEmail(data.email, subject, '', {
     htmlBody: html,
@@ -256,29 +300,62 @@ function sendConfirmationEmail(data, token) {
 /* ────────── E-mail notyfikujący fundację po potwierdzeniu ──── */
 function notifyFoundation(row, headers) {
   const get = (col) => row[headers.indexOf(col)];
-  const subject = 'Nowe zgłoszenie do Adopcji Serca: ' + get('imie') + ' ' + get('nazwisko');
-  const body =
-`Pojawiło się nowe ZWERYFIKOWANE zgłoszenie do programu Adopcja Serca.
+  const inner =
+      '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Nowe zweryfikowane zgłoszenie - Adopcja Serca</h2>'
+    + '<p style="font-size:14px;line-height:1.7;margin:0;">'
+    + 'Imię i nazwisko: <strong>' + esc(get('imie')) + ' ' + esc(get('nazwisko')) + '</strong><br>'
+    + 'E-mail: ' + esc(get('email')) + '<br>Telefon: ' + esc(get('telefon')) + '<br>'
+    + 'Adres: ' + esc(get('adres')) + '<br>Forma: ' + esc(get('forma')) + ' ' + (get('okres') ? '(' + esc(get('okres')) + ')' : '') + '<br>'
+    + 'Liczba dzieci: ' + esc(get('dzieci')) + '<br>Częstotliwość: ' + esc(get('czestotliwosc')) + '<br>'
+    + 'Newsletter: ' + esc(get('newsletter') || '-') + '</p>';
+  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Nowe zgłoszenie do Adopcji Serca: ' + get('imie') + ' ' + get('nazwisko'), '', {
+    htmlBody: emailShell(inner), name: FOUNDATION_NAME,
+  });
+}
 
-Imię i nazwisko: ${get('imie')} ${get('nazwisko')}
-E-mail:          ${get('email')}
-Telefon:         ${get('telefon')}
-Adres:           ${get('adres')}
+/** Adopcja opłacona kartą (PayU) - zapis do arkusza Adopcja od razu jako verified. */
+function handleAdopcjaPaid(data) {
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  const ts = new Date();
+  sheet.appendRow([
+    Utilities.getUuid().replace(/-/g, ''), 'oplacone-PayU', ts, ts,
+    data.imie || '', data.nazwisko || '', data.email || '',
+    data.telefon || '', data.adres || '', data.forma || '', data.okres || '',
+    'PayU (karta, cyklicznie)', data.dzieci || '',
+    'TAK', data.zgoda_wizerunek || '', 'TAK', data.newsletter || '',
+  ]);
+  const inner =
+      '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Adopcja Serca opłacona kartą (PayU)</h2>'
+    + '<p style="font-size:14px;line-height:1.7;margin:0;">'
+    + esc(data.imie) + ' ' + esc(data.nazwisko) + ' &lt;' + esc(data.email) + '&gt;<br>'
+    + 'Adres: ' + esc(data.adres) + '<br>Telefon: ' + esc(data.telefon) + '<br>'
+    + 'Forma: ' + esc(data.forma) + ' ' + (data.okres ? '(' + esc(data.okres) + ')' : '') + '<br>'
+    + 'Liczba dzieci: ' + esc(data.dzieci) + ' (subskrypcja w panelu PayU)</p>';
+  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Adopcja opłacona kartą: ' + data.imie + ' ' + data.nazwisko, '', {
+    htmlBody: emailShell(inner), name: FOUNDATION_NAME,
+  });
+  return jsonOut({ ok: true });
+}
 
-Forma adopcji:   ${get('forma')} ${get('okres') ? '(' + get('okres') + ')' : ''}
-Częstotliwość:   ${get('czestotliwosc')}
-
-Zgody:
-  · regulamin:   ${get('zgoda_regulamin') || '-'}
-  · wizerunek:   ${get('zgoda_wizerunek') || '-'}
-  · RODO:        ${get('zgoda_rodo') || '-'}
-
-Czas zgłoszenia:    ${get('ts_received')}
-Czas potwierdzenia: ${get('ts_verified')}
-
-Pełne dane w arkuszu: ${SpreadsheetApp.getActiveSpreadsheet().getUrl()}`;
-
-  GmailApp.sendEmail(FOUNDATION_EMAIL, subject, body);
+/** Jednorazowa darowizna OPŁACONA (z notify.php) - zapis do arkusza Darowizny + powiadomienie. */
+function handleDarowizna(data) {
+  const sheet = getOrCreateSheet(SHEET_DAROWIZNY, HEADERS_DAROWIZNY);
+  sheet.appendRow([
+    new Date(), data.imie || '', data.nazwisko || '', data.email || '',
+    data.goalLabel || data.goal || '', data.amount || '', data.currency || 'PLN',
+    data.extOrderId || '', data.payuOrderId || '',
+  ]);
+  const inner =
+      '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Nowa darowizna (opłacona)</h2>'
+    + '<p style="font-size:14px;line-height:1.7;margin:0;">'
+    + 'Darczyńca: <strong>' + esc(data.imie) + ' ' + esc(data.nazwisko) + '</strong> &lt;' + esc(data.email) + '&gt;<br>'
+    + 'Cel: ' + esc(data.goalLabel || data.goal) + '<br>'
+    + 'Kwota: <strong>' + esc(data.amount) + ' ' + esc(data.currency || 'PLN') + '</strong><br>'
+    + 'PayU order: ' + esc(data.payuOrderId) + '</p>';
+  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Nowa darowizna: ' + (data.amount || '') + ' ' + (data.currency || 'PLN'), '', {
+    htmlBody: emailShell(inner), name: FOUNDATION_NAME,
+  });
+  return jsonOut({ ok: true });
 }
 
 /* ────────── Strony HTML wyświetlane po kliknięciu w link ────── */
