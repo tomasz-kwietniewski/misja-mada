@@ -96,6 +96,9 @@ try {
                             @unlink($adf);
                         }
                     }
+                    // Cykliczna wplata na cel INNY niz adopcja (pierwsza rata) -> log w arkuszu Darowizny.
+                    // (helper sam pomija adopcje - ta ma wlasna zakladke). Idempotentne: aktywacja nastepuje raz.
+                    mada_donation_sheet_from_sub($fresh, $extOrderId, $payuOrderId, $order);
                 }
             } else {
                 error_log('[PayU notify] FIRST sub=' . $cls['subId'] . ' COMPLETED bez tokena TOKC_.');
@@ -103,9 +106,17 @@ try {
         }
     } elseif ($cls['type'] === 'standard') {
         // Kolejne obciążenie - aktualizuj status wiersza charges.
+        $before = payu_charge_by_ext($extOrderId);
         $chargeStatus = $status === 'COMPLETED' ? 'completed'
                       : (($status === 'CANCELED') ? 'failed' : 'pending');
         payu_charge_mark($extOrderId, $chargeStatus, $payuOrderId);
+        // Pierwsze przejscie tej raty na completed -> log kolejnej wplaty cyklicznej w arkuszu
+        // Darowizny (cel != adopcja). Idempotencja: pomijamy, jesli charge byl juz completed
+        // (PayU ponawia notyfikacje - inaczej powstalyby duplikaty wierszy).
+        if ($chargeStatus === 'completed' && (!$before || ($before['status'] ?? '') !== 'completed')) {
+            $sub = payu_sub_get((int) $cls['subId']);
+            if ($sub) { mada_donation_sheet_from_sub($sub, $extOrderId, $payuOrderId, $order); }
+        }
     } elseif (mada_donation_is_ext($extOrderId) && $status === 'COMPLETED') {
         // Jednorazowa darowizna OPŁACONA -> zaloguj do arkusza „Darowizny" + powiadom fundację.
         // Idempotencja: rekord pending kasujemy po zapisie; brak pliku = już przetworzone (PayU ponawia).

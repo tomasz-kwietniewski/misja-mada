@@ -47,6 +47,28 @@ function mada_sheet_post(array $payload): bool {
     return true;
 }
 
+/**
+ * Loguje wplate cykliczna (rata FIRST lub kolejna STANDARD) do arkusza „Darowizny" - dla celow
+ * INNYCH niz adopcja (adopcja ma wlasna zakladke). Dane z subskrypcji, rzeczywista kwota z
+ * notyfikacji PayU (fallback: kwota subskrypcji). Wolane z notify.php przy potwierdzeniu raty.
+ */
+function mada_donation_sheet_from_sub(array $sub, string $extOrderId, string $payuOrderId, array $order): void {
+    if (($sub['goal'] ?? '') === 'adopcja') return;
+    $grosze = isset($order['totalAmount']) ? (int) $order['totalAmount'] : (int) ($sub['amount_grosze'] ?? 0);
+    mada_sheet_post([
+        'type'        => 'darowizna',
+        'imie'        => $sub['first_name'] ?? '',
+        'nazwisko'    => $sub['last_name'] ?? '',
+        'email'       => $sub['email'] ?? '',
+        'goal'        => $sub['goal'] ?? '',
+        'goalLabel'   => trim(($sub['goal_label'] ?? '') . ' (cykliczna)'),
+        'amount'      => number_format($grosze / 100, 2, '.', ''),
+        'currency'    => $sub['currency'] ?? 'PLN',
+        'extOrderId'  => $extOrderId,
+        'payuOrderId' => $payuOrderId,
+    ]);
+}
+
 /** Dopisuje zweryfikowany mail na newsletter przez wewnetrzny endpoint add-verified.php. */
 function mada_newsletter_add_verified(string $email, string $imie): void {
     $cfg = __DIR__ . '/../newsletter/secret/verified-config.php';
