@@ -532,6 +532,46 @@
 }
 .news-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
 .news-card:hover .news-img img { transform: scale(1.04); }
+/* Nadchodzące wyróżnione - duży blok (spójny z podstroną „Wydarzenia") */
+.featured {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr;
+  background: var(--creamDk);
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: 320px;
+  align-items: stretch;
+}
+.featured .photo { overflow: hidden; position: relative; }
+.featured .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.featured .text { padding: 36px 44px; display: flex; flex-direction: column; justify-content: center; }
+.featured .badge {
+  display: inline-block;
+  background: var(--gold); color: var(--brownDk);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .15em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 999px;
+  margin-bottom: 18px; align-self: flex-start;
+}
+.featured h2 { font-size: 36px; line-height: 1.1; margin-bottom: 14px; }
+.featured h2 a { color: inherit; text-decoration: none; }
+.featured h2 a:hover { color: var(--gold); }
+.featured .feat-info {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.featured .feat-info-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 14px; color: #3c2913; line-height: 1.45;
+}
+.featured .feat-info-row svg { color: var(--gold); flex-shrink: 0; margin-top: 2px; }
+.featured .feat-info-row b { color: var(--brown); font-weight: 600; }
+.featured p { font-size: 15.5px; color: #3c2913; margin-bottom: 22px; line-height: 1.6; }
+.featured .more { color: var(--brown); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 .news-body { padding: 22px 22px 26px; }
 .news-date {
   font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
@@ -773,6 +813,10 @@
   .bento, .projects-grid, .news-grid, .mada-inner,
   .adopcja-cta, .obszary-grid { grid-template-columns: 1fr; }
   .bento { grid-template-areas: none; }
+  .featured { grid-template-columns: 1fr; min-height: 0; }
+  .featured .photo { aspect-ratio: 16/10; }
+  .featured .text { padding: 32px 24px; }
+  .featured h2 { font-size: 26px; }
   .card.card-big, .card.card-founders, .card.card-stat.meal, .card.card-stat.adopcja {
     grid-area: auto;
   }
@@ -964,6 +1008,84 @@
   </div>
 </section>
 
+<!-- ═══ WYDARZENIA (nadchodzące wyróżnione albo relacje archiwalne) ═══ -->
+<section class="section" id="wydarzenia" style="padding-top: 56px;">
+  <div class="container">
+    <div class="section-head">
+      <h2>Wydarzenia</h2>
+      <p>Wydarzenia, kiermasze, relacje z misji - bądź na bieżąco z życiem fundacji.</p>
+    </div>
+    <div id="home-events"></div>
+    <div style="text-align: center; margin-top: 36px;">
+      <a href="wydarzenia.html" class="btn btn-outline">Zobacz wszystkie wydarzenia</a>
+    </div>
+  </div>
+</section>
+
+<script>
+/* Wydarzenia na stronie głównej - z window.MADA_EVENTS.
+   Logika: jest jakiekolwiek NADCHODZĄCE wydarzenie -> duży blok „nadchodzące - wyróżnione"
+   (spójny z podstroną). Same archiwalne -> siatka 3 najnowszych relacji (dawna forma).
+   Brak jakichkolwiek wydarzeń -> sekcja ukryta. */
+document.addEventListener('DOMContentLoaded', function () {
+  var all = (window.MADA_EVENTS || []);
+  var host = document.getElementById('home-events');
+  if (!host) return;
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);});}
+  function firstImage(ev){ var m=(ev.media||[]).filter(function(x){return (x.type||'image')==='image';}); return m[0]||null; }
+  function shortDate(e){ return (e.dateLabel || '').replace(/^\p{L}+,\s*/u, ''); }
+
+  var icoCal = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+  var icoClock = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  var icoPin = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+
+  var upcoming = all.filter(function (e) { return e.status === 'nadchodzace'; })
+                    .sort(function (a, b) { return (a.dateISO || '').localeCompare(b.dateISO || ''); });
+  var archive = all.filter(function (e) { return e.status === 'archiwum'; })
+                   .sort(function (a, b) { return (b.dateISO || '').localeCompare(a.dateISO || ''); });
+
+  // Wyróżnione: ręcznie oznaczone (featured) albo najbliższe nadchodzące.
+  var featured = null;
+  for (var i = 0; i < upcoming.length; i++) { if (upcoming[i].featured) { featured = upcoming[i]; break; } }
+  if (!featured && upcoming.length) featured = upcoming[0];
+
+  if (featured) {
+    host.className = '';
+    var img = firstImage(featured);
+    var h = '<article class="featured">';
+    h += '<div class="photo">' + (img ? '<img src="' + esc(img.src) + '" alt="' + esc(img.alt||'') + '" />' : '') + '</div>';
+    h += '<div class="text">';
+    h += '<span class="badge">★ Nadchodzące - wyróżnione</span>';
+    h += '<h2><a href="wydarzenie.html?id=' + esc(featured.id) + '">' + esc(featured.title) + '</a></h2>';
+    h += '<div class="feat-info">';
+    h += '<div class="feat-info-row">' + icoCal + '<span><b>Kiedy?</b> ' + esc(featured.dateLabel) + '</span></div>';
+    if (featured.masze) h += '<div class="feat-info-row">' + icoClock + '<span>' + esc(featured.masze) + '</span></div>';
+    h += '<div class="feat-info-row">' + icoPin + '<span><b>Gdzie?</b> ' + esc(featured.place) + '</span></div>';
+    h += '</div>';
+    if (featured.lead) h += '<p>' + esc(featured.lead) + '</p>';
+    h += '<a href="wydarzenie.html?id=' + esc(featured.id) + '" class="more">Czytaj więcej →</a>';
+    h += '</div></article>';
+    host.innerHTML = h;
+  } else if (archive.length) {
+    host.className = 'news-grid';
+    host.innerHTML = archive.slice(0, 3).map(function (e) {
+      var im = firstImage(e);
+      return '<a class="news-card" href="wydarzenie.html?id=' + encodeURIComponent(e.id) + '">' +
+        '<div class="news-img">' + (im ? '<img src="' + esc(im.src) + '" alt="' + esc(im.alt||e.title) + '" />' : '') + '</div>' +
+        '<div class="news-body">' +
+          '<div class="news-date">' + esc(shortDate(e)) + '</div>' +
+          '<h3>' + esc(e.title) + '</h3>' +
+          '<p>' + esc(e.lead || '') + '</p>' +
+        '</div></a>';
+    }).join('');
+  } else {
+    var sec = document.getElementById('wydarzenia');
+    if (sec) sec.setAttribute('hidden', '');
+  }
+});
+</script>
+
 <!-- ═══ MADAGASKAR (z mapą SVG) ═══════════════════════════════════ -->
 <section class="mada-section" style="margin-top: 0;">
   <div class="container">
@@ -1008,62 +1130,6 @@
 <!-- (Sekcja "Obszary działań" została przeniesiona na podstronę O nas) -->
 
 <!-- ═══ WYDARZENIA ═════════════════════════════════════════════ -->
-<section class="section" id="wydarzenia" style="padding-top: 32px;">
-  <div class="container">
-    <div class="section-head">
-      <h2>Wydarzenia</h2>
-      <p>Wydarzenia, kiermasze, relacje z misji - bądź na bieżąco z życiem fundacji.</p>
-    </div>
-    <div class="news-grid" id="home-events"></div>
-    <div style="text-align: center; margin-top: 36px;">
-      <a href="wydarzenia.html" class="btn btn-outline">Zobacz wszystkie wydarzenia</a>
-    </div>
-  </div>
-</section>
-
-<script>
-/* Wydarzenia na stronie głównej - zaciągane z window.MADA_EVENTS.
-   Układ: [0] wyróżnione nadchodzące (od lewej) + 2 najnowsze archiwalne (chronologicznie).
-   Każdy kafelek linkuje do pełnego wpisu (wydarzenie.html?id=…). */
-document.addEventListener('DOMContentLoaded', function () {
-  var all = (window.MADA_EVENTS || []);
-  var grid = document.getElementById('home-events');
-  if (!grid) return;
-
-  var featured = all.filter(function (e) { return e.status === 'nadchodzace' && e.featured; })
-                    .sort(function (a, b) { return (a.dateISO || '').localeCompare(b.dateISO || ''); })[0];
-  var archive = all.filter(function (e) { return e.status === 'archiwum'; })
-                   .sort(function (a, b) { return (b.dateISO || '').localeCompare(a.dateISO || ''); });
-
-  var picks = [];
-  if (featured) picks.push({ e: featured, upcoming: true });
-  archive.slice(0, featured ? 2 : 3).forEach(function (e) { picks.push({ e: e, upcoming: false }); });
-
-  function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function shortDate(e) { return (e.dateLabel || '').replace(/^[A-Za-zĄąĆćĘ꜌łŃńÓ󌜟żŹź]+,\s*/, ''); }
-
-  grid.innerHTML = picks.map(function (p) {
-    var e = p.e;
-    var imgs = (e.media || []).filter(function (m) { return (m.type || 'image') === 'image'; });
-    var img = imgs[0] ? imgs[0].src : '';
-    var alt = imgs[0] ? (imgs[0].alt || e.title) : e.title;
-    var badge = p.upcoming
-      ? '<span class="news-badge">Nadchodzące</span>'
-      : '';
-    return '<a class="news-card" href="wydarzenie.html?id=' + encodeURIComponent(e.id) + '">' +
-      '<div class="news-img">' + badge +
-        (img ? '<img src="' + esc(img) + '" alt="' + esc(alt) + '" />' : '') +
-      '</div>' +
-      '<div class="news-body">' +
-        '<div class="news-date">' + esc(shortDate(e)) + '</div>' +
-        '<h3>' + esc(e.title) + '</h3>' +
-        '<p>' + esc(e.lead || '') + '</p>' +
-      '</div>' +
-    '</a>';
-  }).join('');
-});
-</script>
-
 <!-- ═══ WESPRZYJ CTA ════════════════════════════════════════════ -->
 <section class="wesprzyj-section" id="wesprzyj">
   <div class="container">
