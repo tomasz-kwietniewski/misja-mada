@@ -213,7 +213,7 @@ function doGet(e) {
       return htmlSuccess(
         'Dziękujemy za potwierdzenie zgłoszenia.',
         'Odezwiemy się do Ciebie w ciągu kilku dni roboczych z informacją o dziecku objętym Twoim wsparciem. ' +
-        'Numer konta i dane do przelewu znajdziesz w stopce naszej strony.'
+        'Numer konta i dane do przelewu znajdziesz w mailu, który właśnie do Ciebie wysłaliśmy.'
       );
     }
   }
@@ -245,6 +245,12 @@ function sendWelcomeEmail(row, headers) {
   const dzieci = parseInt(get('dzieci'), 10) || 1;
   const kwota = dzieci * 70;
   const tytul = 'Adopcja Serca Madagaskar - ' + get('imie') + ' ' + get('nazwisko');
+  // Dla wsparcia w formie czasowej (okres od-do) podajemy, na jaki czas ustawic zlecenie stale.
+  const okres = String(get('okres') || '');
+  const forma = String(get('forma') || '');
+  const okresRow = (okres && /czasow/i.test(forma))
+    ? 'Okres zlecenia: <strong>' + esc(okres) + '</strong><br>'
+    : '';
   const inner =
       '<h2 style="font-family:Georgia,serif;font-size:26px;color:#422918;margin:0 0 16px;">Witaj w programie Adopcja Serca, ' + imie + '!</h2>'
     + '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Dziękujemy, że zdecydowałaś/eś się wesprzeć '
@@ -254,6 +260,7 @@ function sendWelcomeEmail(row, headers) {
     + 'Odbiorca: <strong>Fundacja Misja MADA</strong><br>'
     + 'Konto PLN: <strong>70 1090 1056 0000 0001 5832 5871</strong><br>'
     + 'Kwota: <strong>' + kwota + ' zł miesięcznie</strong> (' + dzieci + ' × 70 zł)<br>'
+    + okresRow
     + 'Tytuł przelewu: <strong>' + esc(tytul) + '</strong></div>'
     + '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Szczegóły dotyczące konkretnego dziecka objętego Twoim '
     + 'wsparciem przygotowujemy ręcznie - <strong>odezwiemy się do Ciebie w ciągu kilku dni roboczych</strong>, aby je przedstawić.</p>'
