@@ -69,6 +69,39 @@ function mada_donation_sheet_from_sub(array $sub, string $extOrderId, string $pa
     ]);
 }
 
+/**
+ * Buduje payload zdarzenia ANULOWANIA subskrypcji ADOPCJI dla Apps Script.
+ * Zwraca null dla celow innych niz adopcja (te nie maja wiersza w zakladce „Adopcja Serca").
+ * Wydzielone jako czysta funkcja - testowalne bez wywolania sieciowego.
+ */
+function mada_adopcja_cancel_payload(array $sub): ?array {
+    if (($sub['goal'] ?? '') !== 'adopcja') return null;
+    $grosze = (int) ($sub['amount_grosze'] ?? 0);
+    return [
+        'type'      => 'adopcja-cancel',
+        'subId'     => (string) ($sub['id'] ?? ''),
+        'imie'      => $sub['first_name'] ?? '',
+        'nazwisko'  => $sub['last_name'] ?? '',
+        'email'     => $sub['email'] ?? '',
+        'goalLabel' => $sub['goal_label'] ?? '',
+        'dzieci'    => $sub['children'] ?? '',
+        'amount'    => number_format($grosze / 100, 2, '.', ''),
+        'currency'  => $sub['currency'] ?? 'PLN',
+    ];
+}
+
+/**
+ * Odnotowuje anulowanie subskrypcji ADOPCJI: Apps Script aktualizuje wiersz w arkuszu
+ * „Adopcja Serca" na status „anulowana" (po subId) i powiadamia fundacje NIEZAWODNYM
+ * kanalem (Gmail Apps Script - inaczej niz PHP mail(), ktory bywa lapany jako spam).
+ * Dla celow innych niz adopcja nie robi nic (brak wiersza w tej zakladce). Best-effort.
+ */
+function mada_adopcja_cancel_sheet(array $sub): void {
+    $payload = mada_adopcja_cancel_payload($sub);
+    if ($payload === null) return;
+    mada_sheet_post($payload);
+}
+
 /** Dopisuje zweryfikowany mail na newsletter przez wewnetrzny endpoint add-verified.php. */
 function mada_newsletter_add_verified(string $email, string $imie): void {
     $cfg = __DIR__ . '/../newsletter/secret/verified-config.php';

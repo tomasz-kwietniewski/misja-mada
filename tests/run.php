@@ -96,6 +96,29 @@ ok(mada_spraw_delete_file('media/Sprawozdanie_finansowe_2024.pdf') === false, 'd
 ok(mada_spraw_delete_file('') === false,                                       'delete_file: pusta ścieżka -> false');
 ok(mada_spraw_delete_file('uploads/sprawozdania/realny.pdf') === true,         'delete_file: akceptuje ścieżkę z uploads/');
 
+// ── PayU: payload anulowania adopcji (czysta funkcja) ──────────
+require __DIR__ . '/../payu/sheet.php';
+$subAd = ['id' => 42, 'goal' => 'adopcja', 'goal_label' => 'Adopcja Serca',
+          'first_name' => 'Jan', 'last_name' => 'Kowalski', 'email' => 'j@k.pl',
+          'children' => 2, 'amount_grosze' => 14000, 'currency' => 'PLN'];
+$pl = mada_adopcja_cancel_payload($subAd);
+ok($pl !== null,                       'cancel-payload: adopcja -> payload (nie null)');
+eq($pl['type'],  'adopcja-cancel',     'cancel-payload: type');
+eq($pl['subId'], '42',                 'cancel-payload: subId jako string (klucz mapowania)');
+eq($pl['amount'],'140.00',             'cancel-payload: grosze -> zlote');
+eq($pl['goalLabel'], 'Adopcja Serca',  'cancel-payload: goalLabel przeniesione');
+ok(mada_adopcja_cancel_payload(['goal' => 'statutowe', 'id' => 7]) === null,
+   'cancel-payload: cel != adopcja -> null (brak wiersza w zakladce Adopcja)');
+ok(mada_adopcja_cancel_payload(['id' => 7]) === null,
+   'cancel-payload: brak celu -> null');
+
+// ── PayU: relay poczty bez konfiguracji -> false (wymusza fallback na mail()) ──
+require __DIR__ . '/../payu/mail.php';
+ok(mada_mail_relay('a@b.pl', 'Temat', 'tresc') === false,
+   'mail-relay: brak MADA_SHEET_URL/SECRET -> false (fallback na mail())');
+ok(mada_mail_relay('', 'Temat', 'tresc') === false,
+   'mail-relay: pusty adresat -> false');
+
 // ── Sprzątanie sandboxa (best-effort) ──────────────────────────
 foreach (glob($SANDBOX . '/data/*') as $f) { @unlink($f); }
 @unlink($SANDBOX . '/data/.htaccess');

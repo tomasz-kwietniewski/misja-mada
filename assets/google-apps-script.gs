@@ -51,6 +51,7 @@ const HEADERS_ADOPCJA = [
   'token', 'status', 'ts_received', 'ts_verified', 'imie', 'nazwisko', 'email',
   'telefon', 'adres', 'forma', 'okres', 'czestotliwosc', 'dzieci',
   'zgoda_regulamin', 'zgoda_wizerunek', 'zgoda_rodo', 'newsletter',
+  'subId', 'ts_cancelled',
 ];
 const HEADERS_DAROWIZNY = ['ts', 'imie', 'nazwisko', 'email', 'cel', 'kwota', 'waluta', 'extOrderId', 'payuOrderId'];
 const HEADERS_NEWSLETTER = ['ts', 'imie', 'email', 'zgoda_rodo'];
@@ -70,6 +71,26 @@ function getOrCreateSheet(name, headers) {
     sheet.setFrozenRows(1);
   }
   return sheet;
+}
+
+/**
+ * Samo-naprawa schematu: dokłada brakujące kolumny nagłówków na KOŃCU istniejącej
+ * zakładki (zachowuje kolejność z `headers`). Dzięki temu dodanie nowej kolumny
+ * (np. subId) nie wymaga ręcznej edycji istniejącego arkusza po stronie fundacji.
+ */
+function ensureHeaders(sheet, headers) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    return;
+  }
+  const existing = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  const missing = headers.filter(h => existing.indexOf(h) === -1);
+  if (missing.length) {
+    sheet.getRange(1, existing.length + 1, 1, missing.length).setValues([missing]);
+    sheet.getRange(1, 1, 1, existing.length + missing.length).setFontWeight('bold');
+  }
 }
 
 function jsonOut(obj) {
@@ -97,6 +118,14 @@ function doPost(e) {
       if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
       return handleAdopcjaPaid(data);
     }
+    if (data.type === 'adopcja-cancel') {
+      if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
+      return handleAdopcjaCancel(data);
+    }
+    if (data.type === 'relay') {
+      if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
+      return handleRelay(data);
+    }
     if (data.type === 'kontakt')    return handleKontakt(data);
     if (data.type === 'newsletter') return handleNewsletter(data);
     return handleAdopcja(data);  // domyślnie: adopcja-przelew (double opt-in)
@@ -109,8 +138,24 @@ function secretOk(data) {
   return SHEET_SECRET !== '' && String(data.secret || '') === SHEET_SECRET;
 }
 
+/**
+ * Relay poczty: PHP (payu/mail.php, newsletter) wysyła tu maile, by szły przez uwierzytelniony
+ * Gmail (GmailApp) zamiast PHP mail() z serwera (ten bywa łapany jako spam). Payload:
+ *   { to, subject, text, html?, name?, replyTo? }.  Sekret wymagany (dispatch w doPost).
+ */
+function handleRelay(data) {
+  const to = String(data.to || '').trim();
+  if (!to) return jsonOut({ ok: false, error: 'missing-to' });
+  const opts = { name: String(data.name || FOUNDATION_NAME) };
+  if (data.replyTo) opts.replyTo = String(data.replyTo);
+  if (data.html)    opts.htmlBody = String(data.html);
+  GmailApp.sendEmail(to, String(data.subject || ''), String(data.text || ''), opts);
+  return jsonOut({ ok: true });
+}
+
 function handleAdopcja(data) {
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  ensureHeaders(sheet, HEADERS_ADOPCJA);
   const token = Utilities.getUuid().replace(/-/g, '');
   const ts = new Date();
 
@@ -123,6 +168,7 @@ function handleAdopcja(data) {
     data.zgoda_wizerunek ? 'TAK' : '',
     data.zgoda_rodo ? 'TAK' : '',
     data.newsletter ? 'TAK' : '',
+    '', '',  // subId (przelew nie ma subskrypcji), ts_cancelled
   ]);
 
   sendConfirmationEmail(data, token);
@@ -326,6 +372,7 @@ function notifyFoundation(row, headers) {
 /** Adopcja opłacona kartą (PayU) - zapis do arkusza Adopcja od razu jako verified. */
 function handleAdopcjaPaid(data) {
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  ensureHeaders(sheet, HEADERS_ADOPCJA);
   const ts = new Date();
   sheet.appendRow([
     Utilities.getUuid().replace(/-/g, ''), 'oplacone-PayU', ts, ts,
@@ -333,6 +380,7 @@ function handleAdopcjaPaid(data) {
     data.telefon || '', data.adres || '', data.forma || '', data.okres || '',
     'PayU (karta, cyklicznie)', data.dzieci || '',
     'TAK', data.zgoda_wizerunek || '', 'TAK', data.newsletter || '',
+    String(data.subId || ''), '',  // subId (mapowanie do anulowania), ts_cancelled
   ]);
   const inner =
       '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Adopcja Serca opłacona kartą (PayU)</h2>'
@@ -345,6 +393,53 @@ function handleAdopcjaPaid(data) {
     htmlBody: emailShell(inner), name: FOUNDATION_NAME,
   });
   return jsonOut({ ok: true });
+}
+
+/**
+ * Anulowanie subskrypcji ADOPCJI (z payu/manage.php lub panel/subskrypcje.php).
+ * Znajduje wiersz w „Adopcja Serca" po kolumnie subId i ustawia status „anulowana" + datę,
+ * a następnie powiadamia fundację (Gmail - kanał niezawodny, w przeciwieństwie do PHP mail()).
+ * Gdy wiersza nie ma (np. adopcja-przelew albo starszy wpis bez subId) - i tak wysyła
+ * powiadomienie, zaznaczając, że wiersz trzeba zaktualizować ręcznie.
+ */
+function handleAdopcjaCancel(data) {
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  ensureHeaders(sheet, HEADERS_ADOPCJA);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  const subCol = headers.indexOf('subId');
+  const statusCol = headers.indexOf('status');
+  const tsCancelCol = headers.indexOf('ts_cancelled');
+  const wantId = String(data.subId || '');
+  let updated = 0;
+  if (subCol !== -1 && statusCol !== -1 && wantId !== '') {
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][subCol]) === wantId && String(values[i][statusCol]) !== 'anulowana') {
+        sheet.getRange(i + 1, statusCol + 1).setValue('anulowana');
+        if (tsCancelCol !== -1) sheet.getRange(i + 1, tsCancelCol + 1).setValue(new Date());
+        updated++;
+      }
+    }
+  }
+  notifyFoundationCancel(data, updated);
+  return jsonOut({ ok: true, updated: updated });
+}
+
+/** Powiadamia fundację (Gmail) o anulowaniu subskrypcji adopcji + wyniku aktualizacji arkusza. */
+function notifyFoundationCancel(data, updated) {
+  const inner =
+      '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Subskrypcja adopcji anulowana</h2>'
+    + '<p style="font-size:14px;line-height:1.7;margin:0;">'
+    + 'Darczyńca: <strong>' + esc(data.imie) + ' ' + esc(data.nazwisko) + '</strong> &lt;' + esc(data.email) + '&gt;<br>'
+    + 'Cel: ' + esc(data.goalLabel || 'Adopcja Serca') + '<br>'
+    + 'Kwota: ' + esc(data.amount) + ' ' + esc(data.currency || 'PLN') + ' / miesiąc'
+    + (data.dzieci ? '<br>Liczba dzieci: ' + esc(data.dzieci) : '')
+    + '<br>ID subskrypcji: ' + esc(data.subId)
+    + '<br>Arkusz: ' + (updated > 0 ? 'zaktualizowano status wiersza na „anulowana"' : 'nie znaleziono wiersza po subId - zaktualizuj ręcznie')
+    + '</p>';
+  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Adopcja anulowana: ' + (data.imie || '') + ' ' + (data.nazwisko || ''), '', {
+    htmlBody: emailShell(inner), name: FOUNDATION_NAME,
+  });
 }
 
 /** Jednorazowa darowizna OPŁACONA (z notify.php) - zapis do arkusza Darowizny + powiadomienie. */

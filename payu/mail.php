@@ -9,8 +9,53 @@ if (!defined('MADA_MAIL_FROM'))     define('MADA_MAIL_FROM', 'kontakt@misjamada.
 if (!defined('MADA_MAIL_FOUND'))    define('MADA_MAIL_FOUND', 'kontakt@misjamada.pl');
 if (!defined('MADA_SITE_BASE'))     define('MADA_SITE_BASE', 'https://misjamada.pl');
 
-/** Wysyła maila (UTF-8, From fundacji). Zwraca wynik mail(). */
+// Konfiguracja relaya Gmail (Apps Script) = ten sam Web App i sekret co zapis do arkusza.
+$__sheet_secret = __DIR__ . '/secret/sheet-config.php';
+if (is_readable($__sheet_secret)) { require_once $__sheet_secret; }
+if (!defined('MADA_SHEET_URL'))    define('MADA_SHEET_URL', '');
+if (!defined('MADA_SHEET_SECRET')) define('MADA_SHEET_SECRET', '');
+
+/**
+ * Wysyła maila przez relay Gmail (Apps Script GmailApp) - kanał uwierzytelniony, dobra
+ * dostarczalność (w przeciwieństwie do PHP mail() z serwera, który bywa łapany jako spam).
+ * Zwraca true TYLKO gdy Apps Script potwierdził wysyłkę ({ok:true}); inaczej false ->
+ * wołający robi fallback na @mail(). Bez konfiguracji sekretu od razu zwraca false.
+ */
+function mada_mail_relay(string $to, string $subject, string $text, string $html = ''): bool {
+    if (MADA_SHEET_URL === '' || MADA_SHEET_SECRET === '' || $to === '') return false;
+    $payload = [
+        'type'    => 'relay',
+        'secret'  => MADA_SHEET_SECRET,
+        'to'      => $to,
+        'subject' => $subject,
+        'text'    => $text,
+        'html'    => $html,
+        'name'    => 'Fundacja Misja MADA',
+        'replyTo' => MADA_MAIL_FROM,
+    ];
+    $ch = curl_init(MADA_SHEET_URL);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_FOLLOWLOCATION => true,   // Apps Script exec przekierowuje na googleusercontent
+        CURLOPT_HTTPHEADER     => ['Content-Type: text/plain;charset=utf-8'],
+        CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    ]);
+    $res  = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($res === false || $code < 200 || $code >= 300) {
+        error_log('[mada_mail_relay] HTTP ' . $code . ' - fallback na mail()');
+        return false;
+    }
+    $j = json_decode((string) $res, true);
+    return is_array($j) && !empty($j['ok']);
+}
+
+/** Wysyła maila (UTF-8, From fundacji). Najpierw relay Gmail, fallback na PHP mail(). */
 function mada_mail($to, string $subject, string $body): bool {
+    if (mada_mail_relay((string) $to, $subject, $body)) return true;
     $headers  = 'From: Fundacja Misja MADA <' . MADA_MAIL_FROM . '>' . "\r\n";
     $headers .= 'Reply-To: ' . MADA_MAIL_FROM . "\r\n";
     $headers .= 'Content-Type: text/plain; charset=UTF-8' . "\r\n";
@@ -52,9 +97,10 @@ function mada_mail_shell(string $title, string $inner): string {
       . '</td></tr></table></td></tr></table></body></html>';
 }
 
-/** Wysyła maila HTML (UTF-8, From fundacji). */
+/** Wysyła maila HTML (UTF-8, From fundacji). Najpierw relay Gmail, fallback na PHP mail(). */
 function mada_mail_html($to, string $subject, string $innerHtml): bool {
     $html = mada_mail_shell($subject, $innerHtml);
+    if (mada_mail_relay((string) $to, $subject, '', $html)) return true;
     $headers  = 'From: Fundacja Misja MADA <' . MADA_MAIL_FROM . '>' . "\r\n";
     $headers .= 'Reply-To: ' . MADA_MAIL_FROM . "\r\n";
     $headers .= 'MIME-Version: 1.0' . "\r\n";

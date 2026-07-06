@@ -30,6 +30,7 @@ function mada_adopcja_after_card(string $goal, array $ctx): void {
     mada_sheet_post([
         'type'            => 'adopcja',
         'status'          => 'oplacone-PayU',
+        'subId'           => (string) ($ctx['subId'] ?? ''),
         'imie'            => $ctx['imie'],
         'nazwisko'        => $ctx['nazwisko'],
         'email'           => $ctx['email'],
@@ -208,6 +209,7 @@ try {
             $fresh = payu_sub_get($subId);
             if ($fresh) { mada_mail_welcome($fresh); mada_mail_foundation($fresh, 'nowa'); }
             mada_adopcja_after_card($goal, [
+                'subId' => $subId,
                 'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email, 'telefon' => $telefon,
                 'adres' => $adres, 'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
                 'wizerunek' => $wizerunek, 'newsletter' => $newsletter,
