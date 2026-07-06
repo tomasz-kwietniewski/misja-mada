@@ -400,7 +400,7 @@
               <span class="am-method-card">
                 <span class="am-method-top">
                   <strong>Automatyczna płatność cykliczna</strong>
-                  <span class="am-method-badge">PayU · najwygodniej</span>
+                  <span class="am-method-badge">PayU - najwygodniej</span>
                 </span>
                 <span class="am-method-desc">Podpinasz kartę raz - <strong>70&nbsp;zł co miesiąc</strong> pobierane automatycznie. Możesz anulować w każdej chwili.</span>
               </span>
