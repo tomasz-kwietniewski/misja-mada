@@ -46,3 +46,17 @@ function mada_sheet_post(array $payload): bool {
     }
     return true;
 }
+
+/** Dopisuje zweryfikowany mail na newsletter przez wewnetrzny endpoint add-verified.php. */
+function mada_newsletter_add_verified(string $email, string $imie): void {
+    $cfg = __DIR__ . '/../newsletter/secret/verified-config.php';
+    if (is_readable($cfg)) { require_once $cfg; }
+    if (!defined('NL_VERIFIED_SECRET') || NL_VERIFIED_SECRET === '') return;
+    $ch = curl_init('https://misjamada.pl/newsletter/add-verified.php');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['email' => $email, 'imie' => $imie, 'secret' => NL_VERIFIED_SECRET], JSON_UNESCAPED_UNICODE),
+    ]);
+    @curl_exec($ch); curl_close($ch);
+}

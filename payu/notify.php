@@ -79,6 +79,23 @@ try {
                     $fresh = payu_sub_get((int) $sub['id']);
                     mada_mail_welcome($fresh);
                     mada_mail_foundation($fresh, 'nowa');
+                    // Adopcja przez karte z 3DS - dane adopcyjne zapisane efemerycznie przy zakladaniu subskrypcji.
+                    $adf = __DIR__ . '/../data/adopcja-card-pending/' . (int)$sub['id'] . '.json';
+                    if (is_readable($adf)) {
+                        $ad = json_decode((string) @file_get_contents($adf), true);
+                        if (is_array($ad)) {
+                            mada_sheet_post(array_merge(['type' => 'adopcja', 'status' => 'oplacone-PayU'], [
+                                'imie' => $ad['imie'] ?? '', 'nazwisko' => $ad['nazwisko'] ?? '', 'email' => $ad['email'] ?? '',
+                                'telefon' => $ad['telefon'] ?? '', 'adres' => $ad['adres'] ?? '', 'forma' => $ad['forma'] ?? '',
+                                'okres' => $ad['okres'] ?? '', 'dzieci' => $ad['dzieci'] ?? '',
+                                'zgoda_wizerunek' => !empty($ad['wizerunek']) ? 'TAK' : '', 'newsletter' => !empty($ad['newsletter']) ? 'TAK' : '',
+                            ]));
+                            if (!empty($ad['newsletter'])) {
+                                mada_newsletter_add_verified($ad['email'] ?? '', $ad['imie'] ?? '');
+                            }
+                            @unlink($adf);
+                        }
+                    }
                 }
             } else {
                 error_log('[PayU notify] FIRST sub=' . $cls['subId'] . ' COMPLETED bez tokena TOKC_.');
