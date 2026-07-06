@@ -61,7 +61,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── newsletter.js       modal newslettera
 │   ├── wydarzenia-render.js, wydarzenie-render.js, archiwum-render.js,
 │   │   sprawozdania-render.js   render treści CMS z danych
-│   ├── google-apps-script.gs   backend formularzy (Apps Script) - do wgrania w Google
+│   ├── google-apps-script.gs   backend formularzy + relay poczty (Apps Script) - do wgrania w Google
 │   └── madagaskar.svg      statyczny fallback mapy
 │
 ├── payu/                   backend płatności PayU (PHP)
@@ -74,7 +74,8 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── db.php               warstwa MySQL (subskrypcje, obciążenia)
 │   ├── recurring-lib.php    czysta logika (harmonogram, idempotencja, decyzje)
 │   ├── lib.php              wspólne (OAuth, żądania do PayU, podpis)
-│   ├── mail.php             maile transakcyjne subskrypcji
+│   ├── mail.php             maile transakcyjne (relay przez Gmail/Apps Script, fallback mail())
+│   ├── sheet.php            zapis do arkusza Google + sync anulowania adopcji (przez Apps Script)
 │   └── migrate.php          migracja bazy (CLI)
 │
 ├── newsletter/             własny double opt-in + MailerLite (PHP)
@@ -154,6 +155,16 @@ zintegrowany z MailerLite. Modal na froncie: `assets/newsletter.js`.
 (`assets/google-apps-script.gs`) - kontakt: mail do fundacji z `Reply-To`; adopcja przez przelew:
 double opt-in + dane do przelewu na ekranie sukcesu. E-mail fundacji: `kontakt@misjamada.pl`.
 
+## Dostarczalność e-maili (relay Gmail)
+
+Poczta wychodząca z serwera przez PHP `mail()` bywała łapana jako spam. Dlatego maile
+transakcyjne (potwierdzenia i powiadomienia subskrypcji, potwierdzenie zapisu na newsletter)
+idą przez **relay w Apps Script** (`type=relay` -> `GmailApp`, uwierzytelniony Gmail
+`kontakt@misjamada.pl`), a `mail()` zostaje jako **fallback**, gdyby relay był niedostępny.
+Anulowanie subskrypcji adopcji dodatkowo aktualizuje wiersz w arkuszu Google na „anulowana"
+i powiadamia fundację tym samym niezawodnym kanałem (`payu/sheet.php` -> Apps Script). Zależy
+to od wgranego `assets/google-apps-script.gs` (Web App) i sekretu współdzielonego z PHP.
+
 ## Panel CMS
 
 Pod `/panel/` (logowanie: konta imienne w `panel/secret/users.php`, sesje + CSRF + throttling).
@@ -162,6 +173,11 @@ Redaktorzy zarządzają dwoma typami treści:
 - **Wydarzenia** - źródło prawdy `data/wydarzenia/<id>.json`; endpoint `events.js.php` emituje
   `window.MADA_EVENTS`; status (nadchodzące/archiwum) liczony z daty; zdjęcia do `uploads/`,
   filmy jako linki YouTube/Facebook; tłumaczenia EN/FR przez DeepL przy zapisie + glosariusz.
+  Na **stronie głównej** sekcja wydarzeń (pod „Co robimy?", nad mapą Madagaskaru) dobiera formę
+  automatycznie: gdy jest zaplanowane **nadchodzące** wydarzenie - duży blok „nadchodzące -
+  wyróżnione" (wygląd jak na podstronie, klasa `.featured`); gdy są **tylko archiwalne** - siatka
+  3 najnowszych relacji; gdy **brak** jakichkolwiek wydarzeń - sekcja się chowa. Wyróżnione =
+  ręcznie oznaczone w panelu albo najbliższe nadchodzące.
 - **Sprawozdania** - `data/sprawozdania.json`; PDF-y do `uploads/sprawozdania/`; render na
   `sprawozdania.html` i kaflach `o-nas.html`.
 - **Subskrypcje** - podgląd płatności cyklicznych + ręczne anulowanie.
