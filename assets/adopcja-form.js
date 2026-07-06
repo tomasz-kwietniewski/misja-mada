@@ -333,11 +333,11 @@
 
           <fieldset class="am-fieldset am-dzieci-set">
             <legend>Liczba dzieci, które chcesz wesprzeć</legend>
-            <div class="am-stepper">
-              <button type="button" class="am-step-btn" id="am-minus" aria-label="Mniej dzieci">−</button>
-              <div class="am-step-val"><span id="am-dzieci">1</span></div>
-              <button type="button" class="am-step-btn" id="am-plus" aria-label="Więcej dzieci">+</button>
-              <div class="am-step-calc" id="am-calc">1 × 70 zł = <strong>70 zł/mies.</strong></div>
+            <div class="dar-stepper">
+              <button type="button" class="dar-step-btn" id="am-minus" aria-label="Mniej dzieci">−</button>
+              <div class="dar-step-val"><span id="am-dzieci">1</span></div>
+              <button type="button" class="dar-step-btn" id="am-plus" aria-label="Więcej dzieci">+</button>
+              <div class="dar-step-calc" id="am-calc">1 × 70 zł = <strong>70 zł/mies.</strong></div>
             </div>
           </fieldset>
 
