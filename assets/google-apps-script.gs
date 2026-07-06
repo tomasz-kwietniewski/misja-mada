@@ -232,7 +232,7 @@ function emailShell(inner) {
     + '<tr><td style="padding:22px 40px;background:#2a1a0e;color:#faf5ee;font-size:12px;line-height:1.6;">'
     + '<strong style="color:#c99d66;">' + FOUNDATION_NAME + '</strong><br>'
     + 'ul. Szosa Chełmińska 271A, 87-100 Toruń<br>'
-    + '<a href="' + SITE_URL + '" style="color:#c99d66;">' + SITE_URL + '</a> · '
+    + '<a href="' + SITE_URL + '" style="color:#c99d66;">' + SITE_URL + '</a> - '
     + '<a href="mailto:' + FOUNDATION_EMAIL + '" style="color:#c99d66;">' + FOUNDATION_EMAIL + '</a>'
     + '</td></tr></table></body></html>';
 }
@@ -280,7 +280,7 @@ function maybeAddNewsletter(row, headers) {
 /* ────────── E-mail potwierdzający (do darczyńcy) ────────────── */
 function sendConfirmationEmail(data, token) {
   const confirmUrl = ScriptApp.getService().getUrl() + '?confirm=' + token;
-  const subject = 'Potwierdź swoje zgłoszenie - Adopcja Serca · ' + FOUNDATION_NAME;
+  const subject = 'Potwierdź swoje zgłoszenie - Adopcja Serca - ' + FOUNDATION_NAME;
 
   const inner =
       '<h2 style="font-family:Georgia,serif;font-size:26px;color:#422918;margin:0 0 18px;">Cześć ' + esc(data.imie) + '!</h2>'

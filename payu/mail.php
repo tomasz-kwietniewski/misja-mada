@@ -42,7 +42,7 @@ function mada_mail_shell(string $title, string $inner): string {
       . '<tr><td style="padding:22px 40px;background:#2a1a0e;color:#faf5ee;font-size:12px;line-height:1.6;">'
       . '<strong style="color:#c99d66;">Fundacja Misja MADA</strong><br>'
       . 'ul. Szosa Chełmińska 271A, 87-100 Toruń<br>'
-      . '<a href="' . $site . '" style="color:#c99d66;">' . $site . '</a> · '
+      . '<a href="' . $site . '" style="color:#c99d66;">' . $site . '</a> - '
       . '<a href="mailto:' . MADA_MAIL_FROM . '" style="color:#c99d66;">' . MADA_MAIL_FROM . '</a>'
       . '</td></tr></table></body></html>';
 }
