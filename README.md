@@ -74,12 +74,13 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── db.php               warstwa MySQL (subskrypcje, obciążenia)
 │   ├── recurring-lib.php    czysta logika (harmonogram, idempotencja, decyzje)
 │   ├── lib.php              wspólne (OAuth, żądania do PayU, podpis)
-│   ├── mail.php             maile transakcyjne (relay przez Gmail/Apps Script, fallback mail())
-│   ├── sheet.php            zapis do arkusza Google + sync anulowania adopcji (przez Apps Script)
+│   ├── mail.php             maile transakcyjne (HTML) - relay przez Gmail/Apps Script, fallback mail()
+│   ├── sheet.php            arkusz Google (Apps Script, shared secret): zapis + sync anulowania adopcji + newsletter add-verified
 │   └── migrate.php          migracja bazy (CLI)
 │
 ├── newsletter/             własny double opt-in + MailerLite (PHP)
 │   ├── subscribe.php, confirm.php, lib.php, confirm-email.html
+│   └── add-verified.php     dopisanie ZWERYFIKOWANEGO maila do MailerLite (z adopcji, shared secret)
 │
 ├── panel/                  panel CMS (PHP, logowanie + CSRF)
 │   ├── index.php, login.php, auth.php, layout.php, lib.php, panel.css
@@ -132,7 +133,8 @@ Model recurring PayU z tokenizacją karty (Secure Form):
    w trybie `recurring=STANDARD` (serwer-do-serwera, bez 3DS). Idempotencja przez
    `extOrderId` + tabela `charges`; ponowienia po odmowie: max 1x/dobę, do 3 prób.
    Przy nieznanym wyniku (timeout) subskrypcja jest wstrzymywana zamiast ponawiania
-   (ochrona przed podwójnym obciążeniem).
+   (ochrona przed podwójnym obciążeniem). Cron przy okazji czyści porzucone tokeny oraz
+   efemeryczne pliki `data/donation-pending` / `data/adopcja-card-pending` starsze niż 7 dni.
 5. **Rezygnacja** - link z tokenem (`payu/manage.php`) w każdym mailu, oraz ręcznie
    w panelu (`panel/subskrypcje.php`).
 
@@ -151,9 +153,37 @@ zintegrowany z MailerLite. Modal na froncie: `assets/newsletter.js`.
 
 ## Formularze (kontakt, adopcja)
 
-`assets/adopcja-form.js` i formularz kontaktowy wysyłają dane do backendu w Google Apps Script
-(`assets/google-apps-script.gs`) - kontakt: mail do fundacji z `Reply-To`; adopcja przez przelew:
-double opt-in + dane do przelewu na ekranie sukcesu. E-mail fundacji: `kontakt@misjamada.pl`.
+Backend formularzy to Google Apps Script (`assets/google-apps-script.gs`, wdrażany ręcznie w edytorze
+Apps Script; PHP woła go serwer-do-serwera z shared secret). E-mail fundacji: `kontakt@misjamada.pl`.
+
+- **Kontakt** - mail do fundacji z `Reply-To` na nadawcę.
+- **Adopcja Serca** (`assets/adopcja-form.js`) - jeden pełny formularz z selektorem liczby dzieci
+  (kwota = dzieci x 70 zł), dwie ścieżki wsparcia:
+  - **Przelew** - double opt-in: zapis `pending` w arkuszu -> mail „Potwierdź zgłoszenie" -> po kliknięciu
+    linku status `verified`, mail **powitalny** z danymi do przelewu (kwota, tytuł „Adopcja Serca Madagaskar
+    - Imię Nazwisko", okres zlecenia dla formy czasowej) + powiadomienie fundacji.
+  - **Karta (cyklicznie)** - Secure Form + `payu/recurring-first.php` (jak darowizna cykliczna); komplet
+    danych adopcyjnych trafia też do arkusza (status `oplacone-PayU`), subskrypcja do panelu.
+  - Dobrowolny **newsletter** - po weryfikacji maila (klik linku / płatność kartą) dopisanie do MailerLite
+    przez `newsletter/add-verified.php` (bez drugiego double opt-in).
+- **Wejście z darowizny** - w modalu „Wesprzyj nas" wybór celu „Adopcja Serca" + „Dalej" przełącza na
+  pełny formularz adopcji z przeniesioną liczbą dzieci (jedno źródło danych).
+
+### Arkusz „Darowizny" (Google Sheets)
+
+Opłacone **jednorazowe** darowizny (`payu/notify.php` przy `COMPLETED`) oraz **cykliczne na cele inne niż
+adopcja** (każda rata, idempotentnie) trafiają do zakładki „Darowizny" w arkuszu + powiadomienie fundacji.
+Zapis przez `payu/sheet.php` -> Apps Script. Cykliczne adopcje mają własną zakładkę „Adopcja Serca".
+
+## Wysyłka maili (dwa kanały)
+
+- **Apps Script / Gmail** - maile adopcji (potwierdź, powitalny) i powiadomienia fundacji. Dobra
+  dostarczalność (reputacja Google, DKIM).
+- **PHP `mail()` z serwera** - maile cykliczne (`payu/mail.php`) i potwierdzenie zapisu na newsletter.
+  Słabsza dostarczalność; DNS ma SPF/DKIM (selektor `x`)/DMARC (`p=quarantine`), a `mail()` ustawia
+  envelope-from `-f` dla wyrównania SPF. Jeśli mimo to trafiają do spamu (zwłaszcza Outlook, nowa domena):
+  opcja docelowa to uwierzytelniony SMTP przez `kontakt@misjamada.pl` lub przekierowanie tych maili
+  przez Apps Script/Gmail (uwaga na dzienny limit Gmaila).
 
 ## Dostarczalność e-maili (relay Gmail)
 
@@ -180,7 +210,8 @@ Redaktorzy zarządzają dwoma typami treści:
   ręcznie oznaczone w panelu albo najbliższe nadchodzące.
 - **Sprawozdania** - `data/sprawozdania.json`; PDF-y do `uploads/sprawozdania/`; render na
   `sprawozdania.html` i kaflach `o-nas.html`.
-- **Subskrypcje** - podgląd płatności cyklicznych + ręczne anulowanie.
+- **Subskrypcje** - podgląd płatności cyklicznych + ręczne anulowanie i **wznawianie** wstrzymanych
+  (`paused` -> `active`, kolejne obciążenie zaplanowane na następny dzień).
 
 ---
 
