@@ -8,6 +8,7 @@
 require __DIR__ . '/db.php';
 require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
+require __DIR__ . '/sheet.php';
 
 function manage_csrf(string $manageToken): string {
     return hash('sha256', $manageToken . '|misja-mada-cancel');
@@ -26,7 +27,13 @@ if ($sub && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (payu_sub_cancel((int) $sub['id'])) {
             $fresh = payu_sub_get((int) $sub['id']);
             mada_mail_cancelled($fresh);
-            mada_mail_foundation($fresh, 'anulowana');
+            if (($fresh['goal'] ?? '') === 'adopcja') {
+                // Adopcja: arkusz „Adopcja Serca" -> „anulowana" + powiadomienie fundacji
+                // niezawodnym kanalem Gmail (Apps Script), zamiast PHP mail() lapanego jako spam.
+                mada_adopcja_cancel_sheet($fresh);
+            } else {
+                mada_mail_foundation($fresh, 'anulowana');
+            }
             $done = true;
             $sub  = $fresh;
         } else {

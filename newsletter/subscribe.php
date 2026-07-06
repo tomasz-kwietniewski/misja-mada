@@ -7,6 +7,7 @@
    Endpoint dla assets/newsletter.js -> window.MADA_NEWSLETTER_URL
   ═══════════════════════════════════════════════════════════════ */
 require __DIR__ . '/lib.php';
+require_once __DIR__ . '/../payu/mail.php';   // mada_mail_relay (Gmail Apps Script)
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     ml_json(['error' => 'Metoda niedozwolona.'], 405);
@@ -56,13 +57,18 @@ if ($tpl === false || strpos($tpl, '{{CONFIRM_URL}}') === false) {
 }
 $html = str_replace('{{CONFIRM_URL}}', htmlspecialchars($confirmUrl, ENT_QUOTES, 'UTF-8'), $tpl);
 
-$subject = '=?UTF-8?B?' . base64_encode('Potwierdź zapis na newsletter - Fundacja Misja MADA') . '?=';
-$headers = "MIME-Version: 1.0\r\n"
-  . "Content-Type: text/html; charset=UTF-8\r\n"
-  . 'From: =?UTF-8?B?' . base64_encode('Fundacja Misja MADA') . "?= <kontakt@misjamada.pl>\r\n"
-  . "Reply-To: kontakt@misjamada.pl\r\n";
+$subjectText = 'Potwierdź zapis na newsletter - Fundacja Misja MADA';
 
-$sent = @mail($email, $subject, $html, $headers, '-fkontakt@misjamada.pl');
+// Najpierw relay Gmail (Apps Script) - dobra dostarczalność; fallback na PHP mail() (bywa w spamie).
+$sent = mada_mail_relay($email, $subjectText, '', $html);
+if (!$sent) {
+    $subject = '=?UTF-8?B?' . base64_encode($subjectText) . '?=';
+    $headers = "MIME-Version: 1.0\r\n"
+      . "Content-Type: text/html; charset=UTF-8\r\n"
+      . 'From: =?UTF-8?B?' . base64_encode('Fundacja Misja MADA') . "?= <kontakt@misjamada.pl>\r\n"
+      . "Reply-To: kontakt@misjamada.pl\r\n";
+    $sent = @mail($email, $subject, $html, $headers, '-fkontakt@misjamada.pl');
+}
 if (!$sent) {
     @unlink($path);
     error_log('[Newsletter] mail() nie powiodlo sie dla ' . $email);

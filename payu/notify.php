@@ -84,7 +84,7 @@ try {
                     if (is_readable($adf)) {
                         $ad = json_decode((string) @file_get_contents($adf), true);
                         if (is_array($ad)) {
-                            mada_sheet_post(array_merge(['type' => 'adopcja', 'status' => 'oplacone-PayU'], [
+                            mada_sheet_post(array_merge(['type' => 'adopcja', 'status' => 'oplacone-PayU', 'subId' => (string)(int)$sub['id']], [
                                 'imie' => $ad['imie'] ?? '', 'nazwisko' => $ad['nazwisko'] ?? '', 'email' => $ad['email'] ?? '',
                                 'telefon' => $ad['telefon'] ?? '', 'adres' => $ad['adres'] ?? '', 'forma' => $ad['forma'] ?? '',
                                 'okres' => $ad['okres'] ?? '', 'dzieci' => $ad['dzieci'] ?? '',

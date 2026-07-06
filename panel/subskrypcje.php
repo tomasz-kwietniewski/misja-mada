@@ -6,6 +6,7 @@ mada_require_login();
 require_once __DIR__ . '/../payu/db.php';
 require_once __DIR__ . '/../payu/recurring-lib.php';
 require_once __DIR__ . '/../payu/mail.php';
+require_once __DIR__ . '/../payu/sheet.php';
 
 // ── Anulowanie subskrypcji przez pracownika ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -15,7 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if (payu_sub_cancel($id)) {
                 $sub = payu_sub_get($id);
-                if ($sub) { mada_mail_cancelled($sub); mada_mail_foundation($sub, 'anulowana'); }
+                if ($sub) {
+                    mada_mail_cancelled($sub);
+                    if (($sub['goal'] ?? '') === 'adopcja') {
+                        // Adopcja: aktualizacja arkusza + powiadomienie fundacji kanalem Gmail (jak w manage.php).
+                        mada_adopcja_cancel_sheet($sub);
+                    } else {
+                        mada_mail_foundation($sub, 'anulowana');
+                    }
+                }
                 mada_redirect('subskrypcje.php?msg=cancelled');
             }
             mada_redirect('subskrypcje.php?msg=already');
