@@ -33,18 +33,21 @@ function mada_mail_amount(array $sub): string {
 /** Wspólna skorupa HTML maila (kolory fundacji). $inner = treść (HTML). */
 function mada_mail_shell(string $title, string $inner): string {
     $site = MADA_SITE_BASE;
-    return '<!doctype html><html lang="pl"><head><meta charset="utf-8"></head>'
-      . '<body style="margin:0;padding:40px 20px;background:#faf5ee;font-family:\'Helvetica Neue\',Arial,sans-serif;color:#1b140e;">'
-      . '<table cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;">'
-      . '<tr><td style="padding:32px 40px;border-bottom:1px solid rgba(66,41,24,.12);">'
-      . '<h1 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0;">Fundacja Misja MADA</h1></td></tr>'
-      . '<tr><td style="padding:32px 40px;">' . $inner . '</td></tr>'
-      . '<tr><td style="padding:22px 40px;background:#2a1a0e;color:#faf5ee;font-size:12px;line-height:1.6;">'
-      . '<strong style="color:#c99d66;">Fundacja Misja MADA</strong><br>'
+    return '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
+      . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      . '<!--[if mso]><style>table,td{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;}</style><![endif]--></head>'
+      . '<body style="margin:0;padding:0;background:#faf5ee;font-family:\'Helvetica Neue\',Arial,sans-serif;color:#1b140e;">'
+      . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#faf5ee" style="background:#faf5ee;"><tr><td align="center" style="padding:40px 16px;">'
+      . '<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;">'
+      . '<tr><td bgcolor="#ffffff" style="padding:30px 40px 24px;border-bottom:1px solid #e8ddcf;">'
+      . '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;color:#422918;font-weight:bold;">Fundacja Misja MADA</div></td></tr>'
+      . '<tr><td bgcolor="#ffffff" style="padding:30px 40px;font-family:\'Helvetica Neue\',Arial,sans-serif;color:#1b140e;font-size:15px;line-height:1.6;">' . $inner . '</td></tr>'
+      . '<tr><td bgcolor="#2a1a0e" style="padding:22px 40px;background:#2a1a0e;color:#faf5ee;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;">'
+      . '<span style="color:#c99d66;font-weight:bold;">Fundacja Misja MADA</span><br>'
       . 'ul. Szosa Chełmińska 271A, 87-100 Toruń<br>'
-      . '<a href="' . $site . '" style="color:#c99d66;">' . $site . '</a> - '
-      . '<a href="mailto:' . MADA_MAIL_FROM . '" style="color:#c99d66;">' . MADA_MAIL_FROM . '</a>'
-      . '</td></tr></table></body></html>';
+      . '<a href="' . $site . '" style="color:#c99d66;text-decoration:underline;">' . $site . '</a> - '
+      . '<a href="mailto:' . MADA_MAIL_FROM . '" style="color:#c99d66;text-decoration:underline;">' . MADA_MAIL_FROM . '</a>'
+      . '</td></tr></table></td></tr></table></body></html>';
 }
 
 /** Wysyła maila HTML (UTF-8, From fundacji). */
@@ -73,7 +76,7 @@ function mada_mail_welcome(array $sub): void {
       . 'Kwota: <strong>' . mada_mail_esc($kwota) . ' ' . mada_mail_esc($sub['currency']) . ' miesięcznie</strong><br>'
       . 'Kolejne obciążenie: ' . mada_mail_esc($sub['next_charge_at']) . '</p>'
       . '<p style="font-size:14px;line-height:1.6;color:#5a4836;margin:0 0 20px;">Subskrypcję możesz anulować w każdej chwili:</p>'
-      . '<div style="text-align:center;margin:8px 0 4px;"><a href="' . $url . '" style="display:inline-block;background:#c99d66;color:#2a1a0e;padding:14px 28px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;">Zarządzaj subskrypcją</a></div>';
+      . '<div style="text-align:center;margin:24px 0 4px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;"><tr><td bgcolor="#c99d66" style="background:#c99d66;border-radius:10px;"><a href="' . $url . '" style="display:inline-block;padding:15px 32px;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#2a1a0e;text-decoration:none;">Zarządzaj subskrypcją</a></td></tr></table></div>';
     mada_mail_html($sub['email'], 'Dziękujemy za wsparcie cykliczne - Misja MADA', $inner);
 }
 
