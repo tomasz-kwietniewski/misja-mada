@@ -16,7 +16,9 @@ function mada_mail($to, string $subject, string $body): bool {
     $headers .= 'Content-Type: text/plain; charset=UTF-8' . "\r\n";
     $headers .= 'MIME-Version: 1.0' . "\r\n";
     $subjEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-    return @mail($to, $subjEnc, $body, $headers);
+    // 5. parametr = envelope-from (Return-Path). Wyrównuje SPF do domeny From (misjamada.pl),
+    // co przy DMARC p=quarantine chroni przed traktowaniem jako spam (jak w newsletterze).
+    return @mail($to, $subjEnc, $body, $headers, '-f' . MADA_MAIL_FROM);
 }
 
 /** Link do zarządzania/anulowania subskrypcji. */
@@ -58,7 +60,8 @@ function mada_mail_html($to, string $subject, string $innerHtml): bool {
     $headers .= 'MIME-Version: 1.0' . "\r\n";
     $headers .= 'Content-Type: text/html; charset=UTF-8' . "\r\n";
     $subjEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-    return @mail($to, $subjEnc, $html, $headers);
+    // envelope-from (Return-Path) = From -> wyrównanie SPF (patrz mada_mail).
+    return @mail($to, $subjEnc, $html, $headers, '-f' . MADA_MAIL_FROM);
 }
 
 /** Bezpieczne escapowanie do treści HTML maila. */
