@@ -57,6 +57,11 @@
     function refreshDzieci() {
       if (dziSpan) dziSpan.textContent = dzieci;
       if (calcEl) calcEl.innerHTML = `${dzieci} × ${STAWKA} zł = <strong>${dzieci * STAWKA} zł/mies.</strong>`;
+      // Kwoty przy częstotliwości wpłat przelewem (miesięcznie/kwartalnie/rocznie)
+      // nadążają za liczbą dzieci: kwota = dzieci × stawka-bazowa dla danego okresu.
+      form.querySelectorAll('.am-freq').forEach(function (el) {
+        el.textContent = dzieci * (parseInt(el.dataset.base, 10) || 0);
+      });
     }
     // Kwota w zgodzie cyklicznej (PayU) nadąża za liczbą dzieci - deklarujemy wysoko,
     // by stepper i handler metody korzystały z tej samej funkcji.
@@ -415,15 +420,15 @@
               <div class="am-czest-opts">
                 <label class="am-radio">
                   <input type="radio" name="czestotliwosc" value="miesiecznie" />
-                  <span>Miesięcznie · 70&nbsp;zł</span>
+                  <span>Miesięcznie - <span class="am-freq" data-base="70">70</span>&nbsp;zł</span>
                 </label>
                 <label class="am-radio">
                   <input type="radio" name="czestotliwosc" value="kwartalnie" />
-                  <span>Kwartalnie · 210&nbsp;zł</span>
+                  <span>Kwartalnie - <span class="am-freq" data-base="210">210</span>&nbsp;zł</span>
                 </label>
                 <label class="am-radio">
                   <input type="radio" name="czestotliwosc" value="rocznie" />
-                  <span>Rocznie · 840&nbsp;zł</span>
+                  <span>Rocznie - <span class="am-freq" data-base="840">840</span>&nbsp;zł</span>
                 </label>
               </div>
             </div>
