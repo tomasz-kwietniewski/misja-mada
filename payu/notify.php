@@ -8,6 +8,7 @@ require __DIR__ . '/lib.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
+require __DIR__ . '/sheet.php';
 
 $raw = file_get_contents('php://input');
 
@@ -88,6 +89,29 @@ try {
         $chargeStatus = $status === 'COMPLETED' ? 'completed'
                       : (($status === 'CANCELED') ? 'failed' : 'pending');
         payu_charge_mark($extOrderId, $chargeStatus, $payuOrderId);
+    } elseif (mada_donation_is_ext($extOrderId) && $status === 'COMPLETED') {
+        // Jednorazowa darowizna OPŁACONA -> zaloguj do arkusza „Darowizny" + powiadom fundację.
+        // Idempotencja: rekord pending kasujemy po zapisie; brak pliku = już przetworzone (PayU ponawia).
+        $pf = __DIR__ . '/../data/donation-pending/' . preg_replace('/[^a-z0-9]/i', '', $extOrderId) . '.json';
+        if (is_readable($pf)) {
+            $rec = json_decode((string) @file_get_contents($pf), true);
+            if (is_array($rec)) {
+                $amountPln = isset($order['totalAmount']) ? number_format(((int) $order['totalAmount']) / 100, 2, '.', '') : ($rec['amount'] ?? '');
+                $ok = mada_sheet_post([
+                    'type'        => 'darowizna',
+                    'imie'        => $rec['imie'] ?? '',
+                    'nazwisko'    => $rec['nazwisko'] ?? '',
+                    'email'       => $rec['email'] ?? '',
+                    'goal'        => $rec['goal'] ?? '',
+                    'goalLabel'   => $rec['goalLabel'] ?? '',
+                    'amount'      => $rec['amount'] ?? $amountPln,
+                    'currency'    => $rec['currency'] ?? (isset($order['currencyCode']) ? $order['currencyCode'] : 'PLN'),
+                    'extOrderId'  => $extOrderId,
+                    'payuOrderId' => $payuOrderId,
+                ]);
+                if ($ok) { @unlink($pf); }
+            }
+        }
     }
 } catch (Throwable $e) {
     // Nie blokujemy odpowiedzi 200 - błąd logujemy, PayU i tak ponowi przy potrzebie.
