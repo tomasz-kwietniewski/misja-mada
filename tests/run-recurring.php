@@ -130,6 +130,13 @@ ok(strlen($tok) === 64, 'manage_token: długość 64');
 ok(ctype_xdigit($tok), 'manage_token: same znaki hex');
 ok(mada_sub_gen_manage_token() !== mada_sub_gen_manage_token(), 'manage_token: dwa wywołania różne');
 
+// ── donation_is_ext: rozpoznanie jednorazowej darowizny (prefiks madaone_) ──
+ok(mada_donation_is_ext('madaone_64f8a1b2c3.45678901'), 'donation_is_ext: madaone_ -> true');
+ok(!mada_donation_is_ext('mada548242'),          'donation_is_ext: FIRST subskrypcji -> false');
+ok(!mada_donation_is_ext('mada548242_202606'),   'donation_is_ext: STANDARD subskrypcji -> false');
+ok(!mada_donation_is_ext(''),                    'donation_is_ext: puste -> false');
+ok(!mada_donation_is_ext('madaone'),             'donation_is_ext: bez podkreslnika -> false');
+
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty logiki recurring: {$T['pass']} OK";
 if ($T['fail'] > 0) { echo ", {$T['fail']} BŁĄD\n"; exit(1); }

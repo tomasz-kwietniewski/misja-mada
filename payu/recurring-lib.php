@@ -131,6 +131,15 @@ function mada_sub_first_ext_order_id(int $subId): string {
 }
 
 /**
+ * Czy extOrderId należy do JEDNORAZOWEJ darowizny (create-order.php nadaje prefiks
+ * 'madaone_'). Odróżnia je od FIRST/STANDARD subskrypcji cyklicznych, które mają
+ * format mada{publicId}[...]. Używane w notify.php do logowania opłaconych darowizn.
+ */
+function mada_donation_is_ext(string $ext): bool {
+    return strncmp($ext, 'madaone_', 8) === 0;
+}
+
+/**
  * Rozpoznaje typ zamówienia po extOrderId z notyfikacji PayU.
  * Zwraca ['type' => 'first'|'standard'|'other', 'subId' => ?int, 'period' => ?string, 'attempt' => int].
  * Rozpoznaje format bieżący (mada{publicId}[...]) ORAZ - dla wstecznej zgodności -
