@@ -53,7 +53,7 @@ const HEADERS_ADOPCJA = [
   'zgoda_regulamin', 'zgoda_wizerunek', 'zgoda_rodo', 'newsletter',
   'subId', 'ts_cancelled',
 ];
-const HEADERS_DAROWIZNY = ['ts', 'imie', 'nazwisko', 'email', 'cel', 'kwota', 'waluta', 'extOrderId', 'payuOrderId'];
+const HEADERS_DAROWIZNY = ['ts', 'imie', 'nazwisko', 'email', 'cel', 'typ', 'kwota', 'waluta', 'extOrderId', 'payuOrderId'];
 const HEADERS_NEWSLETTER = ['ts', 'imie', 'email', 'zgoda_rodo'];
 
 /**
@@ -442,22 +442,34 @@ function notifyFoundationCancel(data, updated) {
   });
 }
 
-/** Jednorazowa darowizna OPŁACONA (z notify.php) - zapis do arkusza Darowizny + powiadomienie. */
+/** Darowizna OPŁACONA (z notify.php) - zapis do arkusza Darowizny + powiadomienie.
+ *  typ = 'jednorazowa' | 'cykliczna' (osobna kolumna dla pracownikow). Kwota zapisywana
+ *  jako LICZBA (nie tekst) - inaczej w pl-PL kropka dziesietna robi z niej tekst i psuje sumy.
+ *  Zapis po NAZWACH naglowkow (odporny na kolejnosc kolumn / dolozona kolumne typ). */
 function handleDarowizna(data) {
   const sheet = getOrCreateSheet(SHEET_DAROWIZNY, HEADERS_DAROWIZNY);
-  sheet.appendRow([
-    new Date(), data.imie || '', data.nazwisko || '', data.email || '',
-    data.goalLabel || data.goal || '', data.amount || '', data.currency || 'PLN',
-    data.extOrderId || '', data.payuOrderId || '',
-  ]);
+  ensureHeaders(sheet, HEADERS_DAROWIZNY);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  const amt = data.amount;
+  const kwota = (amt === '' || amt == null || isNaN(Number(amt))) ? (amt || '') : Number(amt);
+  const typ = (data.typ === 'cykliczna' || data.typ === 'jednorazowa') ? data.typ : 'jednorazowa';
+  const rowMap = {
+    ts: new Date(),
+    imie: data.imie || '', nazwisko: data.nazwisko || '', email: data.email || '',
+    cel: data.goalLabel || data.goal || '', typ: typ, kwota: kwota,
+    waluta: data.currency || 'PLN', extOrderId: data.extOrderId || '', payuOrderId: data.payuOrderId || '',
+  };
+  sheet.appendRow(headers.map(function (h) { return (h in rowMap) ? rowMap[h] : ''; }));
+
   const inner =
       '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Nowa darowizna (opłacona)</h2>'
     + '<p style="font-size:14px;line-height:1.7;margin:0;">'
     + 'Darczyńca: <strong>' + esc(data.imie) + ' ' + esc(data.nazwisko) + '</strong> &lt;' + esc(data.email) + '&gt;<br>'
     + 'Cel: ' + esc(data.goalLabel || data.goal) + '<br>'
+    + 'Typ: <strong>' + esc(typ) + '</strong><br>'
     + 'Kwota: <strong>' + esc(data.amount) + ' ' + esc(data.currency || 'PLN') + '</strong><br>'
     + 'PayU order: ' + esc(data.payuOrderId) + '</p>';
-  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Nowa darowizna: ' + (data.amount || '') + ' ' + (data.currency || 'PLN'), '', {
+  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Nowa darowizna (' + typ + '): ' + (data.amount || '') + ' ' + (data.currency || 'PLN'), '', {
     htmlBody: emailShell(inner), name: FOUNDATION_NAME,
   });
   return jsonOut({ ok: true });
