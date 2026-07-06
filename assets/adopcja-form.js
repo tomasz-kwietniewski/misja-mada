@@ -244,6 +244,14 @@
         // Show success
         const emailSpan = modal.querySelector('.am-success-email');
         if (emailSpan) emailSpan.textContent = data.email;
+        // Uzupełnij tytuł przelewu (imię i nazwisko) oraz kwoty przeliczone wg liczby dzieci.
+        const titleEl = modal.querySelector('.am-bank-title');
+        if (titleEl) titleEl.textContent = data.imieNazwisko || (data.imie + ' ' + data.nazwisko).trim();
+        const amtEl = modal.querySelector('.am-bank-amt');
+        if (amtEl) {
+          const d = data.dzieci || 1;
+          amtEl.textContent = (d * 70) + ' zł miesięcznie (lub ' + (d * 210) + ' zł kwartalnie / ' + (d * 840) + ' zł rocznie)';
+        }
         form.style.display = 'none';
         successPane.style.display = '';
       } catch (err) {
@@ -481,8 +489,8 @@
             <span class="am-bank-label">Dane do przelewu (zlecenie stałe)</span>
             <div class="am-bank-row"><span>Odbiorca</span><strong>Fundacja Misja MADA</strong></div>
             <div class="am-bank-row"><span>Konto&nbsp;PLN</span><strong>70 1090 1056 0000 0001 5832 5871</strong></div>
-            <div class="am-bank-row"><span>Tytuł</span><strong>Adopcja Serca - [Imię i nazwisko]</strong></div>
-            <p class="am-bank-note">Kwota: 70&nbsp;zł miesięcznie (lub 210&nbsp;zł kwartalnie / 840&nbsp;zł rocznie). Pełne dane wyślemy również mailem po potwierdzeniu.</p>
+            <div class="am-bank-row"><span>Tytuł</span><strong>Adopcja Serca Madagaskar - <span class="am-bank-title">Imię i nazwisko</span></strong></div>
+            <p class="am-bank-note">Kwota: <span class="am-bank-amt">70&nbsp;zł miesięcznie (lub 210&nbsp;zł kwartalnie / 840&nbsp;zł rocznie)</span>. Pełne dane wyślemy również mailem po potwierdzeniu.</p>
           </div>
           <p style="font-family: var(--font-head); font-style: italic; color: var(--brown); margin-top: 4px;">Super, że jesteś z nami i chcesz pomóc dzieciom na Madagaskarze ❤︎</p>
           <button type="button" class="btn btn-primary am-close-success">Zamknij</button>
