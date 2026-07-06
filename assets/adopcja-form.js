@@ -35,8 +35,25 @@
     const closeBtn = modal.querySelector('.am-close');
     const successPane = modal.querySelector('.am-success');
 
-    function open(e) {
-      if (e) e.preventDefault();
+    // Liczba dzieci (kwota = dzieci × 70 zł). Ustawiana też przez window.MadaAdopcja.open({dzieci}).
+    let dzieci = 1;
+    const STAWKA = 70;
+    const dziSpan = form.querySelector('#am-dzieci');
+    const calcEl = form.querySelector('#am-calc');
+    function refreshDzieci() {
+      if (dziSpan) dziSpan.textContent = dzieci;
+      if (calcEl) calcEl.innerHTML = `${dzieci} × ${STAWKA} zł = <strong>${dzieci * STAWKA} zł/mies.</strong>`;
+    }
+    const minusBtn = form.querySelector('#am-minus');
+    const plusBtn = form.querySelector('#am-plus');
+    if (minusBtn) minusBtn.addEventListener('click', () => { if (dzieci > 1) { dzieci--; refreshDzieci(); } });
+    if (plusBtn) plusBtn.addEventListener('click', () => { if (dzieci < 20) { dzieci++; refreshDzieci(); } });
+
+    function open(e, opts) {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      // Liczba dzieci: z opcji (przejście z darowizny) lub domyślnie 1.
+      dzieci = (opts && opts.dzieci && opts.dzieci > 0) ? Math.min(20, opts.dzieci) : 1;
+      refreshDzieci();
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
@@ -59,6 +76,10 @@
     }
 
     triggers.forEach(t => t.addEventListener('click', open));
+
+    // Publiczny hook - inny modal (darowizna) otwiera ten formularz z przeniesioną liczbą dzieci.
+    window.MadaAdopcja = { open: function (opts) { open(null, opts); } };
+
     closeBtn.addEventListener('click', close);
     modal.addEventListener('click', e => { if (e.target === modal) close(); });
     document.addEventListener('keydown', e => {
@@ -116,7 +137,7 @@
       form.querySelectorAll('.field-error').forEach(el => el.remove());
       form.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
 
-      const data = collectData(form);
+      const data = collectData(form, dzieci);
       const errors = validate(data);
       if (errors.length) {
         showErrors(form, errors);
@@ -200,7 +221,7 @@
     });
   }
 
-  function collectData(form) {
+  function collectData(form, dzieci) {
     const fd = new FormData(form);
     const forma = fd.get('forma') || '';
     const imie = (fd.get('imie') || '').toString().trim();
@@ -212,6 +233,8 @@
       email: (fd.get('email') || '').toString().trim(),
       telefon: (fd.get('telefon') || '').toString().trim(),
       adres: (fd.get('adres') || '').toString().trim(),
+      dzieci: dzieci || 1,
+      amount: (dzieci || 1) * 70,
       forma: forma,
       formaLabel: forma === 'nieokreslony' ? 'Na czas nieokreślony' :
                   forma === 'czasowa' ? 'Czasowa (min. 1 rok)' : '',
@@ -275,6 +298,16 @@
             <h2 id="am-title">Zostań rodzicem adopcyjnym</h2>
             <p>Wypełnij poniższy formularz - odezwiemy się do Ciebie z dalszymi krokami. Otrzymasz informację o dziecku objętym Twoim wsparciem. Wszystkie pola są wymagane.</p>
           </header>
+
+          <fieldset class="am-fieldset am-dzieci-set">
+            <legend>Liczba dzieci, które chcesz wesprzeć</legend>
+            <div class="am-stepper">
+              <button type="button" class="am-step-btn" id="am-minus" aria-label="Mniej dzieci">−</button>
+              <div class="am-step-val"><span id="am-dzieci">1</span></div>
+              <button type="button" class="am-step-btn" id="am-plus" aria-label="Więcej dzieci">+</button>
+              <div class="am-step-calc" id="am-calc">1 × 70 zł = <strong>70 zł/mies.</strong></div>
+            </div>
+          </fieldset>
 
           <div class="am-toperror" style="display:none;" role="alert"></div>
 
