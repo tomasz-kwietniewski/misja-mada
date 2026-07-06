@@ -260,6 +260,19 @@ function payu_sub_mark_paused(int $id, string $error): void {
     $st->execute([mb_substr($error, 0, 255), $id]);
 }
 
+/** Wznawia wstrzymaną subskrypcję: paused -> active, planuje najbliższe obciążenie na jutro,
+ *  zeruje licznik prób i błąd. Zwraca true, jeśli faktycznie zmieniono wiersz (był 'paused'). */
+function payu_sub_resume(int $id): bool {
+    $tomorrow = date('Y-m-d', strtotime('+1 day'));
+    $st = payu_db()->prepare(
+        "UPDATE subscriptions
+            SET status='active', next_charge_at=?, retry_count=0, paused_at=NULL, last_error=NULL
+          WHERE id=? AND status='paused'"
+    );
+    $st->execute([$tomorrow, $id]);
+    return $st->rowCount() > 0;
+}
+
 /** Anulowanie subskrypcji. Zwraca true, jeśli była aktywna/wstrzymana i została anulowana. */
 function payu_sub_cancel(int $id): bool {
     $st = payu_db()->prepare(
