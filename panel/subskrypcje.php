@@ -23,12 +23,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_redirect('subskrypcje.php?msg=dberr');
         }
     }
+    if (($_POST['action'] ?? '') === 'resume' && $id > 0) {
+        try {
+            if (payu_sub_resume($id)) { mada_redirect('subskrypcje.php?msg=resumed'); }
+            mada_redirect('subskrypcje.php?msg=notpaused');
+        } catch (Throwable $e) {
+            mada_redirect('subskrypcje.php?msg=dberr');
+        }
+    }
 }
 
 function sub_flash() {
     $codes = [
         'cancelled' => ['ok',    'Subskrypcja została anulowana (darczyńca powiadomiony mailem).'],
         'already'   => ['error', 'Subskrypcja była już zakończona.'],
+        'resumed'   => ['ok',    'Subskrypcja została wznowiona - najbliższe obciążenie jutro.'],
+        'notpaused' => ['error', 'Subskrypcja nie była wstrzymana.'],
         'dberr'     => ['error', 'Błąd bazy danych. Spróbuj ponownie.'],
     ];
     $m = $_GET['msg'] ?? '';
@@ -84,6 +94,14 @@ panel_header('Subskrypcje');
           <td><?= (int) $s['months_paid'] ?></td>
           <td><span class="hint"><?= mada_esc($s['card_mask'] ?: '-') ?></span></td>
           <td>
+            <?php if ($s['status'] === 'paused'): ?>
+              <form method="post" onsubmit="return confirm('Wznowić subskrypcję darczyńcy <?= mada_esc($s['first_name'].' '.$s['last_name']) ?>?');" style="margin:0 0 6px;">
+                <?= mada_csrf_field() ?>
+                <input type="hidden" name="action" value="resume">
+                <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+                <button type="submit" class="btn-secondary btn-sm">Wznów</button>
+              </form>
+            <?php endif; ?>
             <?php if (in_array($s['status'], ['active', 'paused', 'pending_first'], true)): ?>
               <form method="post" onsubmit="return confirm('Anulować subskrypcję darczyńcy <?= mada_esc($s['first_name'].' '.$s['last_name']) ?>?');" style="margin:0;">
                 <?= mada_csrf_field() ?>
@@ -91,7 +109,7 @@ panel_header('Subskrypcje');
                 <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
                 <button type="submit" class="btn-danger btn-sm">Anuluj</button>
               </form>
-            <?php else: ?>-<?php endif; ?>
+            <?php elseif ($s['status'] !== 'paused'): ?>-<?php endif; ?>
           </td>
         </tr>
       <?php endforeach; ?>

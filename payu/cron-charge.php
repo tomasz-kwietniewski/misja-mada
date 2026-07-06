@@ -24,6 +24,22 @@ function cron_log(string $msg): void {
     fwrite(STDOUT, date('c') . "\t" . $msg . "\n");
 }
 
+/**
+ * Kasuje z katalogu porzucone efemeryczne pliki .json starsze niż $days dni
+ * (wg czasu modyfikacji). Używane dla data/donation-pending (nieopłacone jednorazówki)
+ * i data/adopcja-card-pending (zgłoszenia adopcji-karty bez zakończonego 3DS).
+ * Zwraca liczbę usuniętych plików.
+ */
+function mada_purge_stale_pending(string $dir, int $days): int {
+    if (!is_dir($dir)) return 0;
+    $cutoff = time() - $days * 86400;
+    $n = 0;
+    foreach ((glob($dir . '/*.json') ?: []) as $f) {
+        if (@filemtime($f) !== false && filemtime($f) < $cutoff && @unlink($f)) { $n++; }
+    }
+    return $n;
+}
+
 // ── Blokada nakładania się uruchomień ────────────────────────────
 $lockFile = __DIR__ . '/../data/cron-charge.lock';
 @mkdir(dirname($lockFile), 0755, true);
@@ -41,6 +57,11 @@ try {
     // niezależnie od tego, czy dziś są obciążenia (te subskrypcje i tak nigdy nie są obciążane).
     $purged = payu_sub_purge_abandoned_tokens(7);
     if ($purged > 0) { cron_log("Wyczyszczono tokeny porzuconych subskrypcji: {$purged}."); }
+
+    // Higiena: skasuj porzucone (nieopłacone / bez zakończonego 3DS) efemeryczne rekordy > 7 dni.
+    $purgedFiles = mada_purge_stale_pending(__DIR__ . '/../data/donation-pending', 7)
+                 + mada_purge_stale_pending(__DIR__ . '/../data/adopcja-card-pending', 7);
+    if ($purgedFiles > 0) { cron_log("Wyczyszczono porzucone pliki pending: {$purgedFiles}."); }
 
     $due   = payu_sub_due($today);
     cron_log('Subskrypcji do obciążenia: ' . count($due));
