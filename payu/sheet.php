@@ -57,11 +57,12 @@ function mada_donation_sheet_from_sub(array $sub, string $extOrderId, string $pa
     $grosze = isset($order['totalAmount']) ? (int) $order['totalAmount'] : (int) ($sub['amount_grosze'] ?? 0);
     mada_sheet_post([
         'type'        => 'darowizna',
+        'typ'         => 'cykliczna',   // osobna kolumna w arkuszu (marker dla pracownikow)
         'imie'        => $sub['first_name'] ?? '',
         'nazwisko'    => $sub['last_name'] ?? '',
         'email'       => $sub['email'] ?? '',
         'goal'        => $sub['goal'] ?? '',
-        'goalLabel'   => trim(($sub['goal_label'] ?? '') . ' (cykliczna)'),
+        'goalLabel'   => $sub['goal_label'] ?? '',
         'amount'      => number_format($grosze / 100, 2, '.', ''),
         'currency'    => $sub['currency'] ?? 'PLN',
         'extOrderId'  => $extOrderId,

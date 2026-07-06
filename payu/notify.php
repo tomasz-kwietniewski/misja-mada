@@ -127,6 +127,7 @@ try {
                 $amountPln = isset($order['totalAmount']) ? number_format(((int) $order['totalAmount']) / 100, 2, '.', '') : ($rec['amount'] ?? '');
                 $ok = mada_sheet_post([
                     'type'        => 'darowizna',
+                    'typ'         => 'jednorazowa',   // osobna kolumna w arkuszu (marker dla pracownikow)
                     'imie'        => $rec['imie'] ?? '',
                     'nazwisko'    => $rec['nazwisko'] ?? '',
                     'email'       => $rec['email'] ?? '',
