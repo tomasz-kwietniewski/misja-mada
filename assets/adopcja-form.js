@@ -56,7 +56,7 @@
     const calcEl = form.querySelector('#am-calc');
     function refreshDzieci() {
       if (dziSpan) dziSpan.textContent = dzieci;
-      if (calcEl) calcEl.innerHTML = `${dzieci} × ${STAWKA} zł = <strong>${dzieci * STAWKA} zł/mies.</strong>`;
+      if (calcEl) calcEl.innerHTML = `${dzieci} × ${STAWKA} <span class="i18n-word">zł</span> = <strong>${dzieci * STAWKA} <span class="i18n-word">zł/mies.</span></strong>`;
       // Kwoty przy częstotliwości wpłat przelewem (miesięcznie/kwartalnie/rocznie)
       // nadążają za liczbą dzieci: kwota = dzieci × stawka-bazowa dla danego okresu.
       form.querySelectorAll('.am-freq').forEach(function (el) {
@@ -66,7 +66,7 @@
     // Kwota w zgodzie cyklicznej (PayU) nadąża za liczbą dzieci - deklarujemy wysoko,
     // by stepper i handler metody korzystały z tej samej funkcji.
     const cyklAmount = form.querySelector('.am-cykl-amount');
-    function refreshCyklAmount() { if (cyklAmount) cyklAmount.textContent = (dzieci * STAWKA) + ' zł'; }
+    function refreshCyklAmount() { if (cyklAmount) cyklAmount.innerHTML = (dzieci * STAWKA) + ' <span class="i18n-word">zł</span>'; }
     const minusBtn = form.querySelector('#am-minus');
     const plusBtn = form.querySelector('#am-plus');
     if (minusBtn) minusBtn.addEventListener('click', () => { if (dzieci > 1) { dzieci--; refreshDzieci(); refreshCyklAmount(); } });
@@ -342,7 +342,7 @@
               <button type="button" class="dar-step-btn" id="am-minus" aria-label="Mniej dzieci">−</button>
               <div class="dar-step-val"><span id="am-dzieci">1</span></div>
               <button type="button" class="dar-step-btn" id="am-plus" aria-label="Więcej dzieci">+</button>
-              <div class="dar-step-calc" id="am-calc">1 × 70 zł = <strong>70 zł/mies.</strong></div>
+              <div class="dar-step-calc" id="am-calc">1 × 70 <span class="i18n-word">zł</span> = <strong>70 <span class="i18n-word">zł/mies.</span></strong></div>
             </div>
           </fieldset>
 

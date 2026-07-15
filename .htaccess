@@ -8,14 +8,19 @@ RewriteEngine On
 RewriteCond %{HTTP_HOST} ^www\.misjamada\.pl [NC]
 RewriteRule ^(.*)$ https://misjamada.pl/$1 [R=301,L]
 
-# Pliki tłumaczeń i18n zmieniają się często. Domyślnie serwer cache'uje JS na
-# 7 dni (max-age=604800) BEZ rewalidacji - przez co po aktualizacji słownika
+# Pliki uczestniczące w tłumaczeniu zmieniają się często. Domyślnie serwer cache'uje
+# JS na 7 dni (max-age=604800) BEZ rewalidacji - przez co po aktualizacji słownika
 # wracający użytkownik widzi starą wersję (nowe frazy zostają nieprzetłumaczone).
 # Wymuszamy rewalidację (ETag/Last-Modified) przy każdym wejściu: gdy plik się nie
 # zmienił -> 304 (tanie), gdy się zmienił -> świeża wersja od razu.
 # (URL skryptów ma dodatkowo ?v=… - jednorazowo przełamuje już-zapisany 7-dniowy cache.)
+#
+# Reguła obejmuje NIE TYLKO słowniki: renderery i formularze też budują widoczny
+# tekst, więc stary renderer + nowy słownik = połowicznie przetłumaczona strona
+# (dokładnie ten przypadek: daty w archiwum). Wcześniej wzorzec łapał sam „i18n*",
+# a renderery nie miały nawet ?v= - czyli mogły wisieć w cache 7 dni.
 <IfModule mod_headers.c>
-  <FilesMatch "i18n(-dict(-fr)?)?\.js$">
+  <FilesMatch "(i18n(-dict(-fr)?)?|.*-render|adopcja-form|darowizna|newsletter|site-search)\.js$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>
