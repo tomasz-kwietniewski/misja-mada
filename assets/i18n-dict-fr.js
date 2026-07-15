@@ -827,7 +827,7 @@ window.MADA_I18N_FR = {
   "Życie fundacji": "Vie de la fondation",
   "wydarzeń · zaktualizowane 1 czerwca 2026": "événements · mis à jour le 1er juin 2026",
   "Dziecko w Centrum Orione": "Un enfant au Centre Orione",
-  "Atelier Nadziei - pracownia w Itaosy": "Atelier de l'Espérance - l'atelier à Itaosy",
+  "Atelier Nadziei - pracownia w Itaosy": "Atelier de l'Espoir - l'atelier à Itaosy",
   "Wolontariat misyjny - wolontariusz z dziećmi w Centrum": "Volontariat missionnaire - un volontaire avec les enfants au Centre",
   "Asia i Radek, założyciele Fundacji Misja MADA, z podopiecznymi w Itaosy": "Asia et Radek, fondateurs de la Fondation Misja MADA, avec les enfants dont ils s'occupent à Itaosy",
   "Mapa Madagaskaru - Antananarywa, Itaosy": "Carte de Madagascar - Antananarivo, Itaosy",
@@ -861,9 +861,9 @@ window.MADA_I18N_FR = {
   "· Oświadczenie o wizerunku": "· Déclaration relative à l'image",
   "Oświadczenie Darczyńcy": "Déclaration du Donateur",
   "w związku z udostępnieniem wizerunku dziecka": "relative à la mise à disposition de l'image d'un enfant",
-  "Dokument akceptowany przy zgłoszeniu do programu Adopcja Serca. Określa zasady wykorzystywania zdjęć dzieci przez Darczyńcę.": "Document accepté lors de l'inscription au programme Adoption du Cœur. Il définit les règles d'utilisation des photographies d'enfants par le Donateur.",
+  "Dokument akceptowany przy zgłoszeniu do programu Adopcja Serca. Określa zasady wykorzystywania zdjęć dzieci przez Darczyńcę.": "Document accepté lors de l'inscription au programme Adoption de Cœur. Il définit les règles d'utilisation des photographies d'enfants par le Donateur.",
   "Dokument aktualny od 26 maja 2026 r.": "Document en vigueur depuis le 26 mai 2026.",
-  "Fundacja Misja MADA z siedzibą pod adresem: Szosa Chełmińska 271A, 87-100 Toruń, zwana dalej Fundacją, uzyskała zgodę na wykorzystanie wizerunku dziecka w Adopcji Serca, utrwalonego na fotografiach.": "La Fondation Misja MADA, dont le siège est situé Szosa Chełmińska 271A, 87-100 Toruń, ci-après dénommée la Fondation, a obtenu le consentement d'utiliser l'image de l'enfant dans le cadre de l'Adoption du Cœur, telle que fixée sur des photographies.",
+  "Fundacja Misja MADA z siedzibą pod adresem: Szosa Chełmińska 271A, 87-100 Toruń, zwana dalej Fundacją, uzyskała zgodę na wykorzystanie wizerunku dziecka w Adopcji Serca, utrwalonego na fotografiach.": "La Fondation Misja MADA, dont le siège est situé Szosa Chełmińska 271A, 87-100 Toruń, ci-après dénommée la Fondation, a obtenu le consentement d'utiliser l'image de l'enfant dans le cadre de l'Adoption de Cœur, telle que fixée sur des photographies.",
   "Wizerunek dziecka jest wykorzystywany przez Fundację zgodnie z celami statutowymi Fundacji.": "L'image de l'enfant est utilisée par la Fondation conformément à ses objectifs statutaires.",
   "Wizerunek dziecka jest wykorzystywany przez Fundację z przepisami powszechnie obowiązującymi (w tym Ustawą o prawie autorskim i prawach pokrewnych - Dz.U. z 2018 r. poz. 1191), zasadami współżycia społecznego oraz dobrymi obyczajami, które obowiązują na terytorium Polski.": "L'image de l'enfant est utilisée par la Fondation conformément au droit en vigueur (y compris la loi sur le droit d'auteur et les droits voisins - Journal officiel de 2018, position 1191), aux règles de la vie en société et aux bonnes mœurs en vigueur en Pologne.",
   "Wizerunek dziecka jest wykorzystywany przez Fundację z poszanowaniem godności, praw człowieka oraz dóbr osobistych dziecka.": "L'image de l'enfant est utilisée par la Fondation dans le respect de la dignité, des droits de l'homme et des droits de la personnalité de l'enfant.",
@@ -943,5 +943,9 @@ window.MADA_I18N_FR = {
   // ─── Tematy linkow mailto ("Napisz do nas") - tlumaczone przez atrybut href ───
   "mailto:kontakt@misjamada.pl?subject=Partner%20Biznesowy": "mailto:kontakt@misjamada.pl?subject=Partenaire%20commercial",
   "mailto:kontakt@misjamada.pl?subject=Partner%20Edukacyjny": "mailto:kontakt@misjamada.pl?subject=Partenaire%20%C3%A9ducatif",
-  "mailto:kontakt@misjamada.pl?subject=Wolontariat": "mailto:kontakt@misjamada.pl?subject=B%C3%A9n%C3%A9volat"
+  "mailto:kontakt@misjamada.pl?subject=Wolontariat": "mailto:kontakt@misjamada.pl?subject=B%C3%A9n%C3%A9volat",
+  "Nic nie znaleziono dla": "Aucun résultat pour",
+
+  // ─── Nota o wiazacej wersji jezykowej (dokumenty prawne) ───
+  "Wiążąca jest polska wersja tego dokumentu. W razie rozbieżności z tłumaczeniem na inny język rozstrzyga wersja polska.": "La version polonaise du présent document fait foi. En cas de divergence avec une traduction dans une autre langue, la version polonaise prévaut."
 };

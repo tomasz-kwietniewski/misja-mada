@@ -256,6 +256,33 @@ function scanCode(dicts, add, htmlFiles) {
     var re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi, m;
     while ((m = re.exec(html))) check(m[1], f + ' (script inline)');
   });
+  // Indeks wyszukiwarki (assets/site-search.js) - tu NIE zgadujemy: tablica jest
+  // czystymi danymi, więc odczytujemy ją wprost i sprawdzamy, czy każdy wpis ma
+  // komplet wariantów en/fr (page + title + body). Wyszukiwarka dopasowuje zapytanie
+  // do treści indeksu, więc brak wariantu = w danym języku nic się nie znajdzie.
+  var ssp = path.join(ROOT, 'assets', 'site-search.js');
+  if (fs.existsSync(ssp)) {
+    var ss = fs.readFileSync(ssp, 'utf8');
+    var mi = /const INDEX = (\[[\s\S]*?\n {2}\]);/.exec(ss);
+    if (!mi) {
+      add('en', '[nie odnaleziono tablicy INDEX w site-search.js - sprawdź bramkę]', 'assets/site-search.js');
+    } else {
+      var index;
+      try { index = new Function('return ' + mi[1])(); }
+      catch (e) { index = null; add('en', '[INDEX w site-search.js nie daje się odczytać: ' + e.message + ']', 'assets/site-search.js'); }
+      (index || []).forEach(function (e, i) {
+        ['en', 'fr'].forEach(function (l) {
+          var v = e[l];
+          var brak = !v ? 'brak wariantu ' + l.toUpperCase()
+                   : ['page', 'title', 'body'].filter(function (f) { return !v[f]; }).join(', ');
+          if (brak) {
+            add(l, 'INDEX[' + i + '] (' + (e.url || '?') + '): ' + (brak.indexOf('brak') === 0 ? brak : 'puste pola: ' + brak),
+                'assets/site-search.js');
+          }
+        });
+      });
+    }
+  }
   // Domyślne kategorie wydarzeń z panel/lib.php - trafiają wprost na chipy filtrów
   var libp = path.join(ROOT, 'panel', 'lib.php');
   if (fs.existsSync(libp)) {

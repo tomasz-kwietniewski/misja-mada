@@ -947,5 +947,9 @@ window.MADA_I18N = {
   // ─── Tematy linkow mailto ("Napisz do nas") - tlumaczone przez atrybut href ───
   "mailto:kontakt@misjamada.pl?subject=Partner%20Biznesowy": "mailto:kontakt@misjamada.pl?subject=Business%20Partner",
   "mailto:kontakt@misjamada.pl?subject=Partner%20Edukacyjny": "mailto:kontakt@misjamada.pl?subject=Education%20Partner",
-  "mailto:kontakt@misjamada.pl?subject=Wolontariat": "mailto:kontakt@misjamada.pl?subject=Volunteering"
+  "mailto:kontakt@misjamada.pl?subject=Wolontariat": "mailto:kontakt@misjamada.pl?subject=Volunteering",
+  "Nic nie znaleziono dla": "Nothing found for",
+
+  // ─── Nota o wiazacej wersji jezykowej (dokumenty prawne) ───
+  "Wiążąca jest polska wersja tego dokumentu. W razie rozbieżności z tłumaczeniem na inny język rozstrzyga wersja polska.": "The Polish version of this document is binding. In the event of any discrepancy with a translation into another language, the Polish version prevails."
 };

@@ -150,18 +150,35 @@ Zakres i świadome ograniczenia:
 |---|---|
 | HTML podstron (16 plików) | **wyczerpujące** - każdy tekst z literami musi być w słowniku albo w `ALLOW` |
 | `.textContent = '...'` w JS | pełne (wzorzec parsuje się pewnie) |
-| HTML sklejany w JS (`'<span>Tekst</span>' + x`) | tylko teksty z polskimi znakami (regex nie zastąpi parsera JS) |
+| indeks wyszukiwarki (`site-search.js`) | **wyczerpujące** - tablica czytana wprost, każdy wpis musi mieć `en` i `fr` z `page`/`title`/`body` |
 | domyślne kategorie wydarzeń (`panel/lib.php`) | sprawdzane wprost |
+| HTML sklejany w JS (`'<span>Tekst</span>' + x`) | tylko teksty z polskimi znakami (regex nie zastąpi parsera JS) |
 | treści wydarzeń z CMS | poza skryptem - tłumaczy je panel (DeepL + glosariusz), pole `i18n` wydarzenia |
 
 `newsletter.html` jest pomijany celowo: to szablon e-maila do MailerLite, nie podstrona.
+
+### Wyszukiwarka ma własny indeks językowy
+
+`assets/site-search.js` NIE korzysta ze słownika i18n - każdy wpis indeksu ma warianty
+`en` i `fr` obok polskiego. Powód: wyszukiwarka **dopasowuje zapytanie do treści indeksu**,
+więc przy polskim indeksie wpisanie „adoption" w wersji EN nie znalazłoby nic. Do tego wyniki
+przechodzą przez `snippet()`, który wstawia `<mark>` wokół trafienia i rozbija węzeł tekstowy -
+podmiana po słowniku i tak by go nie dopasowała. Dodając wpis, uzupełnij wszystkie trzy języki.
+
+### Dokumenty prawne
+
+Regulaminy, polityka prywatności i oświadczenie o wizerunku mają notę
+(`<p class="doc-binding">`), że **wiążąca jest wersja polska**, a tłumaczenia mają charakter
+informacyjny. Dodając nowy dokument prawny, dołóż tę notę - jest tłumaczona jak każdy inny
+tekst, więc wystarczy skopiować akapit.
 
 ### Cache
 
 Skrypty i18n mają `?v=…` w URL, a `.htaccess` wymusza dla nich rewalidację
 (`no-cache, must-revalidate`). Reguła obejmuje **też renderery i formularze** - stary renderer
 z nowym słownikiem daje połowicznie przetłumaczoną stronę. Przy zmianie któregokolwiek
-z tych plików podbij `?v=` w podstronach (wspólny token).
+z tych plików (oraz `site.css`) podbij `?v=` w podstronach - to jeden wspólny token dla całej
+witryny, obecnie `20260715`.
 
 ---
 

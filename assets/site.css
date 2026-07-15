@@ -1214,3 +1214,16 @@ footer ul a:hover { color: var(--gold); }
 .am-bank-row span { color: var(--brown); opacity: .7; flex-shrink: 0; }
 .am-bank-row strong { color: var(--brown); font-family: var(--font-mono, monospace); text-align: right; }
 .am-bank-note { font-size: 12px; color: #6b5a4a; line-height: 1.5; margin: 10px 0 0; font-style: italic; }
+
+/* ── Nota o wiążącej wersji językowej (dokumenty prawne) ──────────
+   Wersje EN/FR regulaminow, polityki prywatnosci i oswiadczenia o wizerunku
+   sa tlumaczeniami - w razie rozbieznosci rozstrzyga oryginal polski.
+   Uzywana w: regulamin-serwisu, regulamin-adopcja-serca,
+   polityka-prywatnosci, oswiadczenie-o-wizerunku. */
+.doc-binding {
+  margin: 14px 0 0;
+  font-size: .88rem;
+  line-height: 1.5;
+  color: var(--brown);
+  opacity: .7;
+}
