@@ -46,3 +46,10 @@ jobs:
 
       - name: Testy logiki płatności cyklicznych
         run: php tests/run-recurring.php
+
+      # Pilnuje, by żadna polska fraza nie trafiła na produkcję bez tłumaczenia
+      # EN i FR. Brak wpisu w słowniku nie wywala strony - tekst po prostu zostaje
+      # po polsku, więc bez tej bramki błąd jest CICHY i wychodzi dopiero u
+      # użytkownika (tak powstały zgłoszenia fundacji z lipca 2026).
+      - name: Pokrycie tłumaczeń EN/FR
+        run: node tests/i18n-coverage.js

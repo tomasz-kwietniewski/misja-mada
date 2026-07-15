@@ -11,7 +11,13 @@
   var PL_M_FULL = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
   var PL_M_ABBR = ['STY','LUT','MAR','KWI','MAJ','CZE','LIP','SIE','WRZ','PAŹ','LIS','GRU'];
   function isoDate(iso){ return iso ? new Date(iso + 'T00:00:00') : null; }
-  function plDate(iso){ var d=isoDate(iso); return d ? (d.getDate()+' '+PL_M_FULL[d.getMonth()]+' '+d.getFullYear()) : ''; }
+  // Nazwa miesiąca w osobnym elemencie - i18n podmienia ją ze słownika (12 kluczy),
+  // zamiast wymagać osobnego klucza na każdą datę. Kolejność „dzień miesiąc rok"
+  // jest wspólna dla PL/EN/FR. Zwraca HTML - dane tylko z Date i naszej tablicy.
+  function plDateHTML(iso){
+    var d=isoDate(iso);
+    return d ? (d.getDate()+' <span class="i18n-month">'+PL_M_FULL[d.getMonth()]+'</span> '+d.getFullYear()) : '';
+  }
   function firstImage(ev){ var m=(ev.media||[]).filter(function(x){return (x.type||'image')==='image';}); return m[0]||null; }
 
   var icoCal = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
@@ -69,7 +75,9 @@
       function upCard(e, extra) {
         var d = isoDate(e.dateISO);
         var day = d ? String(d.getDate()).padStart(2, '0') : '';
-        var my = d ? (PL_M_ABBR[d.getMonth()] + ' ' + d.getFullYear()) : '';
+        // skrot miesiaca w osobnym elemencie (tlumaczony ze slownika), rok obok jako liczba.
+        // Twarda spacja zostaje - trzyma "PAZ 2026" w jednej linii.
+        var my = d ? ('<span class="i18n-month">' + PL_M_ABBR[d.getMonth()] + '</span> ' + d.getFullYear()) : '';
         return '<a class="upcoming-card' + (extra ? ' upcoming-extra' : '') + '" href="wydarzenie.html?id=' + esc(e.id) + '"' + (extra ? ' hidden' : '') + '>' +
           '<div class="upcoming-date"><span class="day">' + day + '</span><span class="my">' + my + '</span></div>' +
           '<div class="upcoming-time">' + icoClock14 + (e.dateLabel ? esc(e.dateLabel) : '') + '</div>' +
@@ -109,7 +117,7 @@
         return '<a href="wydarzenie.html?id=' + esc(e.id) + '" class="event-card">' +
           '<div class="photo">' + (img ? '<img src="' + esc(img.src) + '" alt="' + esc(img.alt||'') + '" />' : '') + '</div>' +
           '<div class="body">' +
-            '<div class="meta">' + esc(plDate(e.dateISO)) + ' · ' + esc(e.categoryLabel || '') + '</div>' +
+            '<div class="meta">' + plDateHTML(e.dateISO) + ' · ' + esc(e.categoryLabel || '') + '</div>' +
             '<h3>' + esc(e.title || '') + '</h3>' +
             '<p>' + esc(e.lead || '') + '</p>' +
             '<span class="read">Czytaj więcej →</span>' +

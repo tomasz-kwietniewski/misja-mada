@@ -17,11 +17,20 @@
   'use strict';
 
   var KEY = 'mada_lang';
-  var DICTS = {
-    en: window.MADA_I18N || {},
-    fr: window.MADA_I18N_FR || {}
-  };
   var LANGS = ['pl', 'en', 'fr'];
+
+  // Słownik czytamy z window ZA KAŻDYM RAZEM, a nie zapamiętujemy raz przy starcie.
+  // Powód: events.js.php dokłada tłumaczenia wydarzeń przez
+  //   window.MADA_I18N = Object.assign({}, window.MADA_I18N, {...})
+  // czyli PODMIENIA obiekt. Zapamiętana referencja wskazywałaby wtedy na starą wersję
+  // i tłumaczenia wydarzeń z CMS po cichu by przepadły. Dziś kolejność skryptów jest
+  // dobra (dict -> events.js.php -> render -> i18n.js), ale to była cicha pułapka
+  // czekająca na pierwszą zmianę kolejności.
+  function dictFor(target) {
+    if (target === 'en') return window.MADA_I18N || {};
+    if (target === 'fr') return window.MADA_I18N_FR || {};
+    return null;
+  }
 
   var lang = (function () {
     try {
@@ -44,10 +53,13 @@
   // temu drobna niespójność wielkości liter nie zostawia tekstu nieprzetłumaczonego.
   // Tylko klucze >= 5 znaków, by uniknąć kolizji krótkich słów (np. „Do"/„do").
   // Kolizje (różne tłumaczenia tego samego klucza-małymi) są wyłączane (null).
+  // Cache trzyma referencję do słownika, z którego powstał - gdy events.js.php podmieni
+  // obiekt, indeks przeliczamy zamiast oddawać nieaktualny.
   var LOWER = {};
   function lowerIndex(target) {
-    if (LOWER[target]) return LOWER[target];
-    var dict = DICTS[target] || {};
+    var dict = dictFor(target) || {};
+    var cached = LOWER[target];
+    if (cached && cached.dict === dict) return cached.idx;
     var idx = {};
     for (var k in dict) {
       if (!Object.prototype.hasOwnProperty.call(dict, k) || k.length < 5) continue;
@@ -55,13 +67,13 @@
       if (lk in idx) { if (idx[lk] !== dict[k]) idx[lk] = null; }
       else idx[lk] = dict[k];
     }
-    LOWER[target] = idx;
+    LOWER[target] = { dict: dict, idx: idx };
     return idx;
   }
 
   // Zwraca przetłumaczony tekst (zachowując wiodące/końcowe białe znaki) lub null
   function translateText(raw, target) {
-    var dict = DICTS[target];
+    var dict = dictFor(target);
     if (!dict) return null;
     var key = norm(raw);
     if (!key) return null;
@@ -77,7 +89,11 @@
     return lead + tr + trail;
   }
 
-  var ATTRS = ['placeholder', 'aria-label', 'title', 'alt', 'value'];
+  // 'href' jest na liście wyłącznie po to, by przetłumaczyć temat w linkach mailto
+  // (np. „?subject=Partner Biznesowy" -> „Business Partner"). Nie zmienia to zwykłych
+  // odnośników: tłumaczony jest tylko adres mający DOKŁADNY wpis w słowniku, a zwykłe
+  // ścieżki („o-nas.html") żadnego wpisu nie mają, więc zostają nietknięte.
+  var ATTRS = ['placeholder', 'aria-label', 'title', 'alt', 'value', 'href'];
   var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1 };
 
   function walkTranslate(root, target) {
@@ -185,6 +201,7 @@
       var sw = document.createElement('div');
       sw.className = 'lang-switch';
       sw.setAttribute('role', 'group');
+      sw.setAttribute('translate', 'no');
       sw.setAttribute('aria-label', 'Wybór języka / Language / Langue');
       sw.innerHTML = makeSwitchHTML();
       actions.insertBefore(sw, actions.firstChild);
@@ -196,6 +213,7 @@
       var sw2 = document.createElement('div');
       sw2.className = 'lang-switch lang-switch-drawer';
       sw2.setAttribute('role', 'group');
+      sw2.setAttribute('translate', 'no');
       sw2.setAttribute('aria-label', 'Wybór języka / Language / Langue');
       sw2.innerHTML = makeSwitchHTML();
       drawerActions.parentNode.insertBefore(sw2, drawerActions);
@@ -218,6 +236,22 @@
     if (lang !== 'pl') apply(lang, false);
     else updateToggle();
   }
+
+  // ── Publiczne API dla kodu, który buduje tekst w locie ──────────────
+  // Podmiana w DOM działa tylko dla tekstu, który JEST w DOM jako stały węzeł.
+  // Gdy skrypt skleja zdanie ze zmiennej (np. „Znaleziono 3 wyniki dla zapytania X"),
+  // powstaje węzeł unikalny dla każdego wywołania - nie da się go trzymać w słowniku.
+  // Wtedy tłumaczymy części składowe TUTAJ, przed wstawieniem do DOM.
+  // Używać oszczędnie: domyślną drogą jest zwykły tekst w HTML + wpis w słowniku.
+  window.MadaI18n = {
+    lang: function () { return lang; },
+    // t('Znaleziono') -> 'Found' / 'Résultats'; brak wpisu = tekst PL bez zmian
+    t: function (pl) {
+      if (lang === 'pl') return pl;
+      var tr = translateText(pl, lang);
+      return tr == null ? pl : tr;
+    }
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

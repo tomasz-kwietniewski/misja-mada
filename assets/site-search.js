@@ -118,9 +118,14 @@
       return;
     }
     if (announcer) {
-      announcer.textContent = 'Znaleziono ' + results.length + ' ' +
-        (results.length === 1 ? 'wynik' : (results.length < 5 ? 'wyniki' : 'wyników')) +
-        ' dla zapytania ' + q;
+      // Komunikat dla czytników ekranu. Sklejamy go ze zmiennej (liczba + fraza), więc
+      // gotowy węzeł jest za każdym razem inny - podmiana w DOM po słowniku by go nie
+      // złapała. Tłumaczymy więc części składowe przez MadaI18n.t() przed złożeniem.
+      // Zostaje textContent (nie innerHTML): q pochodzi od użytkownika.
+      var t = (window.MadaI18n && window.MadaI18n.t) || function (s) { return s; };
+      announcer.textContent = t('Znaleziono') + ' ' + results.length + ' ' +
+        t(results.length === 1 ? 'wynik' : (results.length < 5 ? 'wyniki' : 'wyników')) +
+        ' ' + t('dla zapytania') + ' ' + q;
     }
     box.innerHTML = results.map((r, i) => `
       <a class="ss-item${i === 0 ? ' is-active' : ''}" href="${r.url}" data-idx="${i}">

@@ -8,7 +8,16 @@
   var all = window.MADA_EVENTS || [];
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);});}
   var PL_M = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
-  function plDate(iso){ if(!iso) return ''; var d=new Date(iso+'T00:00:00'); return d.getDate()+' '+PL_M[d.getMonth()]+' '+d.getFullYear(); }
+  // Data jako HTML: nazwa miesiąca w osobnym elemencie, żeby i18n mógł ją podmienić
+  // ze słownika. Cała data („19 maja 2026") byłaby osobnym kluczem dla KAŻDEGO dnia -
+  // nie do utrzymania. Kolejność „dzień miesiąc rok" jest wspólna dla PL/EN/FR, więc
+  // wystarczy przetłumaczyć sam miesiąc (12 kluczy zamiast nieskończoności).
+  // Zwraca HTML - dane pochodzą wyłącznie z Date i naszej tablicy, nie z wejścia.
+  function plDateHTML(iso){
+    if(!iso) return '';
+    var d=new Date(iso+'T00:00:00');
+    return d.getDate()+' <span class="i18n-month">'+PL_M[d.getMonth()]+'</span> '+d.getFullYear();
+  }
   function firstImage(ev){ var m=(ev.media||[]).filter(function(x){return (x.type||'image')==='image';}); return m[0]||null; }
   function plural(n){ return n===1 ? 'wydarzenie' : ((n%10>=2 && n%10<=4 && (n%100<10||n%100>=20)) ? 'wydarzenia' : 'wydarzeń'); }
 
@@ -30,14 +39,15 @@
         return '<a href="wydarzenie.html?id=' + esc(e.id) + '" class="archive-card" data-year="' + esc(e.year) + '" data-cat="' + esc(e.category) + '">' +
           '<div class="photo">' + (img ? '<img src="' + esc(img.src) + '" alt="' + esc(img.alt||'') + '" />' : '') + '<span class="year-tag">' + esc(e.year) + '</span></div>' +
           '<div class="body">' +
-            '<div class="meta">' + esc(plDate(e.dateISO)) + ' <span class="dot"></span> ' + esc(e.categoryLabel||'') + '</div>' +
+            '<div class="meta">' + plDateHTML(e.dateISO) + ' <span class="dot"></span> ' + esc(e.categoryLabel||'') + '</div>' +
             '<h3>' + esc(e.title||'') + '</h3>' +
             '<p>' + esc(e.lead||'') + '</p>' +
             '<span class="read">Czytaj relację</span>' +
           '</div></a>';
       }).join('');
+      // liczba osobno, słowo osobno - patrz komentarz przy plDateHTML
       return '<div class="year-section"><div class="year-head"><h2>' + esc(y) + '</h2>' +
-        '<span class="count">' + byYear[y].length + ' ' + plural(byYear[y].length) + '</span></div>' +
+        '<span class="count">' + byYear[y].length + ' <span class="i18n-word">' + plural(byYear[y].length) + '</span></span></div>' +
         '<div class="archive-grid">' + cards + '</div></div>';
     }).join('');
   }

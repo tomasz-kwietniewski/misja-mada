@@ -107,6 +107,62 @@ na podstawie słowników (`i18n-dict.js` = EN, `i18n-dict-fr.js` = FR), gdzie **
 tekst polski**. Brak wpisu = tekst zostaje po polsku (bezpieczny fallback). Wybór języka
 zapamiętywany w `localStorage`, wspólny dla podstron.
 
+### Tłumacz Google jest wyłączony - i musi taki zostać
+
+Każda podstrona ma w `<head>`:
+
+```html
+<meta name="google" content="notranslate" />
+```
+
+**Nie usuwać.** Bez tego Chrome u polskiego użytkownika wykrywał naszą wersję EN
+(`<html lang="en">`) i tłumaczył ją **z powrotem na polski**, owijając teksty w `<font>`.
+Nasz `MutationObserver` widział te nowe węzły i tłumaczył je PL->EN z powrotem. Gdzie słownik
+miał trafienie, wygrywaliśmy my; gdzie nie miał - zostawał polski Google'a. Efekt: losowa
+mieszanka języków (zgłoszenia fundacji z lipca 2026 - m.in. przełącznik pokazujący
+„PL / PL / FR", bo Google tłumaczył etykietę „EN" na „PL"). Objaw zależał od ustawień
+przeglądarki testera, więc u autora strony był nie do odtworzenia.
+Przełącznik ma dodatkowo `translate="no"` - obrona w głąb.
+
+### Jak dodać / poprawić tłumaczenie
+
+1. Tekst wpisany wprost w HTML -> dopisz parę `"tekst PL": "tłumaczenie"` do
+   `assets/i18n-dict.js` (EN) i `assets/i18n-dict-fr.js` (FR).
+2. Tekst budowany w JS -> **rozbij zmienną część od słów**, żeby klucz był skończony.
+   Data „19 maja 2026" nie może być kluczem (byłby jeden na każdy dzień) - dlatego renderery
+   wstawiają sam miesiąc w `<span class="i18n-month">`, a tłumaczymy 12 nazw miesięcy.
+   Ten sam wzorzec: `70 <span class="i18n-word">zł/mies.</span>`.
+3. Gdy zdania nie da się rozbić (np. komunikat czytnika ekranu sklejany ze zmiennej) -
+   użyj `window.MadaI18n.t('tekst PL')` **przed** wstawieniem do DOM.
+4. Fraza NIE ma być tłumaczona (nazwa własna, kod, numer) -> dopisz ją do `ALLOW`
+   w `tests/i18n-coverage.js`, a nie do słownika.
+
+### Bramka CI: `node tests/i18n-coverage.js`
+
+Brak tłumaczenia **nie wywala strony** - tekst po prostu zostaje po polsku. Błąd jest więc
+cichy i wychodzi dopiero u użytkownika. Dlatego CI blokuje push, gdy jakakolwiek fraza nie ma
+pary EN i FR. Skrypt jest bez zależności (czysty Node) i przechodzi stronę tak jak `i18n.js`
+(węzeł po węźle, tylko `<body>`, z pominięciem `[translate="no"]`).
+
+Zakres i świadome ograniczenia:
+
+| źródło tekstu | pokrycie |
+|---|---|
+| HTML podstron (16 plików) | **wyczerpujące** - każdy tekst z literami musi być w słowniku albo w `ALLOW` |
+| `.textContent = '...'` w JS | pełne (wzorzec parsuje się pewnie) |
+| HTML sklejany w JS (`'<span>Tekst</span>' + x`) | tylko teksty z polskimi znakami (regex nie zastąpi parsera JS) |
+| domyślne kategorie wydarzeń (`panel/lib.php`) | sprawdzane wprost |
+| treści wydarzeń z CMS | poza skryptem - tłumaczy je panel (DeepL + glosariusz), pole `i18n` wydarzenia |
+
+`newsletter.html` jest pomijany celowo: to szablon e-maila do MailerLite, nie podstrona.
+
+### Cache
+
+Skrypty i18n mają `?v=…` w URL, a `.htaccess` wymusza dla nich rewalidację
+(`no-cache, must-revalidate`). Reguła obejmuje **też renderery i formularze** - stary renderer
+z nowym słownikiem daje połowicznie przetłumaczoną stronę. Przy zmianie któregokolwiek
+z tych plików podbij `?v=` w podstronach (wspólny token).
+
 ---
 
 ## Płatności PayU
