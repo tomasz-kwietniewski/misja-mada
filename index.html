@@ -839,6 +839,12 @@
   .hero-text h1 { font-size: 38px; }
   .card.card-big h2 { font-size: 28px; }
 }
+@media (max-width: 420px) {
+  /* Skrajnie wąskie telefony (280-420px): zapobiegamy poziomemu scrollowi. */
+  .ws-grid { grid-template-columns: 1fr; }
+  .hero-acronym .acro-row { flex-wrap: wrap; }
+  .hero-acronym .rest { white-space: normal; overflow-wrap: anywhere; }
+}
 </style>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">

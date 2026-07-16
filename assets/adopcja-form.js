@@ -4,6 +4,16 @@
 (function () {
   'use strict';
 
+  // Skrót tłumaczenia dla komunikatów/etykiet budowanych w JS. Brak wpisu w słowniku =
+  // zwraca PL bez zmian (bezpieczny fallback). Dotyczy WYŁĄCZNIE tekstu widocznego dla
+  // użytkownika - dane wysyłane do arkusza fundacji (collectData) zostają po polsku.
+  const t = (s) => (window.MadaI18n && typeof window.MadaI18n.t === 'function') ? window.MadaI18n.t(s) : s;
+
+  // Czy działamy na PRAWDZIWEJ produkcji (misjamada.pl / www.misjamada.pl)? Formularz Adopcji
+  // wysyła dane na twardo zaszyty PRODUKCYJNY Google Apps Script - z localhost/preview NIE wolno
+  // go dotykać, bo każdy submit tworzy realny wiersz w arkuszu fundacji. Na produkcji: bez zmian.
+  const madaIsLiveHost = () => /(^|\.)misjamada\.pl$/i.test(location.hostname);
+
   // Ładuje moduł Secure Form (assets/secure-form.js) na żądanie - raz.
   function loadSecureFormLib() {
     if (window.MadaSecureForm) return Promise.resolve();
@@ -49,6 +59,42 @@
     const closeBtn = modal.querySelector('.am-close');
     const successPane = modal.querySelector('.am-success');
 
+    // ── Dostępność: pułapka fokusu + przywrócenie fokusu po zamknięciu (a11y) ──
+    // Fokus startowy na pierwsze pole ustawia istniejąca logika open() (setTimeout);
+    // tu dokładamy pułapkę Tab (liczoną dynamicznie) i powrót fokusu do elementu,
+    // który otworzył modal. Nie dotykamy walidacji ani wysyłki formularza.
+    let amLastFocused = null;
+    function amFocusables() {
+      return Array.prototype.slice.call(modal.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+    function amTrapKey(e) {
+      if (e.key !== 'Tab') return;
+      const f = amFocusables();
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    function amFocusTrapOn() {
+      amLastFocused = document.activeElement;
+      document.addEventListener('keydown', amTrapKey, true);
+    }
+    function amFocusTrapOff() {
+      document.removeEventListener('keydown', amTrapKey, true);
+      const back = amLastFocused;
+      amLastFocused = null;
+      if (back && back !== document.body && document.contains(back) && (back.offsetWidth || back.offsetHeight || back.getClientRects().length)) {
+        try { back.focus(); } catch (e) {}
+      }
+      // Gdyby fokus wciąż tkwił w modalu, odbierz mu go - inaczej aria-hidden="true" da ostrzeżenie.
+      if (modal.contains(document.activeElement)) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
+    }
+
     // Liczba dzieci (kwota = dzieci × 70 zł). Ustawiana też przez window.MadaAdopcja.open({dzieci}).
     let dzieci = 1;
     const STAWKA = 70;
@@ -80,6 +126,7 @@
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
+      amFocusTrapOn();
       // reset state
       form.style.display = '';
       successPane.style.display = 'none';
@@ -93,10 +140,16 @@
       }, 80);
     }
     function close() {
+      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (patrz komentarz w darowizna.js).
+      amFocusTrapOff();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
     }
+    // Zamknięcie z ekranu sukcesu przechodzi tą samą drogą (przywrócenie fokusu).
+    modal.addEventListener('click', e => {
+      if (e.target.closest && e.target.closest('.am-close-success')) close();
+    });
 
     triggers.forEach(t => t.addEventListener('click', open));
 
@@ -123,7 +176,7 @@
           emailInput.classList.add('invalid');
           const span = document.createElement('div');
           span.className = 'field-error';
-          span.textContent = 'Podaj prawidłowy adres e-mail (np. jan@przykład.pl).';
+          span.textContent = t('Podaj prawidłowy adres e-mail (np. jan@przykład.pl).');
           wrap.appendChild(span);
         }
       });
@@ -155,7 +208,7 @@
       czestWrap.style.display = val === 'przelew' ? '' : 'none';
       cardWrap.style.display = val === 'payu' ? '' : 'none';
       cyklConsent.style.display = val === 'payu' ? '' : 'none';
-      submitBtnEl.textContent = val === 'payu' ? 'Przejdź do płatności PayU →' : 'Wyślij zgłoszenie →';
+      submitBtnEl.textContent = val === 'payu' ? t('Przejdź do płatności PayU →') : t('Wyślij zgłoszenie →');
       if (val === 'payu' && !cardMounted) {
         refreshCyklAmount();
         const loadingEl = form.querySelector('#am-card-loading');
@@ -187,7 +240,7 @@
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      submitBtn.textContent = data.metoda === 'payu' ? 'Łączę z PayU…' : 'Wysyłam…';
+      submitBtn.textContent = data.metoda === 'payu' ? t('Łączę z PayU…') : t('Wysyłam…');
 
       // ŚCIEŻKA A - automatyczna płatność cykliczna PayU (Secure Form + recurring FIRST)
       if (data.metoda === 'payu') {
@@ -210,14 +263,18 @@
           throw new Error((json && json.error) ? json.error : 'Nie udało się rozpocząć płatności cyklicznej.');
         } catch (err2) {
           showErrors(form, [{ field: null, msg: (err2 && err2.message) ? err2.message : 'Nie udało się połączyć z bramką PayU. Spróbuj ponownie lub wybierz przelew tradycyjny.' }]);
-          submitBtn.disabled = false; submitBtn.textContent = 'Przejdź do płatności PayU →';
+          submitBtn.disabled = false; submitBtn.textContent = t('Przejdź do płatności PayU →');
           return;
         }
       }
 
       // ŚCIEŻKA B - przelew tradycyjny (zgłoszenie do fundacji, double opt-in)
       try {
-        if (SUBMIT_URL) {
+        if (!madaIsLiveHost()) {
+          // Środowisko nieprodukcyjne (localhost/preview) - NIE wysyłamy do arkusza fundacji.
+          // Pokazujemy ekran sukcesu, by można było testować UI bez skutków na produkcji.
+          console.info('[Adopcja] host nieprodukcyjny (' + location.hostname + ') - pomijam wysyłkę do Apps Script.');
+        } else if (SUBMIT_URL) {
           await fetch(SUBMIT_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -250,7 +307,7 @@
         showErrors(form, [{ field: null, msg: 'Wystąpił błąd wysyłki. Spróbuj ponownie lub napisz na kontakt@misjamada.pl' }]);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = data.metoda === 'payu' ? 'Przejdź do płatności PayU →' : 'Wyślij zgłoszenie →';
+        submitBtn.textContent = data.metoda === 'payu' ? t('Przejdź do płatności PayU →') : t('Wyślij zgłoszenie →');
       }
     });
   }
@@ -270,6 +327,8 @@
       dzieci: dzieci || 1,
       amount: (dzieci || 1) * 70,
       forma: forma,
+      od: (fd.get('od') || '').toString().trim(),
+      do: (fd.get('do') || '').toString().trim(),
       formaLabel: forma === 'nieokreslony' ? 'Na czas nieokreślony' :
                   forma === 'czasowa' ? 'Czasowa (min. 1 rok)' : '',
       okres: forma === 'czasowa' ? `${fd.get('od') || ''} - ${fd.get('do') || ''}` : '',
@@ -294,7 +353,7 @@
     if (!d.telefon || d.telefon.replace(/\D/g, '').length < 9) errs.push({ field: 'telefon', msg: 'Podaj numer telefonu.' });
     if (!d.adres) errs.push({ field: 'adres', msg: 'Podaj adres korespondencyjny.' });
     if (!d.forma) errs.push({ field: 'forma', msg: 'Wybierz formę adopcji.' });
-    if (d.forma === 'czasowa' && (!d.okres || d.okres.trim() === '-')) errs.push({ field: 'od', msg: 'Wskaż okres trwania (od - do).' });
+    if (d.forma === 'czasowa' && (!d.od || !d.do)) errs.push({ field: 'od', msg: 'Wskaż okres trwania (od - do).' });
     if (!d.metoda) errs.push({ field: 'metoda', msg: 'Wybierz sposób przekazywania wsparcia.' });
     if (d.metoda === 'przelew' && !d.czestotliwosc) errs.push({ field: 'czestotliwosc', msg: 'Wybierz częstotliwość wpłat.' });
     if (d.metoda === 'payu' && !d.zgoda_cykl) errs.push({ field: 'zgoda_cykl', msg: 'Zaznacz zgodę na cykliczne obciążanie karty.' });
@@ -308,7 +367,7 @@
     errors.forEach(err => {
       if (!err.field) {
         const top = form.querySelector('.am-toperror');
-        if (top) { top.textContent = err.msg; top.style.display = ''; }
+        if (top) { top.textContent = t(err.msg); top.style.display = ''; }
         return;
       }
       const el = form.querySelector('[name="' + err.field + '"]');
@@ -317,7 +376,7 @@
       el.classList.add('invalid');
       const span = document.createElement('div');
       span.className = 'field-error';
-      span.textContent = err.msg;
+      span.textContent = t(err.msg);
       wrap.appendChild(span);
     });
   }
@@ -484,17 +543,7 @@
     `;
   }
 
-  // Wire success close (delegated after init)
-  document.addEventListener('click', e => {
-    if (e.target.matches('.am-close-success')) {
-      const modal = document.getElementById('adopcja-modal');
-      if (modal) {
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('drawer-open');
-      }
-    }
-  });
+  // (Zamknięcie z ekranu sukcesu obsługiwane w init() przez close() - z przywróceniem fokusu.)
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

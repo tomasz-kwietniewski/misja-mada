@@ -183,7 +183,11 @@
 
   // ────────── Markup ──────────
   function buildOverlay() {
-    if (document.getElementById('site-search-overlay')) return;
+    // Overlay budujemy RAZ, a przy kolejnych otwarciach zwracamy istniejący element.
+    // Wcześniej było tu samo „return;" - openSearch() dostawał undefined i wywalał się
+    // na overlay.classList, przez co wyszukiwarka działała tylko do pierwszego zamknięcia.
+    const existing = document.getElementById('site-search-overlay');
+    if (existing) return existing;
     const overlay = document.createElement('div');
     overlay.id = 'site-search-overlay';
     overlay.className = 'site-search-overlay';
@@ -338,6 +342,20 @@
       const overlay = document.getElementById('site-search-overlay');
       if (!overlay || !overlay.classList.contains('is-open')) return;
       if (e.key === 'Escape') { closeSearch(); return; }
+      if (e.key === 'Tab') {
+        // Pułapka fokusu: dialog ma aria-modal="true", więc Tab nie może z niego uciec
+        // (spójnie z modalami darowizny/adopcji). Listę liczymy dynamicznie, bo wyniki
+        // pojawiają się i znikają w trakcie pisania.
+        const f = Array.prototype.slice.call(overlay.querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+        if (!f.length) { e.preventDefault(); return; }
+        const first = f[0], last = f[f.length - 1];
+        if (!overlay.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        return;
+      }
       if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex() + 1); return; }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(activeIndex() - 1); return; }
       if (e.key === 'Enter') {

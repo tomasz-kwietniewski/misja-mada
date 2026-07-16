@@ -309,6 +309,19 @@
   .highlight-box { flex-direction: column; align-items: flex-start; }
   .sub-nav { top: 78px; }
 }
+@media (max-width: 380px) {
+  /* Bardzo wąskie telefony (280-360px): jedna kolumna, inaczej druga karta jest ucięta. */
+  .coverage-grid { grid-template-columns: 1fr; }
+  /* minmax(0,1fr) pozwala kolumnie zejść poniżej szerokości zawartości (inaczej długi
+     tytuł/lista rozpychały sekcję projektu poza ekran); min-width:0 + łamanie długich słów. */
+  .project-row { grid-template-columns: minmax(0, 1fr); }
+  .project-text { min-width: 0; overflow-wrap: anywhere; }
+  /* Statystyki w rzędzie: mniejszy odstęp i zawijanie, żeby nie wychodziły poza ekran. */
+  .stats-inline { gap: 24px; flex-wrap: wrap; }
+  /* Sticky pod-nawigacja zawija się tu do 4 wierszy i razem z headerem zjada ~260px
+     wysokości ekranu - na tak wąskich ekranach niech przewija się razem z treścią. */
+  .sub-nav { position: static; }
+}
 </style>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">

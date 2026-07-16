@@ -615,6 +615,11 @@ z nami</h1>
 (function() {
   const form = document.getElementById('contact-form');
   if (!form) return;
+  // Skrót tłumaczenia komunikatów walidacji (brak wpisu w słowniku = PL bez zmian).
+  const t = (s) => (window.MadaI18n && typeof window.MadaI18n.t === 'function') ? window.MadaI18n.t(s) : s;
+  // Formularz wysyła na produkcyjny Google Apps Script (window.MADA_SUBMIT_URL z adopcja-form.js).
+  // Z localhost/preview NIE wysyłamy, żeby nie zaśmiecać arkusza fundacji. Na produkcji: bez zmian.
+  const madaIsLiveHost = () => /(^|\.)misjamada\.pl$/i.test(location.hostname);
   const successPane = document.querySelector('.cf-success');
   const formWrap = document.querySelector('.cf-form-wrap');
   const emailInput = form.querySelector('#cf-email');
@@ -627,7 +632,7 @@ z nami</h1>
     field.classList.add('invalid');
     const e = document.createElement('div');
     e.className = 'cf-error';
-    e.textContent = msg;
+    e.textContent = t(msg);
     field.closest('.cf-field, .cf-rodo').appendChild(e);
   }
 
@@ -686,11 +691,14 @@ z nami</h1>
 
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Wysyłam…';
+    submitBtn.textContent = t('Wysyłam…');
 
     (async () => {
       try {
-        if (SUBMIT_URL) {
+        if (!madaIsLiveHost()) {
+          // Środowisko nieprodukcyjne (localhost/preview) - nie dotykamy produkcyjnego arkusza.
+          console.info('[Kontakt] host nieprodukcyjny (' + location.hostname + ') - pomijam wysyłkę do Apps Script.');
+        } else if (SUBMIT_URL) {
           await fetch(SUBMIT_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -710,7 +718,7 @@ z nami</h1>
         successPane.style.display = 'block';
       } catch (err) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Wyślij wiadomość →';
+        submitBtn.textContent = t('Wyślij wiadomość →');
         showError(tresc, 'Wystąpił błąd wysyłki. Spróbuj ponownie lub napisz na kontakt@misjamada.pl.');
       }
     })();

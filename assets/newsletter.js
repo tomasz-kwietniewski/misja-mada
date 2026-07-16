@@ -19,6 +19,9 @@
   // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
   window.MADA_NEWSLETTER_URL = '/newsletter/subscribe.php';
 
+  // Skrót tłumaczenia dla komunikatów budowanych w JS (brak wpisu = PL bez zmian).
+  const t = (s) => (window.MadaI18n && typeof window.MadaI18n.t === 'function') ? window.MadaI18n.t(s) : s;
+
   function init() {
     const triggers = document.querySelectorAll('[data-newsletter-open]');
     if (!triggers.length) return;
@@ -37,11 +40,45 @@
     const closeBtn = modal.querySelector('.nm-close');
     const successPane = modal.querySelector('.nm-success');
 
+    // ── Dostępność: pułapka fokusu + przywrócenie fokusu po zamknięciu (a11y) ──
+    let nmLastFocused = null;
+    function nmFocusables() {
+      return Array.prototype.slice.call(modal.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+    function nmTrapKey(e) {
+      if (e.key !== 'Tab') return;
+      const f = nmFocusables();
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    function nmFocusTrapOn() {
+      nmLastFocused = document.activeElement;
+      document.addEventListener('keydown', nmTrapKey, true);
+    }
+    function nmFocusTrapOff() {
+      document.removeEventListener('keydown', nmTrapKey, true);
+      const back = nmLastFocused;
+      nmLastFocused = null;
+      if (back && back !== document.body && document.contains(back) && (back.offsetWidth || back.offsetHeight || back.getClientRects().length)) {
+        try { back.focus(); } catch (e) {}
+      }
+      // Gdyby fokus wciąż tkwił w modalu, odbierz mu go - inaczej aria-hidden="true" da ostrzeżenie.
+      if (modal.contains(document.activeElement)) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
+    }
+
     function open(e) {
       if (e) e.preventDefault();
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
+      nmFocusTrapOn();
       form.style.display = '';
       successPane.style.display = 'none';
       form.reset();
@@ -53,6 +90,8 @@
       }, 80);
     }
     function close() {
+      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (patrz komentarz w darowizna.js).
+      nmFocusTrapOff();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
@@ -60,6 +99,10 @@
 
     triggers.forEach(t => t.addEventListener('click', open));
     closeBtn.addEventListener('click', close);
+    // Zamknięcie z ekranu sukcesu przechodzi tą samą drogą (przywrócenie fokusu).
+    modal.addEventListener('click', e => {
+      if (e.target.closest && e.target.closest('.nm-close-success')) close();
+    });
     modal.addEventListener('click', e => { if (e.target === modal) close(); });
     document.addEventListener('keydown', e => {
       if (modal.classList.contains('is-open') && e.key === 'Escape') close();
@@ -88,7 +131,7 @@
 
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Zapisuję…';
+      submitBtn.textContent = t('Zapisuję…');
 
       const payload = {
         imie: imie.value.trim(),
@@ -112,7 +155,7 @@
         successPane.style.display = '';
       } catch (err) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Zapisz się →';
+        submitBtn.textContent = t('Zapisz się →');
         showError(email, (err && err.message && err.message !== 'no-endpoint') ? err.message : 'Wystąpił błąd. Spróbuj ponownie.');
       }
     });
@@ -123,7 +166,7 @@
     const wrap = field.closest('label, .am-field, .am-check') || field.parentElement;
     const e = document.createElement('div');
     e.className = 'field-error';
-    e.textContent = msg;
+    e.textContent = t(msg);
     wrap.appendChild(e);
   }
 
@@ -173,7 +216,7 @@
           </div>
           <h2>Sprawdź skrzynkę!</h2>
           <p>Wysłaliśmy do Ciebie e-mail z linkiem potwierdzającym. Kliknij w&nbsp;niego, aby dokończyć zapis na newsletter. Sprawdź też folder <em>spam</em>.</p>
-          <button type="button" class="btn btn-primary" onclick="document.getElementById('newsletter-modal').classList.remove('is-open'); document.body.classList.remove('drawer-open');">Zamknij</button>
+          <button type="button" class="btn btn-primary nm-close-success">Zamknij</button>
         </div>
       </div>
     `;
