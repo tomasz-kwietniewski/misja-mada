@@ -55,7 +55,13 @@ window.MadaSecureForm = (function () {
       var opts;
       if (cfg.env !== 'production' && location.protocol !== 'https:') opts = { dev: true };
       payu = window.PayU(cfg.posId, opts);
-      secureForms = payu.secureForms({ lang: 'pl' });
+      // Język pól karty idzie za językiem strony - inaczej darczyńca w EN/FR widzi polskie
+      // „Numer karty"/„Kod CVV" w kluczowym miejscu. Nieznany język -> 'en' (uniwersalniejszy
+      // niż 'pl' dla obcojęzycznego); gdyby PayU nie wspierało kodu, użyje swojego domyślnego.
+      var PAYU_LANGS = { pl: 'pl', en: 'en', fr: 'fr' };
+      var pageLang = (window.MadaI18n && typeof window.MadaI18n.lang === 'function')
+        ? window.MadaI18n.lang() : 'pl';
+      secureForms = payu.secureForms({ lang: PAYU_LANGS[pageLang] || 'en' });
 
       var style = {
         basic: { fontSize: '16px', fontColor: '#3a2a1c' },

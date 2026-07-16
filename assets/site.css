@@ -8,6 +8,10 @@ html {
   scroll-behavior: smooth;
   /* sticky nav z logiem 78px + padding \u2014 daj odstpu 120px przy skoku do kotwicy */
   scroll-padding-top: 96px;
+  /* Bezpiecznik: żadna sekcja nie wywołuje poziomego przewijania na skrajnie wąskich
+     ekranach. clip (nie hidden) nie tworzy scroll-kontenera, więc nie łamie sticky
+     nagłówka ani pod-nawigacji, ani zakotwiczonego przewijania. */
+  overflow-x: clip;
 }
 
 :root {
@@ -171,6 +175,7 @@ nav.main-nav {
 .site-search-input-row svg { color: var(--brown); opacity: .55; flex-shrink: 0; }
 .site-search-input {
   flex: 1;
+  min-width: 0;
   border: none; background: transparent;
   font-family: inherit;
   font-size: 19px;
@@ -186,6 +191,8 @@ nav.main-nav {
 .site-search-results .ss-empty {
   font-size: 13.5px; color: var(--brown); opacity: .55;
   padding: 10px 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .site-search-results .ss-item {
   display: block;
@@ -1066,6 +1073,11 @@ footer ul a:hover { color: var(--gold); }
   .ws-grid { grid-template-columns: repeat(2, 1fr); }
   .ws-panel.is-active { grid-template-columns: 1fr; padding: 28px 24px; }
   .ws-panel-body h3 { font-size: 26px; }
+}
+@media (max-width: 420px) {
+  /* Skrajnie wąskie telefony: karty „Wesprzyj nas" w jednej kolumnie - globalnie, dla
+     wszystkich podstron z tym komponentem (co-robimy itd.), inaczej wychodzą poza ekran. */
+  .ws-grid { grid-template-columns: 1fr; }
 }
 
 

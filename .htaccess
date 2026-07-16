@@ -20,7 +20,7 @@ RewriteRule ^(.*)$ https://misjamada.pl/$1 [R=301,L]
 # (dokładnie ten przypadek: daty w archiwum). Wcześniej wzorzec łapał sam „i18n*",
 # a renderery nie miały nawet ?v= - czyli mogły wisieć w cache 7 dni.
 <IfModule mod_headers.c>
-  <FilesMatch "(i18n(-dict(-fr)?)?|.*-render|adopcja-form|darowizna|newsletter|site-search)\.js$">
+  <FilesMatch "(i18n(-dict(-fr)?)?|.*-render|adopcja-form|darowizna|newsletter|site-search|secure-form)\.js$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>

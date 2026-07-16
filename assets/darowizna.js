@@ -63,11 +63,15 @@
   }
 
   function init() {
+    // Skrót tłumaczenia dla tekstów budowanych w JS (komunikaty, przyciski ze zmienną kwotą).
+    // Brak wpisu w słowniku = zwraca PL bez zmian (bezpieczny fallback).
+    const t = (s) => (window.MadaI18n && typeof window.MadaI18n.t === 'function') ? window.MadaI18n.t(s) : s;
     const triggers = Array.from(document.querySelectorAll('[data-darowizna-open]'));
     document.querySelectorAll('.ws-panel[data-id="darowizna"] a').forEach(a => {
       if (/p\u0142atno\u015b\u0107\s+online/i.test(a.textContent)) {
-        a.removeAttribute('href');
-        a.style.cursor = 'pointer';
+        // NIE usuwamy href: <a> bez href wypada z kolejno\u015bci Tab i staje si\u0119 ca\u0142kowicie
+        // nieosi\u0105galny z klawiatury (a to jedyny spos\u00f3b otwarcia p\u0142atno\u015bci online z tego
+        // miejsca). Skok do \u201e#" blokuje e.preventDefault() w open().
         triggers.push(a);
       }
     });
@@ -82,6 +86,44 @@
     }
     const modal = document.getElementById('darowizna-modal');
 
+    // ── Dostępność: pułapka fokusu w modalu + przywrócenie fokusu po zamknięciu ──
+    // Modal buduje treść dynamicznie (KROK 1/2), więc listę elementów fokusowalnych
+    // liczymy ZA KAŻDYM RAZEM w handlerze - inaczej po przejściu do kroku 2 pułapka
+    // trzymałaby nieaktualne first/last. Fokus wraca na element, który modal otworzył.
+    let darLastFocused = null;
+    function darFocusables() {
+      return Array.prototype.slice.call(modal.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+    function darTrapKey(e) {
+      if (e.key !== 'Tab') return;
+      const f = darFocusables();
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    function darFocusTrapOn() {
+      darLastFocused = document.activeElement;
+      document.addEventListener('keydown', darTrapKey, true);
+      setTimeout(() => { const t = darFocusables()[0]; if (t) { try { t.focus(); } catch (e) {} } }, 40);
+    }
+    function darFocusTrapOff() {
+      document.removeEventListener('keydown', darTrapKey, true);
+      const back = darLastFocused;
+      darLastFocused = null;
+      if (back && back !== document.body && document.contains(back) && (back.offsetWidth || back.offsetHeight || back.getClientRects().length)) {
+        try { back.focus(); } catch (e) {}
+      }
+      // Gdyby fokus wciąż tkwił w modalu (brak sensownego elementu do przywrócenia),
+      // odbierz mu go - inaczej aria-hidden="true" na modalu wywoła ostrzeżenie przeglądarki.
+      if (modal.contains(document.activeElement)) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
+    }
+
     function open(e) {
       if (e) e.preventDefault();
       var preCel = (e && e.currentTarget && e.currentTarget.getAttribute('data-cel')) || 'statutowe';
@@ -95,8 +137,12 @@
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
+      darFocusTrapOn();
     }
     function close() {
+      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" - inaczej Chrome zgłasza
+      // ostrzeżenie „Blocked aria-hidden ... descendant retained focus".
+      darFocusTrapOff();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
@@ -181,7 +227,7 @@
               ${Object.entries(CELE).map(([k,v]) => `
                 <label class="dar-cel ${state.cel===k?'is-active':''}">
                   <input type="radio" name="cel" value="${k}" ${state.cel===k?'checked':''} />
-                  <span>${v}</span>
+                  <span>${t(v)}</span>
                 </label>`).join('')}
             </div>
             <p class="dar-note" id="dar-adopcja-note" style="${adopcja?'':'display:none'}">
@@ -267,7 +313,8 @@
           // Fallback (skrypt adopcji niezaładowany): zostaw dotychczasowy krok 2.
         }
         const amt = kwotaAktualna();
-        if (!amt || amt < 1) { alert('Podaj prawidłową kwotę darowizny.'); return; }
+        if (!amt || amt < 1) { alert(t('Podaj prawidłową kwotę darowizny.')); return; }
+        if (amt > 100000) { alert(t('Maksymalna kwota jednorazowej darowizny online to 100 000 zł. W sprawie większego wsparcia prosimy o kontakt: kontakt@misjamada.pl.')); return; }
         renderStep2();
       });
     }
@@ -304,7 +351,7 @@
 
       // Zgoda na cykliczność - WYMÓG PayU (niedomniemana, konkretna, z możliwością rezygnacji).
       const recurringConsent = recurring ? `
-              <label class="dar-check"><input type="checkbox" name="zgoda_cykl" required /> <span>Wyrażam zgodę na cykliczne (comiesięczne) obciążanie mojej karty kwotą <strong>${amt} ${curSym}</strong> na rzecz Fundacji Misja MADA (${celLabel})${adopcja ? ', minimum przez 12 miesięcy' : ''}. Mogę zrezygnować w każdej chwili (link w mailu).</span></label>` : '';
+              <label class="dar-check"><input type="checkbox" name="zgoda_cykl" required /> <span>${t('Wyrażam zgodę na cykliczne (comiesięczne) obciążanie mojej karty kwotą')} <strong>${amt} ${t(curSym)}</strong> ${t('na rzecz Fundacji Misja MADA')} (${t(celLabel)})${adopcja ? t(', minimum przez 12 miesięcy') : ''}. ${t('Mogę zrezygnować w każdej chwili (link w mailu).')}</span></label>` : '';
 
       modal.innerHTML = `
         <div class="dar-box" role="dialog" aria-modal="true" aria-labelledby="dar-title2">
@@ -315,10 +362,10 @@
 
           <div class="dar-summary">
             <div>
-              <span class="dar-summary-amt">${amt} ${curSym}</span>
-              <span class="dar-summary-typ">${typLabel}</span>
+              <span class="dar-summary-amt">${amt} ${t(curSym)}</span>
+              <span class="dar-summary-typ">${t(typLabel)}</span>
             </div>
-            <div class="dar-summary-cel">${celLabel}</div>
+            <div class="dar-summary-cel">${t(celLabel)}</div>
             <button type="button" class="dar-edit" id="dar-back">← zmień</button>
           </div>
 
@@ -340,7 +387,7 @@
             <div class="dar-err" id="dar-err" style="display:none;" role="alert"></div>
 
             <div class="dar-actions">
-              <button type="submit" class="btn btn-gold" id="dar-submit">Przekaż ${amt} ${curSym} →</button>
+              <button type="submit" class="btn btn-gold" id="dar-submit">${t('Przekaż')} ${amt} ${t(curSym)} →</button>
             </div>
             <p class="dar-secure">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
@@ -400,11 +447,11 @@
 
       const URL = window.MADA_PAYU_URL || '';
       const submitBtn = modal.querySelector('#dar-submit');
-      submitBtn.disabled = true; submitBtn.textContent = 'Łączę z PayU…';
+      submitBtn.disabled = true; submitBtn.textContent = t('Łączę z PayU…');
 
       if (!URL) {
         showErr('Bramka płatności jest w trakcie konfiguracji. Prosimy o wpłatę tradycyjnym przelewem (dane w stopce) lub spróbuj ponownie wkrótce.');
-        submitBtn.disabled = false; submitBtn.textContent = 'Przekaż →';
+        submitBtn.disabled = false; submitBtn.textContent = t('Przekaż →');
         return;
       }
       try {
@@ -421,14 +468,14 @@
         }
       } catch (e2) {
         showErr('Nie udało się połączyć z bramką płatności. Spróbuj ponownie lub napisz na kontakt@misjamada.pl.');
-        submitBtn.disabled = false; submitBtn.textContent = 'Przekaż →';
+        submitBtn.disabled = false; submitBtn.textContent = t('Przekaż →');
       }
     }
     // Wysyłka płatności cyklicznej: tokenizacja karty (Secure Form) -> recurring-first.php.
     async function submitRecurring(payload) {
       const submitBtn = modal.querySelector('#dar-submit');
       const origText = submitBtn ? submitBtn.textContent : '';
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Przetwarzam kartę…'; }
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = t('Przetwarzam kartę…'); }
       try {
         const token = await window.MadaSecureForm.tokenize();
         const body = Object.assign({}, payload, { token: token, consent: true });
@@ -450,7 +497,7 @@
 
     function showErr(msg) {
       const err = modal.querySelector('#dar-err');
-      if (err) { err.textContent = msg; err.style.display = ''; }
+      if (err) { err.textContent = t(msg); err.style.display = ''; }
     }
   }
 
