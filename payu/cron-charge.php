@@ -63,6 +63,14 @@ try {
                  + mada_purge_stale_pending(__DIR__ . '/../data/adopcja-card-pending', 7);
     if ($purgedFiles > 0) { cron_log("Wyczyszczono porzucone pliki pending: {$purgedFiles}."); }
 
+    // Higiena (RODO - ograniczenie przechowywania): log notyfikacji PayU trzymamy
+    // 12 miesięcy; starsze wpisy kasujemy, a z zachowanych usuwamy historyczne
+    // pole email= (nowe wpisy już go nie mają - patrz notify.php).
+    $logRet = mada_log_retention(__DIR__ . '/../data/payu-notifications.log', strtotime('-12 months'));
+    if ($logRet['removed'] > 0 || $logRet['redacted'] > 0) {
+        cron_log("Log notyfikacji PayU: usunieto {$logRet['removed']} wpisow starszych niz 12 mies., zredagowano e-mail w {$logRet['redacted']}.");
+    }
+
     $due   = payu_sub_due($today);
     cron_log('Subskrypcji do obciążenia: ' . count($due));
 

@@ -30,18 +30,20 @@ if (!payu_verify_signature($raw, $sig)) {
 $data  = json_decode($raw, true);
 $order = isset($data['order']) ? $data['order'] : [];
 
+// Bez e-maila kupującego (minimalizacja danych - RODO): do diagnostyki wystarczą
+// extOrderId/orderId, pełne dane są w panelu PayU i arkuszu fundacji.
 $line = sprintf(
-    "%s\tstatus=%s\textOrderId=%s\torderId=%s\tamount=%s\t%s\temail=%s\n",
+    "%s\tstatus=%s\textOrderId=%s\torderId=%s\tamount=%s\t%s\n",
     date('c'),
     isset($order['status'])       ? $order['status']       : '?',
     isset($order['extOrderId'])   ? $order['extOrderId']   : '?',
     isset($order['orderId'])      ? $order['orderId']      : '?',
     isset($order['totalAmount'])  ? $order['totalAmount']  : '?',
-    isset($order['currencyCode']) ? $order['currencyCode'] : '?',
-    isset($order['buyer']['email']) ? $order['buyer']['email'] : '?'
+    isset($order['currencyCode']) ? $order['currencyCode'] : '?'
 );
 
 // Log do data/ (poza repo, wykluczony z deployu - nie zniknie i nie wycieknie do repo).
+// Retencja: cron-charge.php kasuje wpisy starsze niż 12 miesięcy (mada_log_retention).
 $dir = __DIR__ . '/../data';
 if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
 @file_put_contents($dir . '/payu-notifications.log', $line, FILE_APPEND | LOCK_EX);
