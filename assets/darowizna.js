@@ -337,6 +337,7 @@
               <div id="dar-card" class="dar-card-form"></div>
               <p class="dar-card-loading" id="dar-card-loading">Ładowanie bezpiecznego formularza karty…</p>
               <p class="dar-note">Dane karty wpisujesz w bezpiecznym formularzu PayU (osadzonym tu w ramce). Zapisujemy wyłącznie token - nie mamy dostępu do numeru karty.</p>
+              <div class="dar-pay-methods"><a class="dar-pay-logo" href="https://poland.payu.com" target="_blank" rel="noopener" translate="no">PayU</a></div>
             </div>` : `
             <div class="dar-field">
               <label class="dar-label">Metoda płatności</label>
@@ -344,7 +345,7 @@
                 <span class="dar-pay"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Karta</span>
                 <span class="dar-pay">BLIK</span>
                 <span class="dar-pay">Przelew online</span>
-                <span class="dar-pay-logo">PayU</span>
+                <a class="dar-pay-logo" href="https://poland.payu.com" target="_blank" rel="noopener" translate="no">PayU</a>
               </div>
               <p class="dar-note">Konkretną metodę wybierzesz w bezpiecznym oknie PayU po kliknięciu „Przekaż".</p>
             </div>`;

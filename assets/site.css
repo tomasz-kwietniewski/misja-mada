@@ -1190,7 +1190,8 @@ footer ul a:hover { color: var(--gold); }
 .dar-card-loading { font-size: 13px; color: #7a6550; margin: 8px 2px 0; }
 .dar-pay-methods { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dar-pay { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--brown); background: white; border: 1px solid var(--rule); border-radius: 8px; padding: 8px 14px; }
-.dar-pay-logo { font-weight: 700; color: #a0d000; background: #1b5e20; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+.dar-pay-logo { font-weight: 700; color: #a0d000; background: #1b5e20; padding: 8px 12px; border-radius: 8px; font-size: 13px; text-decoration: none; display: inline-block; }
+a.dar-pay-logo:hover { color: #c5f000; }
 .dar-consents { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 4px; background: rgba(201,157,102,.08); border: 1px solid rgba(201,157,102,.25); border-radius: 12px; padding: 16px 18px; }
 .dar-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #3c2913; line-height: 1.5; cursor: pointer; }
 .dar-check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--brown); flex-shrink: 0; }

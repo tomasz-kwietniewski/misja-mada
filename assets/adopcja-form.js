@@ -498,6 +498,7 @@
             <div id="am-card" class="dar-card-form"></div>
             <p class="am-card-loading" id="am-card-loading">Ładowanie bezpiecznego formularza karty…</p>
             <p class="am-note">Dane karty wpisujesz w bezpiecznym formularzu PayU. Zapisujemy wyłącznie token - nie mamy dostępu do numeru karty.</p>
+            <div class="dar-pay-methods"><a class="dar-pay-logo" href="https://poland.payu.com" target="_blank" rel="noopener" translate="no">PayU</a></div>
           </div>
 
           <div class="am-consents">
