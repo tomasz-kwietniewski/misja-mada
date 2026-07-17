@@ -1,0 +1,291 @@
+- generic [active] [ref=f11e1]:
+  - link "Przejdź do treści głównej" [ref=f11e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - navigation [ref=f11e3]:
+    - generic [ref=f11e4]:
+      - link [ref=f11e5] [cursor=pointer]:
+        - /url: index.html
+        - img "Fundacja Misja MADA" [ref=f11e6]
+      - list [ref=f11e7]:
+        - listitem [ref=f11e8]:
+          - link "Strona główna" [ref=f11e9] [cursor=pointer]:
+            - /url: index.html
+        - listitem [ref=f11e10]:
+          - link "Co robimy?" [ref=f11e11] [cursor=pointer]:
+            - /url: co-robimy.html
+        - listitem [ref=f11e12]:
+          - link "O nas" [ref=f11e13] [cursor=pointer]:
+            - /url: o-nas.html
+        - listitem [ref=f11e14]:
+          - link "Wydarzenia" [ref=f11e15] [cursor=pointer]:
+            - /url: wydarzenia.html
+        - listitem [ref=f11e16]:
+          - link "Kontakt" [ref=f11e17] [cursor=pointer]:
+            - /url: kontakt.html
+      - generic [ref=f11e18]:
+        - group "Wybór języka / Language / Langue" [ref=f11e19]:
+          - button "PL" [pressed] [ref=f11e20] [cursor=pointer]
+          - generic [ref=f11e21]: /
+          - button "EN" [ref=f11e22] [cursor=pointer]
+          - generic [ref=f11e23]: /
+          - button "FR" [ref=f11e24] [cursor=pointer]
+        - button "Szukaj na stronie" [ref=f11e25] [cursor=pointer]
+        - link "Facebook Fundacji" [ref=f11e29] [cursor=pointer]:
+          - /url: https://www.facebook.com/MisjaMADA
+      - link "Wesprzyj nas" [ref=f11e32] [cursor=pointer]:
+        - /url: "#wesprzyj"
+  - generic [ref=f11e34]:
+    - generic [ref=f11e35]:
+      - heading "Fundacja Misja MADA" [level=1] [ref=f11e36]
+      - generic [ref=f11e37]:
+        - generic [ref=f11e38]:
+          - generic [ref=f11e39]: M
+          - generic [ref=f11e40]: iłość
+        - generic [ref=f11e41]:
+          - generic [ref=f11e42]: A
+          - generic [ref=f11e43]: kceptacja bliźniego
+        - generic [ref=f11e44]:
+          - generic [ref=f11e45]: D
+          - generic [ref=f11e46]: obroczynność
+        - generic [ref=f11e47]:
+          - generic [ref=f11e48]: A
+          - generic [ref=f11e49]: doracja Boga
+      - paragraph [ref=f11e50]: Służymy drugiemu człowiekowi przez pomoc misyjną, dzieła miłosierdzia i nadzieję płynącą z Ewangelii. Wspieramy Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki) posługujące dzieciom na Madagaskarze.
+      - generic [ref=f11e51]:
+        - link "Dowiedz się więcej" [ref=f11e52] [cursor=pointer]:
+          - /url: co-robimy.html
+        - button "Zapisz się na newsletter" [ref=f11e53] [cursor=pointer]
+    - img "Dziecko z Centrum Edukacyjnego w Itaosy" [ref=f11e55]
+  - generic [ref=f11e58]:
+    - generic [ref=f11e59]:
+      - heading "Nasza misja na Madagaskarze" [level=2] [ref=f11e60]
+      - paragraph [ref=f11e61]: Jesteśmy małżeństwem misjonarzy świeckich. Po pierwszym wyjeździe na Madagaskar w 2023 r. założyliśmy fundację, by w sposób długofalowy wspierać Siostry Małe Misjonarki Miłosierdzia (Siostry Orionistki) w ich codziennej posłudze najuboższym.
+      - paragraph [ref=f11e62]: Nasze działania koncentrujemy na pomocy dzieciom, edukacji, przeciwdziałaniu głodowi oraz budowaniu świadomości misyjnej w Polsce.
+    - generic [ref=f11e63]:
+      - generic [ref=f11e64]: ♥
+      - generic [ref=f11e65]: 130+
+      - generic [ref=f11e66]: Dzieci w Adopcji Serca
+    - generic [ref=f11e67]:
+      - img "Założyciele - Anna i Marek na Madagaskarze, na tle pól ryżowych" [ref=f11e69]
+      - generic [ref=f11e70]:
+        - heading "Założyciele" [level=3] [ref=f11e71]
+        - paragraph [ref=f11e72]: Małżeństwo misjonarzy świeckich, których droga rozpoczęła się od Adopcji Serca dwójki dzieci z Madagaskaru.
+        - paragraph [ref=f11e73]: Łącząc codzienną pracę zawodową z misją, budują pomost solidarności między Polską a Czerwoną Wyspą.
+    - generic [ref=f11e74]:
+      - generic [ref=f11e75]: 🍽
+      - generic [ref=f11e76]: "275"
+      - generic [ref=f11e77]: Posiłków wydawanych każdego dnia
+  - generic [ref=f11e80]:
+    - img "Dziecko objęte programem Adopcja Serca" [ref=f11e82]
+    - generic [ref=f11e83]:
+      - generic [ref=f11e84]: NASZ NAJWAŻNIEJSZY PROJEKT
+      - generic [ref=f11e85]:
+        - text: 70 zł
+        - generic [ref=f11e86]: miesięcznie
+      - heading "Tyle wystarcza, by zmienić życie jednego dziecka." [level=2] [ref=f11e87]
+      - paragraph [ref=f11e88]: Adopcja Serca to długoterminowe wsparcie konkretnego dziecka z Madagaskaru - pokrywa edukację, codzienny ciepły posiłek, mundurek szkolny i podstawową opiekę medyczną. Pomoc trafia bezpośrednio do Sióstr Małych Misjonarek Miłosierdzia (Sióstr Orionistek) w Itaosy.
+      - generic [ref=f11e89]:
+        - link "Zostań rodzicem adopcyjnym" [ref=f11e90] [cursor=pointer]:
+          - /url: co-robimy.html#adopcja
+        - link "Dowiedz się więcej" [ref=f11e91] [cursor=pointer]:
+          - /url: co-robimy.html#adopcja
+  - generic [ref=f11e93]:
+    - generic [ref=f11e94]:
+      - heading "Co jeszcze robimy?" [level=2] [ref=f11e95]
+      - paragraph [ref=f11e96]: Trzy projekty, przez które realizujemy naszą misję - od edukacji zawodowej rodzin po infrastrukturę i osobiste zaangażowanie.
+    - generic [ref=f11e97]:
+      - link "Atelier Nadziei - pracownia krawiecka Rozwój Atelier Nadziei Pracownia krawiecka przy Centrum w Itaosy - nauka zawodu dla rodziców i starszej młodzieży. Pierwszy krok ku samodzielności ekonomicznej rodzin. Czytaj więcej →" [ref=f11e98] [cursor=pointer]:
+        - /url: co-robimy.html#atelier
+        - img "Atelier Nadziei - pracownia krawiecka" [ref=f11e100]
+        - generic [ref=f11e101]:
+          - generic [ref=f11e102]: Rozwój
+          - heading "Atelier Nadziei" [level=3] [ref=f11e103]
+          - paragraph [ref=f11e104]: Pracownia krawiecka przy Centrum w Itaosy - nauka zawodu dla rodziców i starszej młodzieży. Pierwszy krok ku samodzielności ekonomicznej rodzin.
+          - generic [ref=f11e105]: Czytaj więcej →
+      - link "Centrum Edukacyjne św. Alojzego Orione w Itaosy Infrastruktura Centrum Edukacyjne Rozbudowa Centrum Edukacyjnego św. Alojzego Orione - nowe sale lekcyjne, lepsze warunki nauki dla 300+ dzieci. Placówka działa od 1989 r. Czytaj więcej →" [ref=f11e106] [cursor=pointer]:
+        - /url: co-robimy.html#centrum
+        - img "Centrum Edukacyjne św. Alojzego Orione w Itaosy" [ref=f11e108]
+        - generic [ref=f11e109]:
+          - generic [ref=f11e110]: Infrastruktura
+          - heading "Centrum Edukacyjne" [level=3] [ref=f11e111]
+          - paragraph [ref=f11e112]: Rozbudowa Centrum Edukacyjnego św. Alojzego Orione - nowe sale lekcyjne, lepsze warunki nauki dla 300+ dzieci. Placówka działa od 1989 r.
+          - generic [ref=f11e113]: Czytaj więcej →
+      - 'link "Wolontariat - Misja MADA na Madagaskarze Zaangażowanie Wolontariat Wolontariat lokalny w Polsce, tj.: kiermasze, prelekcje, akcje, oraz wyjazdowy na Madagaskar we współpracy z Fundacją Salvatti. Czytaj więcej →" [ref=f11e114] [cursor=pointer]':
+        - /url: co-robimy.html#wolontariat
+        - img "Wolontariat - Misja MADA na Madagaskarze" [ref=f11e116]
+        - generic [ref=f11e117]:
+          - generic [ref=f11e118]: Zaangażowanie
+          - heading "Wolontariat" [level=3] [ref=f11e119]
+          - paragraph [ref=f11e120]: "Wolontariat lokalny w Polsce, tj.: kiermasze, prelekcje, akcje, oraz wyjazdowy na Madagaskar we współpracy z Fundacją Salvatti."
+          - generic [ref=f11e121]: Czytaj więcej →
+  - generic [ref=f11e123]:
+    - generic [ref=f11e124]:
+      - img "Mapa Madagaskaru - Antananarywa, Itaosy" [ref=f11e126]:
+        - generic [ref=f11e130]: Antsiranana
+        - generic [ref=f11e132]: Mahajanga
+        - generic [ref=f11e134]: Toamasina
+        - generic [ref=f11e136]: Toliara
+        - generic [ref=f11e138]: Tôlanaro
+        - generic [ref=f11e141]: Antananarywa
+        - generic [ref=f11e142]: ★ STOLICA
+        - generic [ref=f11e146]: Itaosy
+        - generic [ref=f11e147]: NASZA MISJA
+        - generic [ref=f11e148]: Ocean Indyjski
+        - generic [ref=f11e149]: Kanał Mozambicki
+        - generic [ref=f11e150]: "N"
+      - generic [ref=f11e154]:
+        - generic [ref=f11e155]: Madagaskar
+        - heading "Czwarta największa wyspa świata, jedna z najuboższych" [level=2] [ref=f11e156]
+        - paragraph [ref=f11e157]: Ponad 75% mieszkańców Madagaskaru żyje poniżej progu ubóstwa. Cyklony i susze pogłębiają biedę, zwłaszcza na południu wyspy. Mimo to jest to kraj pełen życzliwości, gościnności i głębokiej wiary.
+        - paragraph [ref=f11e158]: W tym kontekście działalność misyjna - w tym polscy misjonarze - odgrywa kluczową rolę, koncentrując się na pomocy humanitarnej, edukacji i opiece medycznej.
+        - link "Poznaj Fundację" [ref=f11e159] [cursor=pointer]:
+          - /url: o-nas.html
+    - generic [ref=f11e160]:
+      - figure "Wybrzeże - rybacy z łodzią piroga" [ref=f11e161]:
+        - img "Wybrzeże Madagaskaru - rybacy z tradycyjną łodzią piroga" [ref=f11e162]
+      - figure "Wnętrze wyspy - górzysty płaskowyż" [ref=f11e163]:
+        - img "Droga przez górzysty płaskowyż Madagaskaru" [ref=f11e164]
+      - figure "Pola ryżowe w głębi wyspy" [ref=f11e165]:
+        - img "Pola ryżowe i palmy w głębi Madagaskaru" [ref=f11e166]
+    - button "Zobacz galerię Madagaskaru" [ref=f11e168] [cursor=pointer]
+  - generic [ref=f11e170]:
+    - generic [ref=f11e171]:
+      - generic [ref=f11e172]: Wesprzyj nas
+      - heading "Razem możemy więcej!" [level=2] [ref=f11e173]
+      - paragraph [ref=f11e174]: Twoje wsparcie pozwala nam kontynuować misję i nieść realną pomoc tam, gdzie jest ona najbardziej potrzebna. Wybierz formę, która Ci odpowiada - każda ma znaczenie.
+    - tablist [ref=f11e175]:
+      - tab [ref=f11e176] [cursor=pointer]:
+        - heading "Adopcja Serca" [level=3] [ref=f11e180]
+        - paragraph [ref=f11e181]: Wesprzyj konkretne dziecko - tylko 70 zł/mies.
+      - tab [selected] [ref=f11e182] [cursor=pointer]:
+        - heading "Darowizna" [level=3] [ref=f11e187]
+        - paragraph [ref=f11e188]: Jednorazowo, dowolna kwota.
+      - tab [ref=f11e189] [cursor=pointer]:
+        - heading "Partner Biznesowy" [level=3] [ref=f11e194]
+        - paragraph [ref=f11e195]: CSR Twojej firmy.
+      - tab [ref=f11e196] [cursor=pointer]:
+        - heading "Partner Edukacyjny" [level=3] [ref=f11e201]
+        - paragraph [ref=f11e202]: Szkoły i przedszkola.
+      - tab [ref=f11e203] [cursor=pointer]:
+        - heading "Wolontariat" [level=3] [ref=f11e210]
+        - paragraph [ref=f11e211]: W Polsce i na Madagaskarze.
+    - tabpanel "Darowizna Jednorazowo, dowolna kwota." [ref=f11e339]:
+      - generic [ref=f11e340]:
+        - heading "Darowizna" [level=3] [ref=f11e341]
+        - paragraph [ref=f11e342]:
+          - text: Możesz wesprzeć nasze działania
+          - strong [ref=f11e343]: jednorazową darowizną o dowolnej kwocie
+          - text: . Każda złotówka ma znaczenie!
+        - paragraph [ref=f11e344]: Wpłatę możesz wykonać bezpośrednio na konto fundacji - numery kont PLN, EUR i GBP znajdziesz w stopce strony.
+      - generic [ref=f11e345]:
+        - link "Numery kont" [ref=f11e346] [cursor=pointer]:
+          - /url: "#kontakt"
+        - link "Płatność online" [ref=f11e347] [cursor=pointer]:
+          - /url: "#"
+  - contentinfo [ref=f11e223]:
+    - generic [ref=f11e224]:
+      - generic [ref=f11e225]:
+        - generic [ref=f11e227]:
+          - img "Fundacja Misja MADA" [ref=f11e228]
+          - paragraph [ref=f11e229]: Fundacja Misja MADAul. Szosa Chełmińska 271A87-100 Toruń, Polska
+          - paragraph [ref=f11e230]:
+            - text: "e-mail:"
+            - link "kontakt@misjamada.pl" [ref=f11e231] [cursor=pointer]:
+              - /url: mailto:kontakt@misjamada.pl
+            - text: "tel.: 604 181 301 / 690 623 252"
+          - paragraph [ref=f11e232]:
+            - 'link "Facebook: Misja MADA" [ref=f11e233] [cursor=pointer]':
+              - /url: https://www.facebook.com/MisjaMADA
+          - generic [ref=f11e236]: "KRS: 0001099359 NIP: 9562392375 REGON: 528347054"
+        - generic [ref=f11e237]:
+          - heading "Konta bankowe" [level=4] [ref=f11e238]
+          - generic [ref=f11e239]:
+            - generic [ref=f11e240]: PLN
+            - generic [ref=f11e241]: 70 1090 1056 0000 0001 5832 5871
+            - button "Kopiuj numer konta PLN" [ref=f11e242] [cursor=pointer]
+          - generic [ref=f11e246]:
+            - generic [ref=f11e247]: EUR
+            - generic [ref=f11e248]: PL49 1090 1056 0000 0001 6067 9663
+            - button "Kopiuj numer konta EUR" [ref=f11e249] [cursor=pointer]
+          - generic [ref=f11e253]:
+            - generic [ref=f11e254]: GBP
+            - generic [ref=f11e255]: PL34 1090 1056 0000 0001 6645 4246
+            - button "Kopiuj numer konta GBP" [ref=f11e256] [cursor=pointer]
+          - generic [ref=f11e260]:
+            - generic [ref=f11e261]: Dane do przelewu
+            - generic [ref=f11e262]:
+              - generic [ref=f11e263]: Odbiorca
+              - generic [ref=f11e264]:
+                - generic [ref=f11e265]: Fundacja Misja MADA
+                - button "Kopiuj nazwę odbiorcy" [ref=f11e266] [cursor=pointer]
+            - generic [ref=f11e270]:
+              - generic [ref=f11e271]: Adres
+              - generic [ref=f11e272]:
+                - generic [ref=f11e273]: ul. Szosa Chełmińska 271A87-100 Toruń
+                - button "Kopiuj adres" [ref=f11e274] [cursor=pointer]
+            - generic [ref=f11e278]:
+              - generic [ref=f11e279]: Bank
+              - generic [ref=f11e280]:
+                - generic [ref=f11e281]: Erste Bank Polska S.A.
+                - button "Kopiuj nazwę banku" [ref=f11e282] [cursor=pointer]
+            - generic [ref=f11e286]:
+              - generic [ref=f11e287]: SWIFT / BIC
+              - generic [ref=f11e288]:
+                - generic [ref=f11e289]: WBKPPLPP
+                - button "Kopiuj kod SWIFT" [ref=f11e290] [cursor=pointer]
+            - generic [ref=f11e294]:
+              - generic [ref=f11e295]: Tytuł przelewu
+              - generic [ref=f11e296]:
+                - generic [ref=f11e297]: Darowizna na cele statutowe
+                - button "Kopiuj tytuł przelewu" [ref=f11e298] [cursor=pointer]
+        - generic [ref=f11e302]:
+          - heading "Na skróty" [level=4] [ref=f11e303]
+          - list [ref=f11e304]:
+            - listitem [ref=f11e305]:
+              - link "Strona główna" [ref=f11e306] [cursor=pointer]:
+                - /url: index.html
+            - listitem [ref=f11e307]:
+              - link "Co robimy?" [ref=f11e308] [cursor=pointer]:
+                - /url: co-robimy.html
+            - listitem [ref=f11e309]:
+              - link "O nas" [ref=f11e310] [cursor=pointer]:
+                - /url: o-nas.html
+            - listitem [ref=f11e311]:
+              - link "Wydarzenia" [ref=f11e312] [cursor=pointer]:
+                - /url: wydarzenia.html
+            - listitem [ref=f11e313]:
+              - link "Kontakt" [ref=f11e314] [cursor=pointer]:
+                - /url: kontakt.html
+        - generic [ref=f11e315]:
+          - heading "Informacje" [level=4] [ref=f11e316]
+          - list [ref=f11e317]:
+            - listitem [ref=f11e318]:
+              - link "Statut fundacji" [ref=f11e319] [cursor=pointer]:
+                - /url: o-nas.html#dokumenty
+            - listitem [ref=f11e320]:
+              - link "Sprawozdania" [ref=f11e321] [cursor=pointer]:
+                - /url: o-nas.html#dokumenty
+            - listitem [ref=f11e322]:
+              - link "Polityka prywatności" [ref=f11e323] [cursor=pointer]:
+                - /url: polityka-prywatnosci.html
+            - listitem [ref=f11e324]:
+              - link "Regulamin" [ref=f11e325] [cursor=pointer]:
+                - /url: regulamin-serwisu.html
+          - heading "Partnerzy" [level=4] [ref=f11e326]
+          - list [ref=f11e327]:
+            - listitem [ref=f11e328]:
+              - link "Fundacja Salvatti" [ref=f11e329] [cursor=pointer]:
+                - /url: https://salvatti.pl/
+            - listitem [ref=f11e330]:
+              - link "Stowarzyszenie MISEVI" [ref=f11e331] [cursor=pointer]:
+                - /url: https://www.misevi.pl/
+            - listitem [ref=f11e332]:
+              - link "Siostry Małe Misjonarki Miłosierdzia" [ref=f11e333] [cursor=pointer]:
+                - /url: https://www.suoredonorione.org/
+      - generic [ref=f11e334]:
+        - generic [ref=f11e335]: © 2026 Fundacja Misja MADA · Wszelkie prawa zastrzeżone
+        - generic [ref=f11e336]: Toruń · Itaosy · Antananarywa
+      - generic [ref=f11e337]:
+        - text: "Autor witryny:"
+        - link "tomaszkwietniewski.pl" [ref=f11e338] [cursor=pointer]:
+          - /url: https://tomaszkwietniewski.pl

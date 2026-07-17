@@ -178,7 +178,7 @@ Skrypty i18n mają `?v=…` w URL, a `.htaccess` wymusza dla nich rewalidację
 (`no-cache, must-revalidate`). Reguła obejmuje **też renderery i formularze** - stary renderer
 z nowym słownikiem daje połowicznie przetłumaczoną stronę. Przy zmianie któregokolwiek
 z tych plików (oraz `site.css`) podbij `?v=` w podstronach - to jeden wspólny token dla całej
-witryny, obecnie `20260715`.
+witryny, obecnie `20260717`.
 
 ---
 
@@ -285,6 +285,32 @@ Redaktorzy zarządzają dwoma typami treści:
   `sprawozdania.html` i kaflach `o-nas.html`.
 - **Subskrypcje** - podgląd płatności cyklicznych + ręczne anulowanie i **wznawianie** wstrzymanych
   (`paused` -> `active`, kolejne obciążenie zaplanowane na następny dzień).
+
+---
+
+## Dokumenty prawne i prywatność
+
+Polityka prywatności i oba regulaminy przeszły w lipcu 2026 audyt zgodności ze stanem
+faktycznym strony oraz z umową zawartą z PayU (PR #39). Zasady, których pilnujemy:
+
+- **Dokumenty opisują tylko to, co strona naprawdę robi.** Serwis nie ma narzędzi
+  analitycznych ani marketingowych i nie ustawia własnych cookies u odwiedzających
+  (jedynie `localStorage` z wyborem języka; cookie sesji wyłącznie w panelu CMS) - dlatego
+  nie ma banera zgód i dokumenty tego nie obiecują. Jeśli kiedyś dojdzie analityka, nowe
+  cookie albo nowa usługa zewnętrzna, **najpierw** zaktualizuj politykę prywatności
+  i regulamin (plus daty aktualizacji i tłumaczenia EN/FR).
+- **Odbiorcy danych wymienieni z nazwy** (PayU, Google, MailerLite, hosting, banki);
+  transfer poza EOG opisany przez zabezpieczenia (EU-US Data Privacy Framework / SCC).
+- **Badge „PayU" w modalach darowizn i adopcji jest linkiem do poland.payu.com - nie
+  usuwać i nie zamieniać z powrotem na zwykły napis.** Umowa z PayU wymaga na stronie
+  akceptanta znaku PayU połączonego z linkiem do strony PayU.
+- Klauzula podatkowa w regulaminie opiera się na uldze z art. 26 ust. 1 pkt 9 ustawy o PIT.
+  Fundacja **nie ma statusu OPP** - nie pisać, że ma (ani sugerować 1,5% podatku), dopóki
+  go nie uzyska.
+- Log notyfikacji PayU (`data/payu-notifications.log`) nie zapisuje e-maili darczyńców
+  i jest przycinany do 12 miesięcy przez cron (dokumentacja transakcji na potrzeby
+  ewentualnych reklamacji żyje w bazie MySQL, nie w logu).
+- Wiążąca jest polska wersja dokumentów (nota `doc-binding` - patrz sekcja i18n wyżej).
 
 ---
 
