@@ -191,3 +191,46 @@ function mada_sub_extract_token(array $data): ?array {
 function mada_sub_gen_manage_token(): string {
     return bin2hex(random_bytes(32));
 }
+
+/**
+ * Retencja logu notyfikacji PayU (RODO - ograniczenie przechowywania):
+ *  - usuwa linie ze znacznikiem czasu (ISO-8601 na początku linii, do pierwszego
+ *    TAB) starszym niż $cutoffTs; linie bez parsowalnej daty też usuwa (format
+ *    w 100% kontroluje notify.php, więc nieparsowalna linia = uszkodzona),
+ *  - z zachowanych linii wycina historyczne pole "email=..." (wpisy sprzed
+ *    zmiany, po której notify.php nie loguje już e-maila darczyńcy).
+ * Całość pod flock(LOCK_EX) - bezpieczne współbieżnie z dopisywaniem
+ * FILE_APPEND|LOCK_EX w notify.php. Jedyne I/O to wskazany plik (testowalne).
+ * Zwraca ['removed' => int, 'redacted' => int]; zera, gdy pliku brak.
+ */
+function mada_log_retention(string $file, int $cutoffTs): array {
+    $out = ['removed' => 0, 'redacted' => 0];
+    if (!is_file($file)) return $out;
+    $fh = @fopen($file, 'c+');
+    if (!$fh) return $out;
+    try {
+        if (!flock($fh, LOCK_EX)) return $out;
+        $content = (string) stream_get_contents($fh);
+        $kept = [];
+        foreach (explode("\n", $content) as $line) {
+            if ($line === '') continue;   // końcówka po ostatnim \n / puste linie
+            $tab   = strpos($line, "\t");
+            $stamp = $tab === false ? $line : substr($line, 0, $tab);
+            $ts    = strtotime($stamp);
+            if ($ts === false || $ts < $cutoffTs) { $out['removed']++; continue; }
+            $clean = preg_replace('/\temail=[^\t]*/', '', $line, 1, $n);
+            if ($n > 0) { $out['redacted']++; $line = $clean; }
+            $kept[] = $line;
+        }
+        $newContent = $kept ? implode("\n", $kept) . "\n" : '';
+        if ($newContent !== $content) {
+            rewind($fh);
+            ftruncate($fh, 0);
+            fwrite($fh, $newContent);
+        }
+        flock($fh, LOCK_UN);
+    } finally {
+        fclose($fh);
+    }
+    return $out;
+}

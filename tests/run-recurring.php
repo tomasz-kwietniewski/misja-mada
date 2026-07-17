@@ -137,6 +137,31 @@ ok(!mada_donation_is_ext('mada548242_202606'),   'donation_is_ext: STANDARD subs
 ok(!mada_donation_is_ext(''),                    'donation_is_ext: puste -> false');
 ok(!mada_donation_is_ext('madaone'),             'donation_is_ext: bez podkreslnika -> false');
 
+// ── retencja logu notyfikacji (RODO - ograniczenie przechowywania) ──
+$LOG = sys_get_temp_dir() . '/mada_test_notify_' . getmypid() . '.log';
+$cut = strtotime('2026-01-01T00:00:00+00:00');   // stały cutoff -> test deterministyczny
+$old1   = "2025-01-15T08:00:00+01:00\tstatus=COMPLETED\textOrderId=madaone_a1.1\torderId=X1\tamount=5000\tPLN\temail=stary@example.com\n";
+$old2   = "2025-06-30T23:59:59+02:00\tstatus=CANCELED\textOrderId=mada548242_202506\torderId=X2\tamount=7000\tPLN\temail=inny@example.com\n";
+$broken = "smieci bez daty\tstatus=?\n";
+$fresh1 = "2026-07-01T05:00:00+02:00\tstatus=COMPLETED\textOrderId=mada548242_202607\torderId=X3\tamount=7000\tPLN\temail=nowy@example.com\n";
+$fresh2 = "2026-07-16T12:00:00+02:00\tstatus=COMPLETED\textOrderId=madaone_b2.2\torderId=X4\tamount=10000\tPLN\n";
+file_put_contents($LOG, $old1 . $old2 . $broken . $fresh1 . $fresh2);
+$r = mada_log_retention($LOG, $cut);
+eq($r['removed'],  3, 'log_retention: usuwa 2 stare wpisy + 1 linię bez daty');
+eq($r['redacted'], 1, 'log_retention: redaguje email w 1 zachowanym wpisie');
+$after = file_get_contents($LOG);
+ok(strpos($after, '@example.com') === false, 'log_retention: żaden e-mail nie został w pliku');
+eq($after,
+   "2026-07-01T05:00:00+02:00\tstatus=COMPLETED\textOrderId=mada548242_202607\torderId=X3\tamount=7000\tPLN\n" . $fresh2,
+   'log_retention: dokładna zawartość po przycięciu (świeże wpisy, bez email=)');
+// idempotencja: drugi przebieg niczego nie zmienia
+eq(mada_log_retention($LOG, $cut), ['removed' => 0, 'redacted' => 0], 'log_retention: drugi przebieg = 0 zmian');
+eq(file_get_contents($LOG), $after, 'log_retention: plik bez zmian po 2. przebiegu');
+// brak pliku -> zera i pliku nie tworzy
+eq(mada_log_retention($LOG . '.brak', $cut), ['removed' => 0, 'redacted' => 0], 'log_retention: brak pliku -> zera');
+ok(!file_exists($LOG . '.brak'), 'log_retention: brak pliku -> nie tworzy go');
+@unlink($LOG);
+
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty logiki recurring: {$T['pass']} OK";
 if ($T['fail'] > 0) { echo ", {$T['fail']} BŁĄD\n"; exit(1); }
