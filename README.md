@@ -87,7 +87,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── edit.php, save.php, delete.php, upload.php, media.php, categories.php
 │   ├── translate.php, glossary.php    tłumaczenia DeepL + glosariusz
 │   ├── sprawozdania.php, sprawozdania-upload.php, sprawozdania-delete.php
-│   └── subskrypcje.php     podgląd subskrypcji + ręczne anulowanie
+│   └── subskrypcje.php     podgląd subskrypcji + ręczne anulowanie i wznawianie
 │
 ├── events.js.php, sprawozdania.js.php   endpointy emitujące dane CMS na front
 ├── media/                  zdjęcia, logo, PDF-y (płaska struktura)
@@ -186,13 +186,15 @@ witryny, obecnie `20260717`.
 
 POS produkcyjny **4432411**, sklep `misjamada.pl`. Wszystkie sekrety (OAuth `client_secret`,
 klucz podpisu, dane bazy) są po stronie serwera w `payu/secret/` - nigdy w przeglądarce.
+Umowa z PayU obejmuje **wyłącznie PLN** - dlatego EUR jest w modalu darowizny ukryte;
+włączenie innej waluty wymaga najpierw aneksu do umowy.
 
 ### Jednorazowe (live)
 `payu/create-order.php`: walidacja -> OAuth -> OrderCreate -> zwrot `redirectUri`.
 Karta wpisywana **na stronie PayU** (hosted redirect), 3DS automatyczne, zero danych karty
 u nas. Status potwierdza `payu/notify.php` (weryfikacja podpisu).
 
-### Cykliczne (etap 6, live)
+### Cykliczne (live)
 Model recurring PayU z tokenizacją karty (Secure Form):
 
 1. **Pobranie karty** - `assets/secure-form.js` renderuje Secure Form (SDK PayU w iframe)
@@ -206,8 +208,9 @@ Model recurring PayU z tokenizacją karty (Secure Form):
    w trybie `recurring=STANDARD` (serwer-do-serwera, bez 3DS). Idempotencja przez
    `extOrderId` + tabela `charges`; ponowienia po odmowie: max 1x/dobę, do 3 prób.
    Przy nieznanym wyniku (timeout) subskrypcja jest wstrzymywana zamiast ponawiania
-   (ochrona przed podwójnym obciążeniem). Cron przy okazji czyści porzucone tokeny oraz
-   efemeryczne pliki `data/donation-pending` / `data/adopcja-card-pending` starsze niż 7 dni.
+   (ochrona przed podwójnym obciążeniem). Cron przy okazji czyści porzucone tokeny,
+   efemeryczne pliki `data/donation-pending` / `data/adopcja-card-pending` starsze niż 7 dni
+   oraz przycina log notyfikacji (`data/payu-notifications.log`) do 12 miesięcy.
 5. **Rezygnacja** - link z tokenem (`payu/manage.php`) w każdym mailu, oraz ręcznie
    w panelu (`panel/subskrypcje.php`).
 
@@ -248,25 +251,25 @@ Opłacone **jednorazowe** darowizny (`payu/notify.php` przy `COMPLETED`) oraz **
 adopcja** (każda rata, idempotentnie) trafiają do zakładki „Darowizny" w arkuszu + powiadomienie fundacji.
 Zapis przez `payu/sheet.php` -> Apps Script. Cykliczne adopcje mają własną zakładkę „Adopcja Serca".
 
-## Wysyłka maili (dwa kanały)
+## Wysyłka maili (relay Gmail, fallback `mail()`)
 
-- **Apps Script / Gmail** - maile adopcji (potwierdź, powitalny) i powiadomienia fundacji. Dobra
-  dostarczalność (reputacja Google, DKIM).
-- **PHP `mail()` z serwera** - maile cykliczne (`payu/mail.php`) i potwierdzenie zapisu na newsletter.
-  Słabsza dostarczalność; DNS ma SPF/DKIM (selektor `x`)/DMARC (`p=quarantine`), a `mail()` ustawia
-  envelope-from `-f` dla wyrównania SPF. Jeśli mimo to trafiają do spamu (zwłaszcza Outlook, nowa domena):
-  opcja docelowa to uwierzytelniony SMTP przez `kontakt@misjamada.pl` lub przekierowanie tych maili
-  przez Apps Script/Gmail (uwaga na dzienny limit Gmaila).
+Wszystkie maile wychodzą uwierzytelnionym Gmailem `kontakt@misjamada.pl` - poczta słana
+wprost z serwera przez PHP `mail()` bywała łapana jako spam, a reputacja Google i DKIM
+załatwiają dostarczalność. Technicznie dwie drogi o wspólnym ujściu:
 
-## Dostarczalność e-maili (relay Gmail)
+- **Apps Script bezpośrednio** (`GmailApp`) - maile formularzy: potwierdzenie i powitanie
+  adopcji, wiadomości z formularza kontaktowego, powiadomienia fundacji.
+- **PHP przez relay w Apps Script** (`payu/mail.php`, `type=relay` + shared secret) - maile
+  transakcyjne płatności cyklicznych (powitalny, rata, nieudana płatność, wstrzymanie,
+  anulowanie) oraz potwierdzenie zapisu na newsletter. Gdy relay jest niedostępny, wołający
+  robi **fallback na PHP `mail()`** z envelope-from `-f`; DNS ma SPF, DKIM (selektor `x`)
+  i DMARC (`p=quarantine`), więc fallback też przechodzi uwierzytelnienie.
 
-Poczta wychodząca z serwera przez PHP `mail()` bywała łapana jako spam. Dlatego maile
-transakcyjne (potwierdzenia i powiadomienia subskrypcji, potwierdzenie zapisu na newsletter)
-idą przez **relay w Apps Script** (`type=relay` -> `GmailApp`, uwierzytelniony Gmail
-`kontakt@misjamada.pl`), a `mail()` zostaje jako **fallback**, gdyby relay był niedostępny.
 Anulowanie subskrypcji adopcji dodatkowo aktualizuje wiersz w arkuszu Google na „anulowana"
 i powiadamia fundację tym samym niezawodnym kanałem (`payu/sheet.php` -> Apps Script). Zależy
 to od wgranego `assets/google-apps-script.gs` (Web App) i sekretu współdzielonego z PHP.
+Uwierzytelniony SMTP pozostaje opcją docelową - świadomie odłożony, póki dzienny limit
+Gmaila wystarcza.
 
 ## Panel CMS
 
