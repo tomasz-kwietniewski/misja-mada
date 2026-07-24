@@ -17,7 +17,6 @@ require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/sheet.php';
 
-const SITE_BASE = 'https://misjamada.pl';
 
 /**
  * Po zalozeniu subskrypcji adopcji przez karte: zaloguj komplet danych adopcyjnych
@@ -152,8 +151,8 @@ try {
 
     // 2) Zamówienie FIRST (tokenizacja + 3DS)
     $order = [
-        'notifyUrl'     => SITE_BASE . '/payu/notify.php',
-        'continueUrl'   => SITE_BASE . '/dziekujemy.html',
+        'notifyUrl'     => MADA_SITE_BASE . '/payu/notify.php',
+        'continueUrl'   => MADA_SITE_BASE . '/dziekujemy.html',
         'customerIp'    => payu_client_ip(),
         'merchantPosId' => PAYU_POS_ID,
         'recurring'     => 'FIRST',

@@ -12,19 +12,11 @@
   // Czy działamy na PRAWDZIWEJ produkcji (misjamada.pl / www.misjamada.pl)? Formularz Adopcji
   // wysyła dane na twardo zaszyty PRODUKCYJNY Google Apps Script - z localhost/preview NIE wolno
   // go dotykać, bo każdy submit tworzy realny wiersz w arkuszu fundacji. Na produkcji: bez zmian.
-  const madaIsLiveHost = () => /(^|\.)misjamada\.pl$/i.test(location.hostname);
+  // (Implementacja wspólna: assets/site-common.js. Wywołanie leniwe - dopiero w handlerach.)
+  const madaIsLiveHost = () => window.MadaCommon.isLiveHost();
 
-  // Ładuje moduł Secure Form (assets/secure-form.js) na żądanie - raz.
-  function loadSecureFormLib() {
-    if (window.MadaSecureForm) return Promise.resolve();
-    return new Promise(function (res, rej) {
-      var s = document.createElement('script');
-      s.src = '/assets/secure-form.js'; s.async = true;
-      s.onload = function () { res(); };
-      s.onerror = function () { rej(new Error('Nie udało się załadować modułu płatności cyklicznej.')); };
-      document.head.appendChild(s);
-    });
-  }
+  // Loader Secure Form - wspólny (assets/site-common.js), ładowany na żądanie, raz.
+  const loadSecureFormLib = () => window.MadaCommon.loadSecureForm();
   // Backend płatności cyklicznej (Secure Form -> recurring FIRST).
   window.MADA_RECURRING_URL = '/payu/recurring-first.php';
 
@@ -59,41 +51,10 @@
     const closeBtn = modal.querySelector('.am-close');
     const successPane = modal.querySelector('.am-success');
 
-    // ── Dostępność: pułapka fokusu + przywrócenie fokusu po zamknięciu (a11y) ──
-    // Fokus startowy na pierwsze pole ustawia istniejąca logika open() (setTimeout);
-    // tu dokładamy pułapkę Tab (liczoną dynamicznie) i powrót fokusu do elementu,
-    // który otworzył modal. Nie dotykamy walidacji ani wysyłki formularza.
-    let amLastFocused = null;
-    function amFocusables() {
-      return Array.prototype.slice.call(modal.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    }
-    function amTrapKey(e) {
-      if (e.key !== 'Tab') return;
-      const f = amFocusables();
-      if (!f.length) return;
-      const first = f[0], last = f[f.length - 1];
-      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-    function amFocusTrapOn() {
-      amLastFocused = document.activeElement;
-      document.addEventListener('keydown', amTrapKey, true);
-    }
-    function amFocusTrapOff() {
-      document.removeEventListener('keydown', amTrapKey, true);
-      const back = amLastFocused;
-      amLastFocused = null;
-      if (back && back !== document.body && document.contains(back) && (back.offsetWidth || back.offsetHeight || back.getClientRects().length)) {
-        try { back.focus(); } catch (e) {}
-      }
-      // Gdyby fokus wciąż tkwił w modalu, odbierz mu go - inaczej aria-hidden="true" da ostrzeżenie.
-      if (modal.contains(document.activeElement)) {
-        try { document.activeElement.blur(); } catch (e) {}
-      }
-    }
+    // ── Dostępność: wspólna pułapka fokusu (assets/site-common.js) ──
+    // Fokus startowy na pierwsze pole ustawia istniejąca logika open() (setTimeout),
+    // dlatego on() bez focusFirst. Nie dotykamy walidacji ani wysyłki formularza.
+    const amTrap = window.MadaCommon.focusTrap(modal);
 
     // Liczba dzieci (kwota = dzieci × 70 zł). Ustawiana też przez window.MadaAdopcja.open({dzieci}).
     let dzieci = 1;
@@ -126,7 +87,7 @@
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
-      amFocusTrapOn();
+      amTrap.on();
       // reset state
       form.style.display = '';
       successPane.style.display = 'none';
@@ -140,8 +101,8 @@
       }, 80);
     }
     function close() {
-      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (patrz komentarz w darowizna.js).
-      amFocusTrapOff();
+      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (robi to trap.off()).
+      amTrap.off();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
@@ -172,7 +133,7 @@
         if (prev) prev.remove();
         emailInput.classList.remove('invalid');
         const v = emailInput.value.trim();
-        if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        if (v && !window.MadaCommon.EMAIL_RE.test(v)) {
           emailInput.classList.add('invalid');
           const span = document.createElement('div');
           span.className = 'field-error';
@@ -275,12 +236,21 @@
           // Pokazujemy ekran sukcesu, by można było testować UI bez skutków na produkcji.
           console.info('[Adopcja] host nieprodukcyjny (' + location.hostname + ') - pomijam wysyłkę do Apps Script.');
         } else if (SUBMIT_URL) {
-          await fetch(SUBMIT_URL, {
+          // Zwykły CORS zamiast mode:'no-cors' (audyt 2026-07-24, W3): Apps Script
+          // (ContentService) odpowiada z Access-Control-Allow-Origin:* (zweryfikowane
+          // na wdrożonym web appie), a Content-Type text/plain nie wyzwala preflight.
+          // Dzięki temu CZYTAMY odpowiedź {ok:true/false} i nie pokazujemy ekranu
+          // sukcesu, gdy zapis do arkusza się nie powiódł (wcześniej odpowiedź była
+          // nieprzezroczysta i sukces pokazywał się zawsze).
+          const res = await fetch(SUBMIT_URL, {
             method: 'POST',
-            mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(data),
           });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json || !json.ok) {
+            throw new Error('apps-script-error');
+          }
         } else {
           // Brak skonfigurowanej bramki - fallback mailto z prefilled body
           const subject = encodeURIComponent('Zgłoszenie do programu Adopcja Serca');
@@ -349,7 +319,7 @@
     const errs = [];
     if (!d.imie || d.imie.length < 2) errs.push({ field: 'imie', msg: 'Podaj imię.' });
     if (!d.nazwisko || d.nazwisko.length < 2) errs.push({ field: 'nazwisko', msg: 'Podaj nazwisko.' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) errs.push({ field: 'email', msg: 'Podaj prawidłowy adres e-mail.' });
+    if (!window.MadaCommon.EMAIL_RE.test(d.email)) errs.push({ field: 'email', msg: 'Podaj prawidłowy adres e-mail.' });
     if (!d.telefon || d.telefon.replace(/\D/g, '').length < 9) errs.push({ field: 'telefon', msg: 'Podaj numer telefonu.' });
     if (!d.adres) errs.push({ field: 'adres', msg: 'Podaj adres korespondencyjny.' });
     if (!d.forma) errs.push({ field: 'forma', msg: 'Wybierz formę adopcji.' });

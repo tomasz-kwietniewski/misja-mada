@@ -52,6 +52,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 ├── assets/                 CSS + JS (front)
 │   ├── site.css            wspólny arkusz stylów (design tokens w :root)
 │   ├── site-nav.js, site-a11y.js, site-search.js   nawigacja, dostępność, wyszukiwarka
+│   ├── site-common.js      wspólne helpery formularzy (focus trap, e-mail, host, loader Secure Form)
 │   ├── i18n.js             silnik tłumaczeń (podmiana węzłów tekstowych)
 │   ├── i18n-dict.js        słownik PL->EN     (klucz = tekst PL)
 │   ├── i18n-dict-fr.js     słownik PL->FR

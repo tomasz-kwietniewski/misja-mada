@@ -6,7 +6,6 @@
   ═══════════════════════════════════════════════════════════════ */
 require __DIR__ . '/lib.php';
 
-const SITE_BASE = 'https://misjamada.pl';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     payu_json(['error' => 'Metoda niedozwolona.'], 405);
@@ -77,8 +76,8 @@ if ($pendingOk === false) {
 }
 
 $order = [
-    'notifyUrl'     => SITE_BASE . '/payu/notify.php',
-    'continueUrl'   => SITE_BASE . '/dziekujemy.html',
+    'notifyUrl'     => MADA_SITE_BASE . '/payu/notify.php',
+    'continueUrl'   => MADA_SITE_BASE . '/dziekujemy.html',
     'customerIp'    => payu_client_ip(),
     'merchantPosId' => PAYU_POS_ID,
     'description'   => $descr,

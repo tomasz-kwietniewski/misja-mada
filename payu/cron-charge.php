@@ -18,7 +18,6 @@ require __DIR__ . '/db.php';
 require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
 
-const SITE_BASE = 'https://misjamada.pl';
 
 function cron_log(string $msg): void {
     fwrite(STDOUT, date('c') . "\t" . $msg . "\n");
@@ -100,7 +99,7 @@ try {
 
         $descr = mb_substr(mada_sub_description($sub['goal_label'], $amount, $cur, (string)$sub['expiry_date']), 0, 250);
         $order = [
-            'notifyUrl'     => SITE_BASE . '/payu/notify.php',
+            'notifyUrl'     => MADA_SITE_BASE . '/payu/notify.php',
             'customerIp'    => '127.0.0.1',
             'merchantPosId' => PAYU_POS_ID,
             'recurring'     => 'STANDARD',

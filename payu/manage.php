@@ -10,8 +10,16 @@ require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/sheet.php';
 
-function manage_csrf(string $manageToken): string {
-    return hash('sha256', $manageToken . '|misja-mada-cancel');
+// CSRF sesyjny (audyt 2026-07-24, D5): wcześniej token był deterministyczną pochodną
+// manage_token (kto zna URL, wyliczy CSRF - ochrona iluzoryczna). Losowy token w sesji
+// wiąże POST z przeglądarką, która faktycznie otworzyła stronę.
+session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']), 'samesite' => 'Lax']);
+session_start();
+if (empty($_SESSION['manage_csrf'])) {
+    $_SESSION['manage_csrf'] = bin2hex(random_bytes(16));
+}
+function manage_csrf(): string {
+    return (string) $_SESSION['manage_csrf'];
 }
 
 $token = isset($_GET['token']) ? (string) $_GET['token'] : (isset($_POST['token']) ? (string) $_POST['token'] : '');
@@ -21,7 +29,7 @@ $done = false; $error = '';
 
 if ($sub && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf = isset($_POST['csrf']) ? (string) $_POST['csrf'] : '';
-    if (!hash_equals(manage_csrf($sub['manage_token']), $csrf)) {
+    if (!hash_equals(manage_csrf(), $csrf)) {
         $error = 'Sesja wygasła. Odśwież stronę i spróbuj ponownie.';
     } elseif (($_POST['action'] ?? '') === 'cancel') {
         if (payu_sub_cancel((int) $sub['id'])) {
@@ -43,7 +51,7 @@ if ($sub && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 function h($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
-$amount = $sub ? (($sub['amount_grosze'] % 100 === 0) ? (string) intdiv($sub['amount_grosze'], 100) : number_format($sub['amount_grosze'] / 100, 2, ',', '')) : '';
+$amount = $sub ? mada_amount_pln((int) $sub['amount_grosze']) : '';
 http_response_code($sub ? 200 : 404);
 ?><!doctype html>
 <html lang="pl">
@@ -95,7 +103,7 @@ http_response_code($sub ? 200 : 404);
       <div class="mg-actions">
         <form method="post" onsubmit="return confirm('Na pewno anulować comiesięczną darowiznę?');">
           <input type="hidden" name="token" value="<?= h($sub['manage_token']) ?>" />
-          <input type="hidden" name="csrf" value="<?= h(manage_csrf($sub['manage_token'])) ?>" />
+          <input type="hidden" name="csrf" value="<?= h(manage_csrf()) ?>" />
           <input type="hidden" name="action" value="cancel" />
           <button type="submit" class="btn-danger">Anuluj darowiznę cykliczną</button>
         </form>

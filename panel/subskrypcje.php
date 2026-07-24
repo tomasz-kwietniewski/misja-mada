@@ -68,8 +68,7 @@ try {
 }
 
 function sub_amount($g) {
-    $g = (int) $g;
-    return $g % 100 === 0 ? (string) intdiv($g, 100) : number_format($g / 100, 2, ',', '');
+    return mada_amount_pln((int) $g);   // wspólny formatter z payu/mail.php
 }
 
 panel_header('Subskrypcje');
