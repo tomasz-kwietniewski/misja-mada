@@ -23,6 +23,13 @@ RewriteRule ^(.*)$ https://misjamada.pl/$1 [R=301,L]
   <FilesMatch "(i18n(-dict(-fr)?)?|.*-render|adopcja-form|darowizna|newsletter|site-search|site-common|secure-form)\.js$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
+  # HTML też musi się rewalidować (audyt 2026-07-24): bez Cache-Control przeglądarka
+  # cache'uje HTML heurystycznie (10% wieku pliku - godziny/dni) i po deployu serwuje
+  # STARY HTML z NOWYMI skryptami no-cache. Taki skew realnie zepsuł modale po
+  # wprowadzeniu site-common.js (stary HTML nie ładował nowego pliku). 304 jest tanie.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
 </IfModule>
 
 # ── Nagłówki bezpieczeństwa (audyt 2026-07-24) ──

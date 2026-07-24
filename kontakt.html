@@ -620,8 +620,12 @@ z nami</h1>
   // Formularz wysyła na produkcyjny Google Apps Script (window.MADA_SUBMIT_URL z adopcja-form.js).
   // Z localhost/preview NIE wysyłamy, żeby nie zaśmiecać arkusza fundacji. Na produkcji: bez zmian.
   // (Wspólne helpery z assets/site-common.js - wywoływane leniwie w handlerach, więc
-  //  kolejność ładowania skryptów defer nie ma znaczenia dla tego skryptu inline.)
-  const madaIsLiveHost = () => window.MadaCommon.isLiveHost();
+  //  kolejność ładowania skryptów defer nie ma znaczenia dla tego skryptu inline.
+  //  Inline fallbacki na wypadek, gdyby site-common.js się nie załadował.)
+  const madaIsLiveHost = () => window.MadaCommon
+    ? window.MadaCommon.isLiveHost()
+    : /(^|\.)misjamada\.pl$/i.test(location.hostname);
+  const madaEmailRe = () => window.MadaCommon ? window.MadaCommon.EMAIL_RE : /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const successPane = document.querySelector('.cf-success');
   const formWrap = document.querySelector('.cf-form-wrap');
   const emailInput = form.querySelector('#cf-email');
@@ -642,7 +646,7 @@ z nami</h1>
     emailInput.addEventListener('blur', () => {
       clearFieldError(emailInput);
       const v = emailInput.value.trim();
-      if (v && !window.MadaCommon.EMAIL_RE.test(v)) {
+      if (v && !madaEmailRe().test(v)) {
         showError(emailInput, 'Podaj prawidłowy adres e-mail (np. jan@przykład.pl).');
       }
     });
@@ -669,7 +673,7 @@ z nami</h1>
     let ok = true;
     if (!imie.value.trim() || imie.value.trim().length < 2) { showError(imie, 'Podaj imię.'); ok = false; }
     if (!nazwisko.value.trim() || nazwisko.value.trim().length < 2) { showError(nazwisko, 'Podaj nazwisko.'); ok = false; }
-    if (!window.MadaCommon.EMAIL_RE.test(email.value.trim())) { showError(email, 'Podaj prawidłowy adres e-mail.'); ok = false; }
+    if (!madaEmailRe().test(email.value.trim())) { showError(email, 'Podaj prawidłowy adres e-mail.'); ok = false; }
     if (!tresc.value.trim() || tresc.value.trim().length < 5) { showError(tresc, 'Wpisz treść wiadomości (min. 5 znaków).'); ok = false; }
     if (!rodo.checked) { showError(rodo, 'Wymagana zgoda na przetwarzanie danych.'); ok = false; }
 
