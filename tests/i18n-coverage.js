@@ -24,6 +24,12 @@
    Kod wyjścia 1 = są nieprzetłumaczone frazy (CI odrzuca push).
    Gdy fraza NIE MA być tłumaczona (nazwa własna, kod, numer) - dopisz ją
    do ALLOW, a nie do słownika.
+
+   ⚠ STRAŻNIK SYNCHRONIZACJI: ten skrypt REIMPLEMENTUJE logikę
+   assets/i18n.js (norm(), ATTRS, [translate="no"], tokenizację,
+   zakres = tylko <body>). Każda zmiana silnika i18n.js w tych
+   obszarach MUSI być odwzorowana tutaj w tym samym commicie.
+   Nowe pliki JS budujące widoczny tekst dopisuj do JS_FILES.
    ═══════════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -181,6 +187,7 @@ var JS_FILES = [
   'assets/archiwum-render.js', 'assets/wydarzenia-render.js', 'assets/wydarzenie-render.js',
   'assets/sprawozdania-render.js', 'assets/adopcja-form.js', 'assets/darowizna.js',
   'assets/newsletter.js', 'assets/site-search.js', 'assets/site-nav.js', 'assets/site-a11y.js',
+  'assets/site-common.js',
 ];
 /* UWAGA - inny poziom pewności niż przy HTML.
    HTML sprawdzamy wyczerpująco (każdy tekst musi być w słowniku albo w ALLOW).

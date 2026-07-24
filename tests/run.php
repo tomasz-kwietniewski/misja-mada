@@ -119,6 +119,12 @@ ok(mada_mail_relay('a@b.pl', 'Temat', 'tresc') === false,
 ok(mada_mail_relay('', 'Temat', 'tresc') === false,
    'mail-relay: pusty adresat -> false');
 
+// ── PayU: wspólny formatter kwot "ludzkich" (grosze -> PLN z przecinkiem) ──
+eq(mada_amount_pln(7000),  '70',     'amount-pln: pelne zlote bez groszy');
+eq(mada_amount_pln(12550), '125,50', 'amount-pln: grosze z przecinkiem');
+eq(mada_amount_pln(100),   '1',      'amount-pln: 1 zl');
+eq(mada_amount_pln(99),    '0,99',   'amount-pln: ponizej zlotowki');
+
 // ── Sprzątanie sandboxa (best-effort) ──────────────────────────
 foreach (glob($SANDBOX . '/data/*') as $f) { @unlink($f); }
 @unlink($SANDBOX . '/data/.htaccess');

@@ -71,10 +71,19 @@ function mada_manage_url(array $sub): string {
     return MADA_SITE_BASE . '/payu/manage.php?token=' . $sub['manage_token'];
 }
 
-/** Kwota w PLN do treści (np. „70" albo „125,50"). */
+/**
+ * Kwota "ludzka" w PLN z groszy: „70" (pełne złote) albo „125,50" (przecinek).
+ * Jedno źródło prawdy - wcześniej ta sama formuła była powielona w mail.php,
+ * manage.php i panel/subskrypcje.php (audyt 2026-07-24). Format z KROPKĄ dla
+ * arkusza/PayU pozostaje osobno (sheet.php, notify.php) - to inny kontrakt.
+ */
+function mada_amount_pln(int $grosze): string {
+    return $grosze % 100 === 0 ? (string) intdiv($grosze, 100) : number_format($grosze / 100, 2, ',', '');
+}
+
+/** Kwota w PLN do treści maila (np. „70" albo „125,50"). */
 function mada_mail_amount(array $sub): string {
-    $g = (int) $sub['amount_grosze'];
-    return $g % 100 === 0 ? (string) intdiv($g, 100) : number_format($g / 100, 2, ',', '');
+    return mada_amount_pln((int) $sub['amount_grosze']);
 }
 
 /** Wspólna skorupa HTML maila (kolory fundacji). $inner = treść (HTML). */

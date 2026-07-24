@@ -17,6 +17,8 @@
 
   // Backend zapisu na newsletter (MailerLite) - ścieżka WZGLĘDNA, by działała
   // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
+  // Świadomie BEZ strażnika hosta (patrz komentarz w darowizna.js): względny URL na
+  // localhost trafia w lokalny backend, nie w produkcję.
   window.MADA_NEWSLETTER_URL = '/newsletter/subscribe.php';
 
   // Skrót tłumaczenia dla komunikatów budowanych w JS (brak wpisu = PL bez zmian).
@@ -40,45 +42,16 @@
     const closeBtn = modal.querySelector('.nm-close');
     const successPane = modal.querySelector('.nm-success');
 
-    // ── Dostępność: pułapka fokusu + przywrócenie fokusu po zamknięciu (a11y) ──
-    let nmLastFocused = null;
-    function nmFocusables() {
-      return Array.prototype.slice.call(modal.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    }
-    function nmTrapKey(e) {
-      if (e.key !== 'Tab') return;
-      const f = nmFocusables();
-      if (!f.length) return;
-      const first = f[0], last = f[f.length - 1];
-      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-    function nmFocusTrapOn() {
-      nmLastFocused = document.activeElement;
-      document.addEventListener('keydown', nmTrapKey, true);
-    }
-    function nmFocusTrapOff() {
-      document.removeEventListener('keydown', nmTrapKey, true);
-      const back = nmLastFocused;
-      nmLastFocused = null;
-      if (back && back !== document.body && document.contains(back) && (back.offsetWidth || back.offsetHeight || back.getClientRects().length)) {
-        try { back.focus(); } catch (e) {}
-      }
-      // Gdyby fokus wciąż tkwił w modalu, odbierz mu go - inaczej aria-hidden="true" da ostrzeżenie.
-      if (modal.contains(document.activeElement)) {
-        try { document.activeElement.blur(); } catch (e) {}
-      }
-    }
+    // ── Dostępność: wspólna pułapka fokusu (assets/site-common.js) ──
+    // Fokus startowy ustawia open() (setTimeout na pierwsze pole), stąd on() bez focusFirst.
+    const nmTrap = window.MadaCommon.focusTrap(modal);
 
     function open(e) {
       if (e) e.preventDefault();
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
-      nmFocusTrapOn();
+      nmTrap.on();
       form.style.display = '';
       successPane.style.display = 'none';
       form.reset();
@@ -90,8 +63,8 @@
       }, 80);
     }
     function close() {
-      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (patrz komentarz w darowizna.js).
-      nmFocusTrapOff();
+      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (robi to trap.off()).
+      nmTrap.off();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
@@ -121,7 +94,7 @@
       if (!imie.value.trim() || imie.value.trim().length < 2) {
         showError(imie, 'Podaj imię.'); ok = false;
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+      if (!window.MadaCommon.EMAIL_RE.test(email.value.trim())) {
         showError(email, 'Podaj prawidłowy adres e-mail.'); ok = false;
       }
       if (!rodo.checked) {

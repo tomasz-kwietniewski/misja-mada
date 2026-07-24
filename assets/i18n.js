@@ -12,6 +12,12 @@
    • MutationObserver tłumaczy treść dodaną dynamicznie (wydarzenia).
    • Aby poprawić/dodać tłumaczenie - edytuj assets/i18n-dict.js (EN)
      lub assets/i18n-dict-fr.js (FR). Klucz = tekst PL.
+
+   ⚠ STRAŻNIK SYNCHRONIZACJI: tests/i18n-coverage.js REIMPLEMENTUJE
+     logikę tego silnika (norm(), listę ATTRS, [translate="no"],
+     tokenizację). Jeśli zmieniasz tu COKOLWIEK z powyższych,
+     zaktualizuj bramkę w tym samym commicie - inaczej CI będzie
+     sprawdzać co innego, niż strona robi.
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';

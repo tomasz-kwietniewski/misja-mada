@@ -20,21 +20,13 @@
 
   // Backend PayU (płatność jednorazowa) - ścieżka WZGLĘDNA, by działała
   // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
+  // Świadomie BEZ strażnika hosta (MadaCommon.isLiveHost): na localhost względny URL
+  // trafia w lokalny backend PHP (sandbox PayU) - to pożądane w dev, zero ryzyka
+  // dotknięcia produkcji. Strażnik jest tylko tam, gdzie URL produkcyjny jest zaszyty
+  // na twardo (Apps Script w adopcja-form.js / kontakt.html).
   window.MADA_PAYU_URL = '/payu/create-order.php';
   // Backend płatności cyklicznej (Secure Form -> recurring FIRST).
   window.MADA_RECURRING_URL = '/payu/recurring-first.php';
-
-  // Ładuje moduł Secure Form (assets/secure-form.js) na żądanie - raz.
-  function loadSecureFormLib() {
-    if (window.MadaSecureForm) return Promise.resolve();
-    return new Promise(function (res, rej) {
-      var s = document.createElement('script');
-      s.src = '/assets/secure-form.js'; s.async = true;
-      s.onload = function () { res(); };
-      s.onerror = function () { rej(new Error('Nie udało się załadować modułu płatności cyklicznej.')); };
-      document.head.appendChild(s);
-    });
-  }
 
   const CELE = {
     statutowe: 'Działania statutowe Fundacji Misja MADA',
@@ -86,43 +78,9 @@
     }
     const modal = document.getElementById('darowizna-modal');
 
-    // ── Dostępność: pułapka fokusu w modalu + przywrócenie fokusu po zamknięciu ──
-    // Modal buduje treść dynamicznie (KROK 1/2), więc listę elementów fokusowalnych
-    // liczymy ZA KAŻDYM RAZEM w handlerze - inaczej po przejściu do kroku 2 pułapka
-    // trzymałaby nieaktualne first/last. Fokus wraca na element, który modal otworzył.
-    let darLastFocused = null;
-    function darFocusables() {
-      return Array.prototype.slice.call(modal.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )).filter(el => el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    }
-    function darTrapKey(e) {
-      if (e.key !== 'Tab') return;
-      const f = darFocusables();
-      if (!f.length) return;
-      const first = f[0], last = f[f.length - 1];
-      if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-    function darFocusTrapOn() {
-      darLastFocused = document.activeElement;
-      document.addEventListener('keydown', darTrapKey, true);
-      setTimeout(() => { const t = darFocusables()[0]; if (t) { try { t.focus(); } catch (e) {} } }, 40);
-    }
-    function darFocusTrapOff() {
-      document.removeEventListener('keydown', darTrapKey, true);
-      const back = darLastFocused;
-      darLastFocused = null;
-      if (back && back !== document.body && document.contains(back) && (back.offsetWidth || back.offsetHeight || back.getClientRects().length)) {
-        try { back.focus(); } catch (e) {}
-      }
-      // Gdyby fokus wciąż tkwił w modalu (brak sensownego elementu do przywrócenia),
-      // odbierz mu go - inaczej aria-hidden="true" na modalu wywoła ostrzeżenie przeglądarki.
-      if (modal.contains(document.activeElement)) {
-        try { document.activeElement.blur(); } catch (e) {}
-      }
-    }
+    // ── Dostępność: wspólna pułapka fokusu (assets/site-common.js) ──
+    // Modal buduje treść dynamicznie (KROK 1/2) - pułapka liczy elementy za każdym razem.
+    const darTrap = window.MadaCommon.focusTrap(modal);
 
     function open(e) {
       if (e) e.preventDefault();
@@ -137,12 +95,11 @@
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('drawer-open');
-      darFocusTrapOn();
+      darTrap.on({ focusFirst: true });
     }
     function close() {
-      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" - inaczej Chrome zgłasza
-      // ostrzeżenie „Blocked aria-hidden ... descendant retained focus".
-      darFocusTrapOff();
+      // Fokus wyprowadzamy z modalu PRZED aria-hidden="true" (robi to trap.off()).
+      darTrap.off();
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
@@ -235,6 +192,8 @@
             </p>
           </div>
 
+          <div class="dar-err" id="dar-err1" style="display:none;" role="alert"></div>
+
           <div class="dar-actions">
             <button type="button" class="btn btn-gold" id="dar-next">Dalej → dane i płatność</button>
           </div>
@@ -312,9 +271,13 @@
           }
           // Fallback (skrypt adopcji niezaładowany): zostaw dotychczasowy krok 2.
         }
+        // Błąd inline (jak w kroku 2), nie alert() - spójny wygląd i dostępność (role=alert).
+        const err1 = modal.querySelector('#dar-err1');
+        const showErr1 = (msg) => { if (err1) { err1.textContent = t(msg); err1.style.display = ''; } };
+        if (err1) err1.style.display = 'none';
         const amt = kwotaAktualna();
-        if (!amt || amt < 1) { alert(t('Podaj prawidłową kwotę darowizny.')); return; }
-        if (amt > 100000) { alert(t('Maksymalna kwota jednorazowej darowizny online to 100 000 zł. W sprawie większego wsparcia prosimy o kontakt: kontakt@misjamada.pl.')); return; }
+        if (!amt || amt < 1) { showErr1('Podaj prawidłową kwotę darowizny.'); return; }
+        if (amt > 100000) { showErr1('Maksymalna kwota jednorazowej darowizny online to 100 000 zł. W sprawie większego wsparcia prosimy o kontakt: kontakt@misjamada.pl.'); return; }
         renderStep2();
       });
     }
@@ -402,7 +365,7 @@
       // Dla płatności cyklicznej: załaduj i osadź formularz karty (Secure Form).
       if (recurring) {
         const loadingEl = modal.querySelector('#dar-card-loading');
-        loadSecureFormLib()
+        window.MadaCommon.loadSecureForm()
           .then(() => window.MadaSecureForm.mount('dar-card'))
           .then(() => { if (loadingEl) loadingEl.style.display = 'none'; })
           .catch(err => {
@@ -421,7 +384,7 @@
       const amt = kwotaAktualna();
 
       if (!fd.get('imie') || !fd.get('nazwisko')) { return showErr('Podaj imię i nazwisko.'); }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((fd.get('email')||'').toString().trim())) { return showErr('Podaj prawidłowy adres e-mail.'); }
+      if (!window.MadaCommon.EMAIL_RE.test((fd.get('email')||'').toString().trim())) { return showErr('Podaj prawidłowy adres e-mail.'); }
       if (!fd.get('zgoda_regulamin') || !fd.get('zgoda_dane')) { return showErr('Wymagana akceptacja regulaminu i zgody na dane.'); }
 
       const payload = {

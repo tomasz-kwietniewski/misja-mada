@@ -619,7 +619,9 @@ z nami</h1>
   const t = (s) => (window.MadaI18n && typeof window.MadaI18n.t === 'function') ? window.MadaI18n.t(s) : s;
   // Formularz wysyła na produkcyjny Google Apps Script (window.MADA_SUBMIT_URL z adopcja-form.js).
   // Z localhost/preview NIE wysyłamy, żeby nie zaśmiecać arkusza fundacji. Na produkcji: bez zmian.
-  const madaIsLiveHost = () => /(^|\.)misjamada\.pl$/i.test(location.hostname);
+  // (Wspólne helpery z assets/site-common.js - wywoływane leniwie w handlerach, więc
+  //  kolejność ładowania skryptów defer nie ma znaczenia dla tego skryptu inline.)
+  const madaIsLiveHost = () => window.MadaCommon.isLiveHost();
   const successPane = document.querySelector('.cf-success');
   const formWrap = document.querySelector('.cf-form-wrap');
   const emailInput = form.querySelector('#cf-email');
@@ -640,7 +642,7 @@ z nami</h1>
     emailInput.addEventListener('blur', () => {
       clearFieldError(emailInput);
       const v = emailInput.value.trim();
-      if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      if (v && !window.MadaCommon.EMAIL_RE.test(v)) {
         showError(emailInput, 'Podaj prawidłowy adres e-mail (np. jan@przykład.pl).');
       }
     });
@@ -667,7 +669,7 @@ z nami</h1>
     let ok = true;
     if (!imie.value.trim() || imie.value.trim().length < 2) { showError(imie, 'Podaj imię.'); ok = false; }
     if (!nazwisko.value.trim() || nazwisko.value.trim().length < 2) { showError(nazwisko, 'Podaj nazwisko.'); ok = false; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) { showError(email, 'Podaj prawidłowy adres e-mail.'); ok = false; }
+    if (!window.MadaCommon.EMAIL_RE.test(email.value.trim())) { showError(email, 'Podaj prawidłowy adres e-mail.'); ok = false; }
     if (!tresc.value.trim() || tresc.value.trim().length < 5) { showError(tresc, 'Wpisz treść wiadomości (min. 5 znaków).'); ok = false; }
     if (!rodo.checked) { showError(rodo, 'Wymagana zgoda na przetwarzanie danych.'); ok = false; }
 
@@ -699,12 +701,15 @@ z nami</h1>
           // Środowisko nieprodukcyjne (localhost/preview) - nie dotykamy produkcyjnego arkusza.
           console.info('[Kontakt] host nieprodukcyjny (' + location.hostname + ') - pomijam wysyłkę do Apps Script.');
         } else if (SUBMIT_URL) {
-          await fetch(SUBMIT_URL, {
+          // Zwykły CORS zamiast mode:'no-cors' (audyt 2026-07-24, W3) - czytamy
+          // odpowiedź {ok} Apps Script i nie udajemy sukcesu przy błędzie wysyłki.
+          const res = await fetch(SUBMIT_URL, {
             method: 'POST',
-            mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload),
           });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json || !json.ok) throw new Error('apps-script-error');
         } else {
           // fallback: mailto
           const subject = encodeURIComponent(payload.temat || 'Wiadomość ze strony Misja MADA');
@@ -727,10 +732,11 @@ z nami</h1>
 </script>
 
 <script src="assets/site-nav.js" defer></script>
+<script src="assets/site-common.js?v=20260724" defer></script>
 <script src="assets/site-search.js?v=20260717" defer></script>
 <script src="assets/site-a11y.js" defer></script>
-<script src="assets/adopcja-form.js?v=20260717" defer></script>
-<script src="assets/newsletter.js?v=20260717" defer></script>
+<script src="assets/adopcja-form.js?v=20260724" defer></script>
+<script src="assets/newsletter.js?v=20260724" defer></script>
 <script src="assets/i18n-dict.js?v=20260717" defer></script>
 <script src="assets/i18n-dict-fr.js?v=20260717" defer></script>
 <script src="assets/i18n.js?v=20260717" defer></script>

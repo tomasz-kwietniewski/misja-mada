@@ -45,6 +45,11 @@ define('PAYU_BASE', PAYU_ENV === 'production'
     ? 'https://secure.payu.com'
     : 'https://secure.snd.payu.com');
 
+// Bazowy adres serwisu (notifyUrl/continueUrl, linki w mailach). Jedno źródło prawdy -
+// wcześniej stała była powielona w create-order/recurring-first/cron-charge (audyt 2026-07-24).
+// Guard if(!defined): mail.php ma własny fallback dla ścieżek bez lib.php (newsletter).
+if (!defined('MADA_SITE_BASE')) define('MADA_SITE_BASE', 'https://misjamada.pl');
+
 /** Zwraca JSON i kończy żądanie. */
 function payu_json($obj, $httpCode = 200) {
     http_response_code($httpCode);
