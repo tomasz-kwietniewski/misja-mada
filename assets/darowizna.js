@@ -18,6 +18,17 @@
 (function () {
   'use strict';
 
+  // Samonaprawa skew cache (audyt 2026-07-24): jeśli przeglądarka ma z cache STARY
+  // HTML (bez <script src=site-common.js>), a JS-y są świeże (no-cache), to
+  // window.MadaCommon nie istnieje - doładowujemy moduł sami. Do czasu załadowania
+  // helpery mają fallbacki (patrz mcTrap/mcEmailRe niżej); po rewalidacji HTML
+  // (.htaccess: no-cache dla *.html) ta ścieżka przestaje być potrzebna.
+  if (!window.MadaCommon && !document.querySelector('script[src^="/assets/site-common.js"], script[src^="assets/site-common.js"]')) {
+    var mcs = document.createElement('script');
+    mcs.src = '/assets/site-common.js?v=20260724'; mcs.async = true;
+    document.head.appendChild(mcs);
+  }
+
   // Backend PayU (płatność jednorazowa) - ścieżka WZGLĘDNA, by działała
   // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
   // Świadomie BEZ strażnika hosta (MadaCommon.isLiveHost): na localhost względny URL
@@ -80,7 +91,14 @@
 
     // ── Dostępność: wspólna pułapka fokusu (assets/site-common.js) ──
     // Modal buduje treść dynamicznie (KROK 1/2) - pułapka liczy elementy za każdym razem.
-    const darTrap = window.MadaCommon.focusTrap(modal);
+    // Tworzona LENIWIE przy pierwszym otwarciu: przy skew cache (stary HTML) moduł
+    // wspólny może jeszcze się ładować w momencie init(); bez niego modal działa,
+    // jedynie chwilowo bez pułapki fokusu.
+    let darTrapObj = null;
+    const darTrap = {
+      on: (opts) => { if (!darTrapObj && window.MadaCommon) darTrapObj = window.MadaCommon.focusTrap(modal); if (darTrapObj) darTrapObj.on(opts); },
+      off: () => { if (darTrapObj) darTrapObj.off(); },
+    };
 
     function open(e) {
       if (e) e.preventDefault();
@@ -365,7 +383,8 @@
       // Dla płatności cyklicznej: załaduj i osadź formularz karty (Secure Form).
       if (recurring) {
         const loadingEl = modal.querySelector('#dar-card-loading');
-        window.MadaCommon.loadSecureForm()
+        (window.MadaCommon ? window.MadaCommon.loadSecureForm()
+          : Promise.reject(new Error('Nie udało się załadować modułu płatności cyklicznej.')))
           .then(() => window.MadaSecureForm.mount('dar-card'))
           .then(() => { if (loadingEl) loadingEl.style.display = 'none'; })
           .catch(err => {
@@ -384,7 +403,8 @@
       const amt = kwotaAktualna();
 
       if (!fd.get('imie') || !fd.get('nazwisko')) { return showErr('Podaj imię i nazwisko.'); }
-      if (!window.MadaCommon.EMAIL_RE.test((fd.get('email')||'').toString().trim())) { return showErr('Podaj prawidłowy adres e-mail.'); }
+      const emailRe = window.MadaCommon ? window.MadaCommon.EMAIL_RE : /^[^\s@]+@[^\s@]+\.[^\s@]+$/;  // fallback: skew cache
+      if (!emailRe.test((fd.get('email')||'').toString().trim())) { return showErr('Podaj prawidłowy adres e-mail.'); }
       if (!fd.get('zgoda_regulamin') || !fd.get('zgoda_dane')) { return showErr('Wymagana akceptacja regulaminu i zgody na dane.'); }
 
       const payload = {

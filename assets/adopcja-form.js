@@ -4,6 +4,14 @@
 (function () {
   'use strict';
 
+  // Samonaprawa skew cache: stary HTML z cache nie ładuje site-common.js - doładuj sam
+  // (szczegóły: komentarz w darowizna.js). Helpery niżej mają fallbacki na czas ładowania.
+  if (!window.MadaCommon && !document.querySelector('script[src^="/assets/site-common.js"], script[src^="assets/site-common.js"]')) {
+    var mcs = document.createElement('script');
+    mcs.src = '/assets/site-common.js?v=20260724'; mcs.async = true;
+    document.head.appendChild(mcs);
+  }
+
   // Skrót tłumaczenia dla komunikatów/etykiet budowanych w JS. Brak wpisu w słowniku =
   // zwraca PL bez zmian (bezpieczny fallback). Dotyczy WYŁĄCZNIE tekstu widocznego dla
   // użytkownika - dane wysyłane do arkusza fundacji (collectData) zostają po polsku.
@@ -12,11 +20,18 @@
   // Czy działamy na PRAWDZIWEJ produkcji (misjamada.pl / www.misjamada.pl)? Formularz Adopcji
   // wysyła dane na twardo zaszyty PRODUKCYJNY Google Apps Script - z localhost/preview NIE wolno
   // go dotykać, bo każdy submit tworzy realny wiersz w arkuszu fundacji. Na produkcji: bez zmian.
-  // (Implementacja wspólna: assets/site-common.js. Wywołanie leniwe - dopiero w handlerach.)
-  const madaIsLiveHost = () => window.MadaCommon.isLiveHost();
+  // (Implementacja wspólna: assets/site-common.js; inline fallback na czas skew cache.)
+  const madaIsLiveHost = () => window.MadaCommon
+    ? window.MadaCommon.isLiveHost()
+    : /(^|\.)misjamada\.pl$/i.test(location.hostname);
 
   // Loader Secure Form - wspólny (assets/site-common.js), ładowany na żądanie, raz.
-  const loadSecureFormLib = () => window.MadaCommon.loadSecureForm();
+  const loadSecureFormLib = () => window.MadaCommon
+    ? window.MadaCommon.loadSecureForm()
+    : Promise.reject(new Error('Nie udało się załadować modułu płatności cyklicznej.'));
+
+  // Walidacja e-mail - wspólna, z fallbackiem na czas skew cache.
+  const madaEmailRe = () => window.MadaCommon ? window.MadaCommon.EMAIL_RE : /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   // Backend płatności cyklicznej (Secure Form -> recurring FIRST).
   window.MADA_RECURRING_URL = '/payu/recurring-first.php';
 
@@ -53,8 +68,12 @@
 
     // ── Dostępność: wspólna pułapka fokusu (assets/site-common.js) ──
     // Fokus startowy na pierwsze pole ustawia istniejąca logika open() (setTimeout),
-    // dlatego on() bez focusFirst. Nie dotykamy walidacji ani wysyłki formularza.
-    const amTrap = window.MadaCommon.focusTrap(modal);
+    // dlatego on() bez focusFirst. Tworzona leniwie (fallback na czas skew cache).
+    let amTrapObj = null;
+    const amTrap = {
+      on: () => { if (!amTrapObj && window.MadaCommon) amTrapObj = window.MadaCommon.focusTrap(modal); if (amTrapObj) amTrapObj.on(); },
+      off: () => { if (amTrapObj) amTrapObj.off(); },
+    };
 
     // Liczba dzieci (kwota = dzieci × 70 zł). Ustawiana też przez window.MadaAdopcja.open({dzieci}).
     let dzieci = 1;
@@ -133,7 +152,7 @@
         if (prev) prev.remove();
         emailInput.classList.remove('invalid');
         const v = emailInput.value.trim();
-        if (v && !window.MadaCommon.EMAIL_RE.test(v)) {
+        if (v && !madaEmailRe().test(v)) {
           emailInput.classList.add('invalid');
           const span = document.createElement('div');
           span.className = 'field-error';
@@ -319,7 +338,7 @@
     const errs = [];
     if (!d.imie || d.imie.length < 2) errs.push({ field: 'imie', msg: 'Podaj imię.' });
     if (!d.nazwisko || d.nazwisko.length < 2) errs.push({ field: 'nazwisko', msg: 'Podaj nazwisko.' });
-    if (!window.MadaCommon.EMAIL_RE.test(d.email)) errs.push({ field: 'email', msg: 'Podaj prawidłowy adres e-mail.' });
+    if (!madaEmailRe().test(d.email)) errs.push({ field: 'email', msg: 'Podaj prawidłowy adres e-mail.' });
     if (!d.telefon || d.telefon.replace(/\D/g, '').length < 9) errs.push({ field: 'telefon', msg: 'Podaj numer telefonu.' });
     if (!d.adres) errs.push({ field: 'adres', msg: 'Podaj adres korespondencyjny.' });
     if (!d.forma) errs.push({ field: 'forma', msg: 'Wybierz formę adopcji.' });

@@ -15,6 +15,14 @@
 (function () {
   'use strict';
 
+  // Samonaprawa skew cache: stary HTML z cache nie ładuje site-common.js - doładuj sam
+  // (szczegóły: komentarz w darowizna.js). Helpery niżej mają fallbacki na czas ładowania.
+  if (!window.MadaCommon && !document.querySelector('script[src^="/assets/site-common.js"], script[src^="assets/site-common.js"]')) {
+    var mcs = document.createElement('script');
+    mcs.src = '/assets/site-common.js?v=20260724'; mcs.async = true;
+    document.head.appendChild(mcs);
+  }
+
   // Backend zapisu na newsletter (MailerLite) - ścieżka WZGLĘDNA, by działała
   // niezależnie od domeny wejścia (misjamada.pl oraz www.misjamada.pl) - bez CORS.
   // Świadomie BEZ strażnika hosta (patrz komentarz w darowizna.js): względny URL na
@@ -44,7 +52,12 @@
 
     // ── Dostępność: wspólna pułapka fokusu (assets/site-common.js) ──
     // Fokus startowy ustawia open() (setTimeout na pierwsze pole), stąd on() bez focusFirst.
-    const nmTrap = window.MadaCommon.focusTrap(modal);
+    // Tworzona leniwie (fallback na czas skew cache - patrz darowizna.js).
+    let nmTrapObj = null;
+    const nmTrap = {
+      on: () => { if (!nmTrapObj && window.MadaCommon) nmTrapObj = window.MadaCommon.focusTrap(modal); if (nmTrapObj) nmTrapObj.on(); },
+      off: () => { if (nmTrapObj) nmTrapObj.off(); },
+    };
 
     function open(e) {
       if (e) e.preventDefault();
@@ -94,7 +107,8 @@
       if (!imie.value.trim() || imie.value.trim().length < 2) {
         showError(imie, 'Podaj imię.'); ok = false;
       }
-      if (!window.MadaCommon.EMAIL_RE.test(email.value.trim())) {
+      const emailRe = window.MadaCommon ? window.MadaCommon.EMAIL_RE : /^[^\s@]+@[^\s@]+\.[^\s@]+$/;  // fallback: skew cache
+      if (!emailRe.test(email.value.trim())) {
         showError(email, 'Podaj prawidłowy adres e-mail.'); ok = false;
       }
       if (!rodo.checked) {
