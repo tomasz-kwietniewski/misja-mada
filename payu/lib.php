@@ -25,6 +25,22 @@ if (!defined('PAYU_CLIENT_ID'))     define('PAYU_CLIENT_ID', '300746');
 if (!defined('PAYU_CLIENT_SECRET')) define('PAYU_CLIENT_SECRET', '2ee86a66e5d97e3fadc400c9f19b065d');
 if (!defined('PAYU_MD5'))           define('PAYU_MD5', 'b6ca15b0d1020e8094d9b5f8d163db54');
 
+// ── Fail-fast (audyt 2026-07-24): produkcyjny host NIE MOŻE działać na sandboxie ──
+// Gdyby payu/secret/payu-config.php zniknął (nowy hosting, odtworzenie z backupu bez
+// katalogów secret/), kod po cichu przeszedłby na publiczne klucze sandbox: zamówienia
+// szłyby do testowej bramki, a podpis notyfikacji weryfikowałby klucz znany publicznie.
+// Wolimy jawny błąd 500 niż "działającą" stronę przyjmującą darowizny na niby.
+// (Dotyczy tylko żądań HTTP na domenie produkcyjnej - CLI/cron i localhost bez zmian.)
+if (PAYU_ENV !== 'production'
+    && isset($_SERVER['HTTP_HOST'])
+    && preg_match('/(^|\.)misjamada\.pl$/i', $_SERVER['HTTP_HOST'])) {
+    error_log('[PayU lib] BLAD KONFIGURACJI: host produkcyjny bez payu/secret/payu-config.php (env=' . PAYU_ENV . ').');
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Płatności są chwilowo niedostępne. Spróbuj później lub napisz na kontakt@misjamada.pl.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 define('PAYU_BASE', PAYU_ENV === 'production'
     ? 'https://secure.payu.com'
     : 'https://secure.snd.payu.com');
@@ -187,11 +203,14 @@ function payu_get_order($orderId, $token) {
     return $data;
 }
 
-/** IP klienta (uwzględnia proxy/LiteSpeed). */
+/**
+ * IP klienta - przekazywane do PayU jako customerIp (scoring antyfraudowy).
+ * Celowo TYLKO REMOTE_ADDR (audyt 2026-07-24): X-Forwarded-For to nagłówek, który klient
+ * może ustawić sam - zaufanie mu pozwalałoby podstawić dowolne IP i osłabić scoring.
+ * Hosting (SEO Host / LiteSpeed) serwuje ruch bezpośrednio, więc REMOTE_ADDR = realny klient.
+ * Gdyby przed serwer weszło kiedyś CDN/proxy, przywrócić odczyt XFF, ale wyłącznie
+ * dla żądań przychodzących z zaufanych IP tego proxy.
+ */
 function payu_client_ip() {
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-        return trim($ips[0]);
-    }
     return isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1';
 }

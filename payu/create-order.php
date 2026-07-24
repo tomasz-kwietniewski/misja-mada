@@ -52,9 +52,14 @@ $extOrderId = str_replace('.', '', $extOrderId);   // bez kropki (czystszy ident
 // Efemeryczny rekord - notify.php użyje go po COMPLETED do zapisu w arkuszu „Darowizny".
 // Nadpisywany dopiero po realnej wpłacie; porzucone (nieopłacone) sprząta cron/TTL.
 $pendingDir = __DIR__ . '/../data/donation-pending';
-if (!is_dir($pendingDir)) { @mkdir($pendingDir, 0755, true); }
+if (!is_dir($pendingDir) && !@mkdir($pendingDir, 0755, true)) {
+    error_log('[PayU create-order] Nie mozna utworzyc katalogu pending: ' . $pendingDir);
+}
 $pendingFile = $pendingDir . '/' . preg_replace('/[^a-z0-9]/i', '', $extOrderId) . '.json';
-@file_put_contents($pendingFile, json_encode([
+// Nieudany zapis NIE blokuje platnosci (pieniadze i tak dojda przez PayU), ale musi
+// zostawic slad: bez pliku pending notify.php nie zaloguje wplaty do arkusza Darowizny
+// i fundacja nie zobaczy rekordu - z logu da sie go uzupelnic recznie.
+$pendingOk = @file_put_contents($pendingFile, json_encode([
     'imie'      => mb_substr($imie, 0, 100),
     'nazwisko'  => mb_substr($nazwisko, 0, 100),
     'email'     => $email,
@@ -64,6 +69,12 @@ $pendingFile = $pendingDir . '/' . preg_replace('/[^a-z0-9]/i', '', $extOrderId)
     'currency'  => 'PLN',
     'ts'        => time(),
 ], JSON_UNESCAPED_UNICODE), LOCK_EX);
+if ($pendingOk === false) {
+    // Bez e-maila w logu (RODO, jak w notify.php) - extOrderId wystarczy, by odnalezc
+    // pelne dane wplaty w panelu PayU i recznie uzupelnic arkusz.
+    error_log('[PayU create-order] Nie udalo sie zapisac pliku pending ' . $pendingFile
+        . ' (extOrderId=' . $extOrderId . ', kwota=' . $amount . ' PLN)');
+}
 
 $order = [
     'notifyUrl'     => SITE_BASE . '/payu/notify.php',

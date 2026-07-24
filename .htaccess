@@ -25,6 +25,21 @@ RewriteRule ^(.*)$ https://misjamada.pl/$1 [R=301,L]
   </FilesMatch>
 </IfModule>
 
+# ── Nagłówki bezpieczeństwa (audyt 2026-07-24) ──
+# Strona przyjmuje płatności - wymuszamy minimum branżowe:
+#  - HSTS: przeglądarka wraca zawsze po HTTPS (6 mies.; bez includeSubDomains,
+#    bo nie kontrolujemy ewentualnych przyszłych subdomen),
+#  - nosniff: blokada zgadywania typu MIME (np. wykonanie uploadu jako skryptu),
+#  - SAMEORIGIN: strona nie da się osadzić w cudzym iframe (clickjacking),
+#  - Referrer-Policy: obce strony nie widzą pełnych URL-i (m.in. manage.php?token=...).
+# Pełny CSP świadomie odłożony: wymagałby przebudowy inline skryptów i CDN (D3, fonty).
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=15552000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
 # ── Obrona w głąb: blokada dostępu z weba do danych, sekretów i logów ──
 # Te katalogi mają też osobne .htaccess tworzone ręcznie na serwerze, ale tamte
 # są niewersjonowane i mogą zniknąć przy odtworzeniu katalogu. Reguły poniżej są
