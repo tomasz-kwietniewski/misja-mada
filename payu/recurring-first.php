@@ -134,12 +134,20 @@ try {
     // efemerycznie (poza repo, wykluczone z deployu; kasowane po zuzyciu).
     if ($goal === 'adopcja') {
         $adDir = __DIR__ . '/../data/adopcja-card-pending';
-        if (!is_dir($adDir)) { @mkdir($adDir, 0755, true); }
-        @file_put_contents($adDir . '/' . (int)$subId . '.json', json_encode([
+        if (!is_dir($adDir) && !@mkdir($adDir, 0755, true)) {
+            error_log('[PayU recurring-first] Nie mozna utworzyc katalogu pending: ' . $adDir);
+        }
+        // Nieudany zapis NIE blokuje platnosci, ale musi zostawic slad: bez tego pliku
+        // notify.php (sciezka 3DS) nie zapisze kompletu danych adopcyjnych do arkusza.
+        // Bez e-maila w logu (RODO) - subId wystarczy do odnalezienia subskrypcji w bazie.
+        $adOk = @file_put_contents($adDir . '/' . (int)$subId . '.json', json_encode([
             'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email, 'telefon' => $telefon,
             'adres' => $adres, 'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
             'wizerunek' => $wizerunek, 'newsletter' => $newsletter, 'ts' => time(),
         ], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        if ($adOk === false) {
+            error_log('[PayU recurring-first] Nie udalo sie zapisac pliku pending adopcji (subId=' . (int)$subId . ')');
+        }
     }
 
     // 2) Zamówienie FIRST (tokenizacja + 3DS)
