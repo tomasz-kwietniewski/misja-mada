@@ -5,13 +5,16 @@
  *
  *  CO ROBI:
  *  • Odbiera POST z formularza i dopisuje wpis do arkusza
- *    ze statusem `pending`
+ *    (kolumna "Weryfikacja e-mail" = "Oczekuje")
  *  • Wysyła e-mail potwierdzający (double opt-in) na adres
  *    podany przez użytkownika z unikalnym linkiem
  *  • Po kliknięciu linku przez użytkownika:
- *      - zmienia status w arkuszu na `verified`
+ *      - ustawia "Weryfikacja e-mail" = "Potwierdzony"
  *      - wysyła powiadomienie do fundacji (kontakt@misjamada.pl)
  *      - wyświetla użytkownikowi stronę z podziękowaniem
+ *  • Przyjmuje wywołania serwer-do-serwera z PHP (shared secret):
+ *    adopcja opłacona kartą PayU, raty kartowe (adopcja-charge),
+ *    anulowanie subskrypcji (adopcja-cancel), darowizny, relay poczty
  *
  *  ─── INSTRUKCJA WDROŻENIA ──────────────────────────────────────
  *  1) Otwórz Google Drive → New → Google Sheets. Utwórz PUSTY arkusz
@@ -29,6 +32,13 @@
  *       const SUBMIT_URL = '…';
  *  8) Pierwsze użycie zażąda autoryzacji: Allow → Advanced →
  *       Go to Apps Script → Allow (wymagane uprawnienia: Mail+Sheets).
+ *  9) Uruchom RAZ funkcję setupArkuszAdopcja() (Run w edytorze) -
+ *       przygotuje zakładkę dla pracowników: polskie nagłówki, migracja
+ *       starych statusów, kolory wierszy, zakładka "Instrukcja".
+ *
+ *  AKTUALIZACJA istniejącego wdrożenia: wklej nową wersję pliku,
+ *  Deploy → Manage deployments → Edit → New version (URL /exec musi
+ *  zostać TEN SAM), potem uruchom raz setupArkuszAdopcja().
  *  ═══════════════════════════════════════════════════════════════
  */
 
@@ -47,12 +57,72 @@ const SHEET_DAROWIZNY = 'Darowizny';
 const SHEET_ADOPCJA    = 'Adopcja Serca';
 const SHEET_NEWSLETTER = 'Newsletter';
 
+/* ── Zakładka „Adopcja Serca": nazwy kolumn (nagłówki wiersza 1) ──────
+   Zapis wierszy odbywa się PO NAZWACH nagłówków (nie pozycyjnie), więc
+   pracownicy fundacji mogą dowolnie przestawiać kolejność kolumn.
+   NIE wolno natomiast zmieniać samych NAZW (wiersz 1). */
+const COL = {
+  TOKEN:         'Token (system)',
+  WERYFIKACJA:   'Weryfikacja e-mail',
+  ZGLOSZENIE:    'Data zgłoszenia',
+  POTWIERDZENIE: 'Data potwierdzenia e-mail',
+  IMIE:          'Imię',
+  NAZWISKO:      'Nazwisko',
+  EMAIL:         'E-mail',
+  TELEFON:       'Telefon',
+  ADRES:         'Adres',
+  FORMA:         'Forma adopcji',
+  OKRES:         'Okres (adopcja czasowa)',
+  CZESTOTLIWOSC: 'Częstotliwość wpłat',
+  DZIECI:        'Liczba dzieci',
+  ZG_REGULAMIN:  'Zgoda: regulamin',
+  ZG_WIZERUNEK:  'Zgoda: wizerunek',
+  ZG_RODO:       'Zgoda: RODO',
+  NEWSLETTER:    'Newsletter',
+  SUBID:         'ID subskrypcji (system)',
+  ANULOWANIE:    'Data anulowania',
+  METODA:        'Metoda płatności',
+  SUB_STATUS:    'Status subskrypcji PayU',
+  OSTATNIA:      'Ostatnia wpłata (karta)',
+  MIESIACE:      'Opłacone miesiące (karta)',
+  F_DZIECI:      'Przypisane dzieci (fundacja)',
+  F_WPLATY:      'Wpłaty przelewowe - opłacone do (fundacja)',
+  F_NOTATKI:     'Notatki (fundacja)',
+};
+
 const HEADERS_ADOPCJA = [
-  'token', 'status', 'ts_received', 'ts_verified', 'imie', 'nazwisko', 'email',
-  'telefon', 'adres', 'forma', 'okres', 'czestotliwosc', 'dzieci',
-  'zgoda_regulamin', 'zgoda_wizerunek', 'zgoda_rodo', 'newsletter',
-  'subId', 'ts_cancelled',
+  COL.TOKEN, COL.WERYFIKACJA, COL.ZGLOSZENIE, COL.POTWIERDZENIE,
+  COL.IMIE, COL.NAZWISKO, COL.EMAIL, COL.TELEFON, COL.ADRES,
+  COL.FORMA, COL.OKRES, COL.CZESTOTLIWOSC, COL.DZIECI,
+  COL.ZG_REGULAMIN, COL.ZG_WIZERUNEK, COL.ZG_RODO, COL.NEWSLETTER,
+  COL.SUBID, COL.ANULOWANIE,
+  COL.METODA, COL.SUB_STATUS, COL.OSTATNIA, COL.MIESIACE,
+  COL.F_DZIECI, COL.F_WPLATY, COL.F_NOTATKI,
 ];
+
+/* Wartości stanów - po polsku, czytelne dla pracowników fundacji.
+   Dwie OSOBNE kolumny stanów (świadomie, zamiast jednej mieszanej):
+   • Weryfikacja e-mail  - dotyczy double opt-in (tylko ścieżka przelewowa)
+   • Status subskrypcji PayU - dotyczy wyłącznie subskrypcji kartowych */
+const WER_OCZEKUJE     = 'Oczekuje';      // przelew: przed kliknięciem linku z maila
+const WER_POTWIERDZONY = 'Potwierdzony';  // przelew: po double opt-in
+const WER_ND           = 'Nie dotyczy';   // karta PayU: płatność potwierdza e-mail
+const SUB_AKTYWNA      = 'Aktywna';
+const SUB_ANULOWANA    = 'Anulowana';
+const METODA_PRZELEW   = 'Przelew';
+const METODA_KARTA     = 'Karta PayU';
+
+// Mapa migracji nagłówków ze starego (technicznego) schematu.
+// Używana wyłącznie przez setupArkuszAdopcja() - jednorazowy rename wiersza 1.
+const MIGRACJA_NAGLOWKOW = {
+  token: COL.TOKEN, status: COL.WERYFIKACJA, ts_received: COL.ZGLOSZENIE,
+  ts_verified: COL.POTWIERDZENIE, imie: COL.IMIE, nazwisko: COL.NAZWISKO,
+  email: COL.EMAIL, telefon: COL.TELEFON, adres: COL.ADRES, forma: COL.FORMA,
+  okres: COL.OKRES, czestotliwosc: COL.CZESTOTLIWOSC, dzieci: COL.DZIECI,
+  zgoda_regulamin: COL.ZG_REGULAMIN, zgoda_wizerunek: COL.ZG_WIZERUNEK,
+  zgoda_rodo: COL.ZG_RODO, newsletter: COL.NEWSLETTER, subId: COL.SUBID,
+  ts_cancelled: COL.ANULOWANIE,
+};
 const HEADERS_DAROWIZNY = ['ts', 'imie', 'nazwisko', 'email', 'cel', 'typ', 'kwota', 'waluta', 'extOrderId', 'payuOrderId'];
 const HEADERS_NEWSLETTER = ['ts', 'imie', 'email', 'zgoda_rodo'];
 
@@ -93,6 +163,21 @@ function ensureHeaders(sheet, headers) {
   }
 }
 
+/** Nagłówki (wiersz 1) zakładki jako tablica stringów. */
+function sheetHeaders(sheet) {
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+}
+
+/**
+ * Dopisuje wiersz mapując wartości PO NAZWACH nagłówków (kolumny spoza mapy
+ * zostają puste - m.in. kolumny robocze fundacji). Odporne na przestawianie
+ * kolejności kolumn przez pracowników.
+ */
+function appendRowByHeaders(sheet, rowMap) {
+  const headers = sheetHeaders(sheet);
+  sheet.appendRow(headers.map(h => (h in rowMap) ? rowMap[h] : ''));
+}
+
 function jsonOut(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
@@ -122,12 +207,21 @@ function doPost(e) {
       if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
       return handleAdopcjaCancel(data);
     }
+    if (data.type === 'adopcja-charge') {
+      if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
+      return handleAdopcjaCharge(data);
+    }
     if (data.type === 'relay') {
       if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
       return handleRelay(data);
     }
     if (data.type === 'kontakt')    return handleKontakt(data);
     if (data.type === 'newsletter') return handleNewsletter(data);
+    // Strażnik: wywołanie serwer-do-serwera (payload z sekretem) o nieznanym typie
+    // NIE może wpaść do handleAdopcja - utworzyłoby fałszywy wiersz „Oczekuje"
+    // i wysłało darczyńcy mail potwierdzający (scenariusz: nowe PHP + stary
+    // Apps Script przy złej kolejności wdrożenia).
+    if (typeof data.secret !== 'undefined') return jsonOut({ ok: false, error: 'unknown-type' });
     return handleAdopcja(data);  // domyślnie: adopcja-przelew (double opt-in)
   } catch (err) {
     return jsonOut({ ok: false, error: err.toString() });
@@ -157,19 +251,26 @@ function handleAdopcja(data) {
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
   ensureHeaders(sheet, HEADERS_ADOPCJA);
   const token = Utilities.getUuid().replace(/-/g, '');
-  const ts = new Date();
 
-  sheet.appendRow([
-    token, 'pending', ts, '',
-    data.imie || '', data.nazwisko || '', data.email || '',
-    data.telefon || '', data.adres || '', data.formaLabel || '', data.okres || '',
-    data.czestotliwosc || '', data.dzieci || '',
-    data.zgoda_regulamin ? 'TAK' : '',
-    data.zgoda_wizerunek ? 'TAK' : '',
-    data.zgoda_rodo ? 'TAK' : '',
-    data.newsletter ? 'TAK' : '',
-    '', '',  // subId (przelew nie ma subskrypcji), ts_cancelled
-  ]);
+  appendRowByHeaders(sheet, {
+    [COL.TOKEN]:         token,
+    [COL.WERYFIKACJA]:   WER_OCZEKUJE,
+    [COL.ZGLOSZENIE]:    new Date(),
+    [COL.IMIE]:          data.imie || '',
+    [COL.NAZWISKO]:      data.nazwisko || '',
+    [COL.EMAIL]:         data.email || '',
+    [COL.TELEFON]:       data.telefon || '',
+    [COL.ADRES]:         data.adres || '',
+    [COL.FORMA]:         data.formaLabel || '',
+    [COL.OKRES]:         data.okres || '',
+    [COL.CZESTOTLIWOSC]: data.czestotliwosc || '',
+    [COL.DZIECI]:        data.dzieci || '',
+    [COL.ZG_REGULAMIN]:  data.zgoda_regulamin ? 'TAK' : '',
+    [COL.ZG_WIZERUNEK]:  data.zgoda_wizerunek ? 'TAK' : '',
+    [COL.ZG_RODO]:       data.zgoda_rodo ? 'TAK' : '',
+    [COL.NEWSLETTER]:    data.newsletter ? 'TAK' : '',
+    [COL.METODA]:        METODA_PRZELEW,
+  });
 
   sendConfirmationEmail(data, token);
 
@@ -238,18 +339,17 @@ function doGet(e) {
 
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
   const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const tokenCol = headers.indexOf('token');
-  const statusCol = headers.indexOf('status');
-  const tsVerCol = headers.indexOf('ts_verified');
+  const headers = data[0].map(String);
+  const tokenCol = headers.indexOf(COL.TOKEN);
+  const werCol = headers.indexOf(COL.WERYFIKACJA);
+  const tsVerCol = headers.indexOf(COL.POTWIERDZENIE);
 
   for (let i = 1; i < data.length; i++) {
     if (data[i][tokenCol] === token) {
-      const status = data[i][statusCol];
-      if (status === 'verified') {
+      if (String(data[i][werCol]) === WER_POTWIERDZONY) {
         return htmlSuccess('Zgłoszenie zostało już potwierdzone wcześniej. Dziękujemy!');
       }
-      sheet.getRange(i + 1, statusCol + 1).setValue('verified');
+      sheet.getRange(i + 1, werCol + 1).setValue(WER_POTWIERDZONY);
       sheet.getRange(i + 1, tsVerCol + 1).setValue(new Date());
 
       notifyFoundation(data[i], headers);
@@ -289,14 +389,14 @@ function emailShell(inner) {
 /** Mail powitalny po weryfikacji zgłoszenia adopcji (dane do przelewu, info o dziecku). */
 function sendWelcomeEmail(row, headers) {
   const get = (c) => row[headers.indexOf(c)];
-  const imie = esc(get('imie'));
-  const nazwisko = esc(get('nazwisko'));
-  const dzieci = parseInt(get('dzieci'), 10) || 1;
+  const imie = esc(get(COL.IMIE));
+  const nazwisko = esc(get(COL.NAZWISKO));
+  const dzieci = parseInt(get(COL.DZIECI), 10) || 1;
   const kwota = dzieci * 70;
-  const tytul = 'Adopcja Serca Madagaskar - ' + get('imie') + ' ' + get('nazwisko');
+  const tytul = 'Adopcja Serca Madagaskar - ' + get(COL.IMIE) + ' ' + get(COL.NAZWISKO);
   // Dla wsparcia w formie czasowej (okres od-do) podajemy, na jaki czas ustawic zlecenie stale.
-  const okres = String(get('okres') || '');
-  const forma = String(get('forma') || '');
+  const okres = String(get(COL.OKRES) || '');
+  const forma = String(get(COL.FORMA) || '');
   const okresRow = (okres && /czasow/i.test(forma))
     ? 'Okres zlecenia: <strong>' + esc(okres) + '</strong><br>'
     : '';
@@ -314,7 +414,7 @@ function sendWelcomeEmail(row, headers) {
     + '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Szczegóły dotyczące konkretnego dziecka objętego Twoim '
     + 'wsparciem przygotowujemy ręcznie - <strong>odezwiemy się do Ciebie w ciągu kilku dni roboczych</strong>, aby je przedstawić.</p>'
     + '<p style="font-size:14px;line-height:1.6;color:#5a4836;margin:0;">Z serca dziękujemy, że jesteś z nami. ❤︎</p>';
-  GmailApp.sendEmail(get('email'), 'Witaj w programie Adopcja Serca - Fundacja Misja MADA', '', {
+  GmailApp.sendEmail(get(COL.EMAIL), 'Witaj w programie Adopcja Serca - Fundacja Misja MADA', '', {
     htmlBody: emailShell(inner), name: FOUNDATION_NAME, replyTo: FOUNDATION_EMAIL,
   });
 }
@@ -322,11 +422,11 @@ function sendWelcomeEmail(row, headers) {
 /** Jeśli w zgłoszeniu zaznaczono newsletter - dopisz zweryfikowany mail do MailerLite. */
 function maybeAddNewsletter(row, headers) {
   const get = (c) => row[headers.indexOf(c)];
-  if (String(get('newsletter')) !== 'TAK') return;
+  if (String(get(COL.NEWSLETTER)) !== 'TAK') return;
   try {
     UrlFetchApp.fetch(NL_ADD_VERIFIED_URL, {
       method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-      payload: JSON.stringify({ email: get('email'), imie: get('imie'), secret: NL_VERIFIED_SECRET }),
+      payload: JSON.stringify({ email: get(COL.EMAIL), imie: get(COL.IMIE), secret: NL_VERIFIED_SECRET }),
     });
   } catch (err) {
     // Best-effort - nie blokuj potwierdzenia zgłoszenia.
@@ -359,29 +459,47 @@ function notifyFoundation(row, headers) {
   const inner =
       '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Nowe zweryfikowane zgłoszenie - Adopcja Serca</h2>'
     + '<p style="font-size:14px;line-height:1.7;margin:0;">'
-    + 'Imię i nazwisko: <strong>' + esc(get('imie')) + ' ' + esc(get('nazwisko')) + '</strong><br>'
-    + 'E-mail: ' + esc(get('email')) + '<br>Telefon: ' + esc(get('telefon')) + '<br>'
-    + 'Adres: ' + esc(get('adres')) + '<br>Forma: ' + esc(get('forma')) + ' ' + (get('okres') ? '(' + esc(get('okres')) + ')' : '') + '<br>'
-    + 'Liczba dzieci: ' + esc(get('dzieci')) + '<br>Częstotliwość: ' + esc(get('czestotliwosc')) + '<br>'
-    + 'Newsletter: ' + esc(get('newsletter') || '-') + '</p>';
-  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Nowe zgłoszenie do Adopcji Serca: ' + get('imie') + ' ' + get('nazwisko'), '', {
+    + 'Imię i nazwisko: <strong>' + esc(get(COL.IMIE)) + ' ' + esc(get(COL.NAZWISKO)) + '</strong><br>'
+    + 'E-mail: ' + esc(get(COL.EMAIL)) + '<br>Telefon: ' + esc(get(COL.TELEFON)) + '<br>'
+    + 'Adres: ' + esc(get(COL.ADRES)) + '<br>Forma: ' + esc(get(COL.FORMA)) + ' ' + (get(COL.OKRES) ? '(' + esc(get(COL.OKRES)) + ')' : '') + '<br>'
+    + 'Liczba dzieci: ' + esc(get(COL.DZIECI)) + '<br>Częstotliwość: ' + esc(get(COL.CZESTOTLIWOSC)) + '<br>'
+    + 'Newsletter: ' + esc(get(COL.NEWSLETTER) || '-') + '</p>';
+  GmailApp.sendEmail(FOUNDATION_EMAIL, 'Nowe zgłoszenie do Adopcji Serca: ' + get(COL.IMIE) + ' ' + get(COL.NAZWISKO), '', {
     htmlBody: emailShell(inner), name: FOUNDATION_NAME,
   });
 }
 
-/** Adopcja opłacona kartą (PayU) - zapis do arkusza Adopcja od razu jako verified. */
+/** Adopcja opłacona kartą (PayU) - zapis do arkusza Adopcja jako aktywna subskrypcja.
+ *  Bez double opt-in (płatność kartą zweryfikowała e-mail) - Weryfikacja = "Nie dotyczy".
+ *  Pierwsza rata jest już opłacona, więc od razu Ostatnia wpłata + Opłacone miesiące = 1. */
 function handleAdopcjaPaid(data) {
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
   ensureHeaders(sheet, HEADERS_ADOPCJA);
   const ts = new Date();
-  sheet.appendRow([
-    Utilities.getUuid().replace(/-/g, ''), 'oplacone-PayU', ts, ts,
-    data.imie || '', data.nazwisko || '', data.email || '',
-    data.telefon || '', data.adres || '', data.forma || '', data.okres || '',
-    'PayU (karta, cyklicznie)', data.dzieci || '',
-    'TAK', data.zgoda_wizerunek || '', 'TAK', data.newsletter || '',
-    String(data.subId || ''), '',  // subId (mapowanie do anulowania), ts_cancelled
-  ]);
+  appendRowByHeaders(sheet, {
+    [COL.TOKEN]:         Utilities.getUuid().replace(/-/g, ''),
+    [COL.WERYFIKACJA]:   WER_ND,
+    [COL.ZGLOSZENIE]:    ts,
+    [COL.POTWIERDZENIE]: ts,
+    [COL.IMIE]:          data.imie || '',
+    [COL.NAZWISKO]:      data.nazwisko || '',
+    [COL.EMAIL]:         data.email || '',
+    [COL.TELEFON]:       data.telefon || '',
+    [COL.ADRES]:         data.adres || '',
+    [COL.FORMA]:         data.forma || '',
+    [COL.OKRES]:         data.okres || '',
+    [COL.CZESTOTLIWOSC]: 'Miesięcznie',
+    [COL.DZIECI]:        data.dzieci || '',
+    [COL.ZG_REGULAMIN]:  'TAK',
+    [COL.ZG_WIZERUNEK]:  data.zgoda_wizerunek || '',
+    [COL.ZG_RODO]:       'TAK',
+    [COL.NEWSLETTER]:    data.newsletter || '',
+    [COL.SUBID]:         String(data.subId || ''),
+    [COL.METODA]:        METODA_KARTA,
+    [COL.SUB_STATUS]:    SUB_AKTYWNA,
+    [COL.OSTATNIA]:      ts,
+    [COL.MIESIACE]:      1,
+  });
   const inner =
       '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Adopcja Serca opłacona kartą (PayU)</h2>'
     + '<p style="font-size:14px;line-height:1.7;margin:0;">'
@@ -397,8 +515,9 @@ function handleAdopcjaPaid(data) {
 
 /**
  * Anulowanie subskrypcji ADOPCJI (z payu/manage.php lub panel/subskrypcje.php).
- * Znajduje wiersz w „Adopcja Serca" po kolumnie subId i ustawia status „anulowana" + datę,
- * a następnie powiadamia fundację (Gmail - kanał niezawodny, w przeciwieństwie do PHP mail()).
+ * Znajduje wiersz w „Adopcja Serca" po kolumnie ID subskrypcji i ustawia
+ * Status subskrypcji PayU = „Anulowana" + datę anulowania, a następnie powiadamia
+ * fundację (Gmail - kanał niezawodny, w przeciwieństwie do PHP mail()).
  * Gdy wiersza nie ma (np. adopcja-przelew albo starszy wpis bez subId) - i tak wysyła
  * powiadomienie, zaznaczając, że wiersz trzeba zaktualizować ręcznie.
  */
@@ -406,22 +525,53 @@ function handleAdopcjaCancel(data) {
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
   ensureHeaders(sheet, HEADERS_ADOPCJA);
   const values = sheet.getDataRange().getValues();
-  const headers = values[0];
-  const subCol = headers.indexOf('subId');
-  const statusCol = headers.indexOf('status');
-  const tsCancelCol = headers.indexOf('ts_cancelled');
+  const headers = values[0].map(String);
+  const subCol = headers.indexOf(COL.SUBID);
+  const statusCol = headers.indexOf(COL.SUB_STATUS);
+  const tsCancelCol = headers.indexOf(COL.ANULOWANIE);
   const wantId = String(data.subId || '');
   let updated = 0;
   if (subCol !== -1 && statusCol !== -1 && wantId !== '') {
     for (let i = 1; i < values.length; i++) {
-      if (String(values[i][subCol]) === wantId && String(values[i][statusCol]) !== 'anulowana') {
-        sheet.getRange(i + 1, statusCol + 1).setValue('anulowana');
+      if (String(values[i][subCol]) === wantId && String(values[i][statusCol]) !== SUB_ANULOWANA) {
+        sheet.getRange(i + 1, statusCol + 1).setValue(SUB_ANULOWANA);
         if (tsCancelCol !== -1) sheet.getRange(i + 1, tsCancelCol + 1).setValue(new Date());
         updated++;
       }
     }
   }
   notifyFoundationCancel(data, updated);
+  return jsonOut({ ok: true, updated: updated });
+}
+
+/**
+ * Kolejna OPŁACONA rata subskrypcji ADOPCJI (z payu/notify.php po notyfikacji
+ * COMPLETED). Aktualizuje w wierszu darczyńcy (po ID subskrypcji) datę ostatniej
+ * wpłaty i licznik opłaconych miesięcy. Licznik przychodzi z MySQL jako wartość
+ * ABSOLUTNA (nie inkrementujemy w arkuszu) - ponowiona notyfikacja PayU jest
+ * więc nieszkodliwa. Celowo BEZ maila do fundacji (rata co miesiąc = spam);
+ * stan widać w arkuszu i w panelu CMS.
+ */
+function handleAdopcjaCharge(data) {
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  ensureHeaders(sheet, HEADERS_ADOPCJA);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(String);
+  const subCol = headers.indexOf(COL.SUBID);
+  const lastCol = headers.indexOf(COL.OSTATNIA);
+  const monthsCol = headers.indexOf(COL.MIESIACE);
+  const wantId = String(data.subId || '');
+  const months = Number(data.monthsPaid);
+  let updated = 0;
+  if (subCol !== -1 && wantId !== '') {
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][subCol]) === wantId) {
+        if (lastCol !== -1) sheet.getRange(i + 1, lastCol + 1).setValue(new Date());
+        if (monthsCol !== -1 && !isNaN(months)) sheet.getRange(i + 1, monthsCol + 1).setValue(months);
+        updated++;
+      }
+    }
+  }
   return jsonOut({ ok: true, updated: updated });
 }
 
@@ -435,7 +585,7 @@ function notifyFoundationCancel(data, updated) {
     + 'Kwota: ' + esc(data.amount) + ' ' + esc(data.currency || 'PLN') + ' / miesiąc'
     + (data.dzieci ? '<br>Liczba dzieci: ' + esc(data.dzieci) : '')
     + '<br>ID subskrypcji: ' + esc(data.subId)
-    + '<br>Arkusz: ' + (updated > 0 ? 'zaktualizowano status wiersza na „anulowana"' : 'nie znaleziono wiersza po subId - zaktualizuj ręcznie')
+    + '<br>Arkusz: ' + (updated > 0 ? 'ustawiono „Status subskrypcji PayU" = „Anulowana"' : 'nie znaleziono wiersza po ID subskrypcji - zaktualizuj ręcznie')
     + '</p>';
   GmailApp.sendEmail(FOUNDATION_EMAIL, 'Adopcja anulowana: ' + (data.imie || '') + ' ' + (data.nazwisko || ''), '', {
     htmlBody: emailShell(inner), name: FOUNDATION_NAME,
@@ -473,6 +623,137 @@ function handleDarowizna(data) {
     htmlBody: emailShell(inner), name: FOUNDATION_NAME,
   });
   return jsonOut({ ok: true });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   JEDNORAZOWA KONFIGURACJA ZAKŁADKI „Adopcja Serca"
+   Uruchom ręcznie z edytora Apps Script (Run → setupArkuszAdopcja)
+   po wklejeniu nowej wersji pliku. IDEMPOTENTNA - wielokrotne
+   uruchomienie daje ten sam stan (można odpalać po każdej zmianie).
+   ═══════════════════════════════════════════════════════════════ */
+function setupArkuszAdopcja() {
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  migrujNaglowki_(sheet);
+  ensureHeaders(sheet, HEADERS_ADOPCJA);
+  migrujWiersze_(sheet);
+  ustawKolory_(sheet);
+  utworzInstrukcje_();
+}
+
+/** Rename nagłówków ze starego schematu technicznego (token, ts_received...)
+ *  na polskie nazwy. Nagłówki już polskie / nieznane zostawia bez zmian. */
+function migrujNaglowki_(sheet) {
+  const range = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  const current = range.getValues()[0].map(String);
+  const renamed = current.map(h => MIGRACJA_NAGLOWKOW.hasOwnProperty(h) ? MIGRACJA_NAGLOWKOW[h] : h);
+  if (renamed.join(' ') !== current.join(' ')) range.setValues([renamed]);
+}
+
+/** Migracja WARTOŚCI w istniejących wierszach: stare statusy (pending/verified/
+ *  oplacone-PayU/anulowana) na dwie polskie kolumny stanów + backfill metody
+ *  płatności i częstotliwości. Zmienia tylko to, co ma starą/pustą wartość. */
+function migrujWiersze_(sheet) {
+  const headers = sheetHeaders(sheet);
+  const idx = {};
+  headers.forEach((h, i) => { idx[h] = i; });
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  values.forEach((row, r) => {
+    const get = (col) => String(row[idx[col]] == null ? '' : row[idx[col]]).trim();
+    const set = (col, val) => sheet.getRange(r + 2, idx[col] + 1).setValue(val);
+    if (get(COL.EMAIL) === '' && get(COL.TOKEN) === '') return;  // pomiń puste wiersze
+    // 1) stara mieszana kolumna statusu -> dwie kolumny stanów
+    const wer = get(COL.WERYFIKACJA);
+    if (wer === 'pending')  set(COL.WERYFIKACJA, WER_OCZEKUJE);
+    if (wer === 'verified') set(COL.WERYFIKACJA, WER_POTWIERDZONY);
+    if (wer === 'oplacone-PayU' || wer === 'anulowana') {
+      set(COL.WERYFIKACJA, WER_ND);
+      set(COL.SUB_STATUS, wer === 'anulowana' ? SUB_ANULOWANA : SUB_AKTYWNA);
+    }
+    // 2) metoda płatności (tylko gdy pusta) - wyprowadzona z subId/częstotliwości/statusu
+    const karta = get(COL.SUBID) !== '' || /PayU/i.test(get(COL.CZESTOTLIWOSC))
+      || wer === 'oplacone-PayU' || wer === 'anulowana';
+    if (get(COL.METODA) === '') set(COL.METODA, karta ? METODA_KARTA : METODA_PRZELEW);
+    // 3) stary literał „PayU (karta, cyklicznie)" w częstotliwości -> zwykłe Miesięcznie
+    if (/PayU/i.test(get(COL.CZESTOTLIWOSC))) set(COL.CZESTOTLIWOSC, 'Miesięcznie');
+  });
+}
+
+/** Kolory wierszy wg stanów (formatowanie warunkowe). UWAGA: zastępuje
+ *  WSZYSTKIE reguły formatowania warunkowego tej zakładki (idempotencja) -
+ *  ręcznie dodane reguły znikną (opisane w zakładce Instrukcja). */
+function ustawKolory_(sheet) {
+  const headers = sheetHeaders(sheet);
+  const rows = Math.max(sheet.getMaxRows() - 1, 1);
+  const full = sheet.getRange(2, 1, rows, headers.length);
+  const letter = (name) => columnLetter_(headers.indexOf(name) + 1);
+  const rowRule = (formula, bg) => SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied(formula).setBackground(bg).setRanges([full]).build();
+  const rules = [
+    // kolejność ma znaczenie - pierwsza pasująca reguła wygrywa
+    rowRule('=$' + letter(COL.SUB_STATUS) + '2="' + SUB_ANULOWANA + '"', '#e8e0d8'),   // szary: anulowana karta
+    rowRule('=$' + letter(COL.WERYFIKACJA) + '2="' + WER_OCZEKUJE + '"', '#fff3cd'),   // żółty: czeka na klik w mail
+    rowRule('=$' + letter(COL.SUB_STATUS) + '2="' + SUB_AKTYWNA + '"', '#e6f4ea'),     // zielony: aktywna karta
+  ];
+  // Przelewowcy: wyróżnienie samej komórki metody - pracownik od razu widzi,
+  // kogo obsługuje ręcznie (wpłaty na wyciągu, nie w systemie).
+  const metodaCol = sheet.getRange(2, headers.indexOf(COL.METODA) + 1, rows, 1);
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=$' + letter(COL.METODA) + '2="' + METODA_PRZELEW + '"')
+    .setBackground('#fce8d5').setBold(true).setRanges([metodaCol]).build());
+  sheet.setConditionalFormatRules(rules);
+}
+
+/** Numer kolumny (1-based) -> litera arkusza (1=A, 27=AA...). */
+function columnLetter_(n) {
+  let s = '';
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+/** Zakładka „Instrukcja" dla pracowników fundacji - czyszczona i pisana od nowa. */
+function utworzInstrukcje_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let s = ss.getSheetByName('Instrukcja');
+  if (!s) s = ss.insertSheet('Instrukcja');
+  s.clear();
+  const rows = [
+    ['INSTRUKCJA - zakładka „Adopcja Serca"', ''],
+    ['Każdy wiersz to jedno zgłoszenie do programu (jeden darczyńca).', ''],
+    ['Kolumny można dowolnie PRZESTAWIAĆ. NIE WOLNO zmieniać NAZW kolumn w wierszu 1 - system zapisuje dane po nazwach.', ''],
+    ['', ''],
+    ['JAK ROZPOZNAĆ ŚCIEŻKĘ DARCZYŃCY', ''],
+    ['Metoda płatności = „Przelew"', 'Darczyńca płaci zwykłym przelewem / zleceniem stałym. System NIE widzi jego wpłat - sprawdzacie wyciąg bankowy i notujecie w kolumnie „' + COL.F_WPLATY + '".'],
+    ['Metoda płatności = „Karta PayU"', 'Płatność cykliczna kartą. Raty księgują się automatycznie: kolumny „' + COL.OSTATNIA + '" i „' + COL.MIESIACE + '" aktualizują się same po każdej udanej racie.'],
+    ['', ''],
+    ['KOLORY WIERSZY', ''],
+    ['Żółty', 'Weryfikacja e-mail = „Oczekuje" - darczyńca (przelew) nie kliknął jeszcze linku z maila i NIE dostał jeszcze numeru konta.'],
+    ['Zielony', 'Aktywna subskrypcja kartą PayU - płaci automatycznie.'],
+    ['Szary', 'Subskrypcja kartą anulowana.'],
+    ['Pomarańczowa komórka „Metoda płatności"', 'Darczyńca przelewowy - wymaga Waszej ręcznej obsługi wpłat.'],
+    ['', ''],
+    ['KOLUMNY AUTOMATYCZNE (wypełnia system - NIE edytować)', ''],
+    [COL.WERYFIKACJA, '„Oczekuje" -> „Potwierdzony" po kliknięciu linku z maila (dotyczy tylko przelewu). „Nie dotyczy" przy karcie - płatność potwierdziła e-mail.'],
+    [COL.SUB_STATUS, '„Aktywna" / „Anulowana" - tylko subskrypcje kartą PayU. Anulowanie (z panelu CMS albo przez darczyńcę) ustawia się samo, razem z datą w „' + COL.ANULOWANIE + '".'],
+    [COL.METODA, '„Przelew" albo „Karta PayU".'],
+    [COL.OSTATNIA, 'Data ostatniej udanej raty kartą (automat).'],
+    [COL.MIESIACE, 'Ile rat kartą opłacono łącznie (automat).'],
+    [COL.TOKEN + '  /  ' + COL.SUBID, 'Techniczne - potrzebne systemowi do potwierdzeń i synchronizacji. Nie ruszać.'],
+    ['', ''],
+    ['KOLUMNY ROBOCZE (wypełnia fundacja - system ich nigdy nie nadpisuje)', ''],
+    [COL.F_DZIECI, 'Które dziecko/dzieci objęliście tym wsparciem. Przypisanie podopiecznego i mail do darczyńcy z informacją o dziecku przygotowujecie RĘCZNIE - wpiszcie tutaj, gdy wysłane.'],
+    [COL.F_WPLATY, 'Dla przelewowców: do kiedy opłacone. System nie widzi banku - sprawdzacie wyciąg i uzupełniacie ręcznie.'],
+    [COL.F_NOTATKI, 'Dowolne notatki (kontakt z darczyńcą, ustalenia, korespondencja).'],
+    ['', ''],
+    ['UWAGA TECHNICZNA', 'Kolory wierszy są zarządzane przez system - ręcznie dodane reguły formatowania warunkowego w zakładce „Adopcja Serca" zostaną nadpisane przy kolejnym uruchomieniu konfiguracji.'],
+  ];
+  s.getRange(1, 1, rows.length, 2).setValues(rows);
+  s.getRange(1, 1, rows.length, 1).setFontWeight('bold');
+  s.getRange(1, 1).setFontSize(14);
+  s.setColumnWidth(1, 340);
+  s.setColumnWidth(2, 760);
+  s.getRange(1, 1, rows.length, 2).setWrap(true).setVerticalAlignment('top');
 }
 
 /* ────────── Strony HTML wyświetlane po kliknięciu w link ────── */

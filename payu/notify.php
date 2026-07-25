@@ -113,11 +113,16 @@ try {
                       : (($status === 'CANCELED') ? 'failed' : 'pending');
         payu_charge_mark($extOrderId, $chargeStatus, $payuOrderId);
         // Pierwsze przejscie tej raty na completed -> log kolejnej wplaty cyklicznej w arkuszu
-        // Darowizny (cel != adopcja). Idempotencja: pomijamy, jesli charge byl juz completed
-        // (PayU ponawia notyfikacje - inaczej powstalyby duplikaty wierszy).
+        // Darowizny (cel != adopcja) albo aktualizacja wiersza w zakladce „Adopcja Serca"
+        // (cel = adopcja: data ostatniej wplaty + licznik miesiecy). Kazdy helper sam pomija
+        // nie swoj cel. Idempotencja: pomijamy, jesli charge byl juz completed (PayU ponawia
+        // notyfikacje - inaczej powstalyby duplikaty wierszy w Darowiznach).
         if ($chargeStatus === 'completed' && (!$before || ($before['status'] ?? '') !== 'completed')) {
             $sub = payu_sub_get((int) $cls['subId']);
-            if ($sub) { mada_donation_sheet_from_sub($sub, $extOrderId, $payuOrderId, $order); }
+            if ($sub) {
+                mada_donation_sheet_from_sub($sub, $extOrderId, $payuOrderId, $order);
+                mada_adopcja_charge_sheet($sub, $extOrderId, $payuOrderId);
+            }
         }
     } elseif (mada_donation_is_ext($extOrderId) && $status === 'COMPLETED') {
         // Jednorazowa darowizna OPŁACONA -> zaloguj do arkusza „Darowizny" + powiadom fundację.
