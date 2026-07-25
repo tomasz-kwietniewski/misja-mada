@@ -26,7 +26,11 @@ function eq(actual, expected, msg) {
 
 /* ────────── Atrapa arkusza Google ────────────────────────────── */
 class FakeSheet {
-  constructor(name) { this.name = name; this.data = []; this.rules = []; this.frozen = 0; }
+  constructor(name) {
+    this.name = name; this.data = []; this.rules = []; this.frozen = 0;
+    this.formats = {}; this.widths = {}; this.wraps = {}; this.align = {};
+    this.hidden = []; this.filter = null; this.rowHeights = {}; this.headStyle = {};
+  }
   _ensure(row, col) {
     while (this.data.length < row) this.data.push([]);
     for (const r of this.data) while (r.length < col) r.push('');
@@ -36,7 +40,10 @@ class FakeSheet {
   getMaxRows() { return Math.max(this.data.length, 1000); }
   appendRow(values) { this.data.push(values.slice()); this._ensure(this.data.length, values.length); }
   clear() { this.data = []; this.rules = []; }
-  setColumnWidth() { return this; }
+  setColumnWidth(col, px) { this.widths[col] = px; return this; }
+  setRowHeight(row, px) { this.rowHeights[row] = px; return this; }
+  hideColumns(col) { if (this.hidden.indexOf(col) === -1) this.hidden.push(col); return this; }
+  getFilter() { return this.filter; }
   setFrozenRows(n) { this.frozen = n; return this; }
   setConditionalFormatRules(rules) { this.rules = rules; }
   getConditionalFormatRules() { return this.rules; }
@@ -57,9 +64,25 @@ class FakeSheet {
         return this;
       },
       setValue(v) { sheet.data[row - 1][col - 1] = v; return this; },
-      setFontWeight() { return this; }, setFontSize() { return this; },
+      // Format zapisujemy per kolumna (tak go ustawiamy w .gs - na całych kolumnach).
+      setNumberFormat(fmt) {
+        for (let c = 0; c < nC; c++) sheet.formats[col + c] = { fmt, fromRow: row, rows: nR };
+        return this;
+      },
+      setWrapStrategy(s) {
+        for (let c = 0; c < nC; c++) sheet.wraps[col + c] = { strategy: s, fromRow: row };
+        return this;
+      },
+      setHorizontalAlignment(a) {
+        for (let c = 0; c < nC; c++) sheet.align[col + c] = { align: a, fromRow: row };
+        return this;
+      },
+      createFilter() { sheet.filter = { remove() { sheet.filter = null; }, cols: nC, rows: nR }; return sheet.filter; },
+      setFontWeight(w) { if (row === 1) sheet.headStyle.weight = w; return this; },
+      setBackground(b) { if (row === 1) sheet.headStyle.bg = b; return this; },
+      setFontColor(c) { if (row === 1) sheet.headStyle.color = c; return this; },
+      setFontSize() { return this; },
       setWrap() { return this; }, setVerticalAlignment() { return this; },
-      setBackground() { return this; },
     };
   }
 }
@@ -71,6 +94,7 @@ let ruleCount = 0;
 const sandbox = {
   console,
   SpreadsheetApp: {
+    WrapStrategy: { WRAP: 'WRAP', CLIP: 'CLIP', OVERFLOW: 'OVERFLOW' },
     getActiveSpreadsheet: () => ({
       getSheetByName: (n) => sheets[n] || null,
       insertSheet: (n) => (sheets[n] = new FakeSheet(n)),
@@ -245,6 +269,40 @@ eq(m3[G.COL.METODA], G.METODA_KARTA, 'migracja: subId niepusty -> Karta PayU');
 eq(m3[G.COL.CZESTOTLIWOSC], 'Miesięcznie', 'migracja: literał „PayU (karta, cyklicznie)" -> Miesięcznie');
 eq(m4[G.COL.SUB_STATUS], G.SUB_ANULOWANA, 'migracja: anulowana -> subskrypcja Anulowana');
 eq(m4[G.COL.WERYFIKACJA], G.WER_ND, 'migracja: anulowana karta -> weryfikacja Nie dotyczy');
+// jednolity format kolumn datowych (bez tego ta sama kolumna pokazuje raz datę z godziną, raz samą datę)
+const fmtOf = (name) => (old.formats[old.data[0].indexOf(name) + 1] || {});
+[G.COL.ZGLOSZENIE, G.COL.POTWIERDZENIE, G.COL.ANULOWANIE, G.COL.OSTATNIA].forEach(name => {
+  eq(fmtOf(name).fmt, 'yyyy-mm-dd hh:mm', 'format: „' + name + '" ma jednolity format daty z godziną');
+  eq(fmtOf(name).fromRow, 2, 'format: „' + name + '" formatowana od wiersza 2 (nagłówek nietknięty)');
+  ok(fmtOf(name).rows > 100, 'format: „' + name + '" formatuje całą kolumnę, więc nowe wiersze też');
+});
+eq(fmtOf(G.COL.MIESIACE).fmt, '0', 'format: licznik rat jako liczba całkowita');
+eq(fmtOf(G.COL.DZIECI).fmt, '0', 'format: liczba dzieci jako liczba całkowita');
+eq(fmtOf(G.COL.F_WPLATY).fmt, undefined, 'format: kolumny robocze fundacji bez narzuconego formatu');
+eq(fmtOf(G.COL.EMAIL).fmt, undefined, 'format: kolumny tekstowe nietknięte');
+
+// wygląd: szerokości, zawijanie, nagłówek, ukryty token, filtr
+const colNum = (name) => old.data[0].indexOf(name) + 1;
+ok(old.widths[colNum(G.COL.EMAIL)] >= 180, 'wygląd: kolumna e-mail dostatecznie szeroka');
+ok(old.widths[colNum(G.COL.F_NOTATKI)] >= 250, 'wygląd: notatki fundacji najszersze');
+ok(old.widths[colNum(G.COL.DZIECI)] <= 80, 'wygląd: liczba dzieci wąska');
+ok(old.widths[colNum(G.COL.SUB_STATUS)] >= 130, 'wygląd: „Status subskrypcji PayU" mieści cały nagłówek');
+ok(old.widths[colNum(G.COL.ANULOWANIE)] >= 130, 'wygląd: „Data anulowania" mieści cały nagłówek');
+eq(old.wraps[colNum(G.COL.ADRES)].strategy, 'WRAP', 'wygląd: adres zawijany');
+eq(old.wraps[colNum(G.COL.F_NOTATKI)].strategy, 'WRAP', 'wygląd: notatki zawijane');
+eq(old.wraps[colNum(G.COL.EMAIL)].strategy, 'CLIP', 'wygląd: e-mail przycinany (nie rozpycha wiersza)');
+eq(old.align[colNum(G.COL.METODA)].align, 'center', 'wygląd: metoda płatności wyśrodkowana');
+eq(old.align[colNum(G.COL.METODA)].fromRow, 2, 'wygląd: wyśrodkowanie dotyczy danych, nie tylko nagłówka');
+// e-mail: wyśrodkowany jest tylko nagłówek (fromRow 1), same adresy zostają do lewej
+eq(old.align[colNum(G.COL.EMAIL)].fromRow, 1, 'wygląd: kolumny tekstowe bez wymuszonego wyrównania danych');
+eq(old.headStyle.bg, '#422918', 'wygląd: nagłówek w kolorze fundacji');
+eq(old.headStyle.color, '#faf5ee', 'wygląd: jasny tekst nagłówka');
+eq(old.frozen, 1, 'wygląd: nagłówek zamrożony przy przewijaniu');
+ok(old.rowHeights[1] >= 40, 'wygląd: wyższy wiersz nagłówka (nazwy się zawijają)');
+eq(old.hidden.length, 1, 'wygląd: ukryta dokładnie jedna kolumna');
+eq(old.hidden[0], colNum(G.COL.TOKEN), 'wygląd: ukryta jest kolumna techniczna z tokenem');
+ok(old.filter !== null, 'wygląd: filtr w nagłówku (sortowanie/filtrowanie bez pomocy)');
+
 // kolory + instrukcja
 ok(old.rules.length >= 4, 'migracja: reguły kolorowania wierszy ustawione');
 ok(old.rules.some(r => r.formula.indexOf(G.WER_OCZEKUJE) !== -1), 'migracja: reguła dla oczekujących na potwierdzenie');

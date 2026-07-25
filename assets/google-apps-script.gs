@@ -636,8 +636,101 @@ function setupArkuszAdopcja() {
   migrujNaglowki_(sheet);
   ensureHeaders(sheet, HEADERS_ADOPCJA);
   migrujWiersze_(sheet);
+  ustawFormatyDat_(sheet);
+  ustawWyglad_(sheet);
   ustawKolory_(sheet);
   utworzInstrukcje_();
+}
+
+/* Szerokości kolumn (px) i sposób pokazywania długich treści.
+   ZAWIJANE są tylko kolumny z długim tekstem - reszta jest przycinana, żeby
+   wiersze nie rosły na wysokość przez jedną rozwlekłą komórkę. */
+const SZEROKOSCI = {};
+SZEROKOSCI[COL.WERYFIKACJA] = 140; SZEROKOSCI[COL.ZGLOSZENIE] = 135;
+SZEROKOSCI[COL.POTWIERDZENIE] = 135; SZEROKOSCI[COL.IMIE] = 110;
+SZEROKOSCI[COL.NAZWISKO] = 130; SZEROKOSCI[COL.EMAIL] = 210;
+SZEROKOSCI[COL.TELEFON] = 105; SZEROKOSCI[COL.ADRES] = 230;
+SZEROKOSCI[COL.FORMA] = 150; SZEROKOSCI[COL.OKRES] = 165;
+SZEROKOSCI[COL.CZESTOTLIWOSC] = 115; SZEROKOSCI[COL.DZIECI] = 70;
+SZEROKOSCI[COL.ZG_REGULAMIN] = 85; SZEROKOSCI[COL.ZG_WIZERUNEK] = 85;
+SZEROKOSCI[COL.ZG_RODO] = 85; SZEROKOSCI[COL.NEWSLETTER] = 90;
+SZEROKOSCI[COL.SUBID] = 85; SZEROKOSCI[COL.ANULOWANIE] = 135;
+SZEROKOSCI[COL.METODA] = 120; SZEROKOSCI[COL.SUB_STATUS] = 140;
+SZEROKOSCI[COL.OSTATNIA] = 135; SZEROKOSCI[COL.MIESIACE] = 95;
+SZEROKOSCI[COL.F_DZIECI] = 220; SZEROKOSCI[COL.F_WPLATY] = 160;
+SZEROKOSCI[COL.F_NOTATKI] = 300;
+
+const KOLUMNY_ZAWIJANE = [COL.ADRES, COL.F_DZIECI, COL.F_WPLATY, COL.F_NOTATKI];
+const KOLUMNY_WYSRODKOWANE = [
+  COL.WERYFIKACJA, COL.CZESTOTLIWOSC, COL.DZIECI, COL.ZG_REGULAMIN, COL.ZG_WIZERUNEK,
+  COL.ZG_RODO, COL.NEWSLETTER, COL.SUBID, COL.METODA, COL.SUB_STATUS, COL.MIESIACE,
+];
+
+/**
+ * Czytelny wygląd zakładki: wyróżniony i zamrożony nagłówek, sensowne szerokości
+ * kolumn, zawijanie tylko tam gdzie treść bywa długa, wyśrodkowane krótkie wartości,
+ * ukryta kolumna techniczna z tokenem (32 znaki losowego ciągu, nikomu niepotrzebne)
+ * oraz filtr w wierszu nagłówka - pracownik może sortować i filtrować bez pomocy.
+ * Idempotentne: wielokrotne uruchomienie daje ten sam efekt.
+ */
+function ustawWyglad_(sheet) {
+  const headers = sheetHeaders(sheet);
+  const rows = Math.max(sheet.getMaxRows() - 1, 1);
+  const col = (name) => headers.indexOf(name) + 1;   // 0 gdy kolumny nie ma
+
+  const head = sheet.getRange(1, 1, 1, headers.length);
+  head.setFontWeight('bold').setBackground('#422918').setFontColor('#faf5ee')
+      .setVerticalAlignment('middle').setHorizontalAlignment('center')
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.setFrozenRows(1);
+  sheet.setRowHeight(1, 46);
+
+  // Dane od góry komórki - przy zawijaniu czyta się lepiej niż wyśrodkowane w pionie.
+  sheet.getRange(2, 1, rows, headers.length)
+       .setVerticalAlignment('top')
+       .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+
+  headers.forEach(function (h) {
+    if (SZEROKOSCI.hasOwnProperty(h)) sheet.setColumnWidth(col(h), SZEROKOSCI[h]);
+  });
+  KOLUMNY_ZAWIJANE.forEach(function (h) {
+    const c = col(h);
+    if (c) sheet.getRange(2, c, rows, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  });
+  KOLUMNY_WYSRODKOWANE.forEach(function (h) {
+    const c = col(h);
+    if (c) sheet.getRange(2, c, rows, 1).setHorizontalAlignment('center');
+  });
+
+  // Token jest wyłącznie techniczny (klucz linku potwierdzającego) - chowamy z oczu.
+  const tokenCol = col(COL.TOKEN);
+  if (tokenCol) sheet.hideColumns(tokenCol);
+
+  // Filtr w nagłówku: sortowanie i filtrowanie (np. tylko przelewowcy) bez pomocy IT.
+  const stary = sheet.getFilter();
+  if (stary) stary.remove();
+  sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), headers.length).createFilter();
+}
+
+/**
+ * Jednolity format kolumn datowych. Bez tego komórki dziedziczą format z historii
+ * arkusza i ta sama kolumna potrafi pokazywać raz „2026-07-04 21:53", a raz samo
+ * „2026-07-04" (wartość jest pełna, różni się tylko wyświetlanie). Formatujemy CAŁE
+ * kolumny, więc nowe wiersze od razu trafiają w sformatowane komórki.
+ * Kolumny robocze fundacji celowo pomijamy - to ich miejsce, wpisują co chcą.
+ */
+function ustawFormatyDat_(sheet) {
+  const headers = sheetHeaders(sheet);
+  const rows = Math.max(sheet.getMaxRows() - 1, 1);
+  [COL.ZGLOSZENIE, COL.POTWIERDZENIE, COL.ANULOWANIE, COL.OSTATNIA].forEach(function (name) {
+    const c = headers.indexOf(name);
+    if (c !== -1) sheet.getRange(2, c + 1, rows, 1).setNumberFormat('yyyy-mm-dd hh:mm');
+  });
+  // Licznik rat to liczba całkowita - inaczej bywa „5,00" albo data.
+  const m = headers.indexOf(COL.MIESIACE);
+  if (m !== -1) sheet.getRange(2, m + 1, rows, 1).setNumberFormat('0');
+  const d = headers.indexOf(COL.DZIECI);
+  if (d !== -1) sheet.getRange(2, d + 1, rows, 1).setNumberFormat('0');
 }
 
 /** Rename nagłówków ze starego schematu technicznego (token, ts_received...)
@@ -722,6 +815,8 @@ function utworzInstrukcje_() {
     ['INSTRUKCJA - zakładka „Adopcja Serca"', ''],
     ['Każdy wiersz to jedno zgłoszenie do programu (jeden darczyńca).', ''],
     ['Kolumny można dowolnie PRZESTAWIAĆ. NIE WOLNO zmieniać NAZW kolumn w wierszu 1 - system zapisuje dane po nazwach.', ''],
+    ['Wiersz nagłówka ma FILTR', 'Kliknij ikonę filtra w nagłówku, żeby posortować albo zawęzić listę - np. pokazać samych darczyńców przelewowych albo tylko oczekujących na potwierdzenie.'],
+    ['Kolumna „' + COL.TOKEN + '" jest UKRYTA', 'To 32-znakowy identyfikator techniczny linku potwierdzającego. Nikomu nie jest potrzebny na co dzień; w razie potrzeby odkryjecie ją klikając strzałki między nagłówkami kolumn.'],
     ['', ''],
     ['JAK ROZPOZNAĆ ŚCIEŻKĘ DARCZYŃCY', ''],
     ['Metoda płatności = „Przelew"', 'Darczyńca płaci zwykłym przelewem / zleceniem stałym. System NIE widzi jego wpłat - sprawdzacie wyciąg bankowy i notujecie w kolumnie „' + COL.F_WPLATY + '".'],
@@ -746,7 +841,7 @@ function utworzInstrukcje_() {
     [COL.F_WPLATY, 'Dla przelewowców: do kiedy opłacone. System nie widzi banku - sprawdzacie wyciąg i uzupełniacie ręcznie.'],
     [COL.F_NOTATKI, 'Dowolne notatki (kontakt z darczyńcą, ustalenia, korespondencja).'],
     ['', ''],
-    ['UWAGA TECHNICZNA', 'Kolory wierszy są zarządzane przez system - ręcznie dodane reguły formatowania warunkowego w zakładce „Adopcja Serca" zostaną nadpisane przy kolejnym uruchomieniu konfiguracji.'],
+    ['UWAGA TECHNICZNA', 'Wygląd zakładki (kolory wierszy, szerokości kolumn, zawijanie, filtr) jest zarządzany przez system. Ręczne zmiany formatowania i własne reguły formatowania warunkowego zostaną nadpisane przy kolejnym uruchomieniu konfiguracji. Same DANE, w tym Wasze kolumny robocze, nigdy nie są ruszane.'],
   ];
   s.getRange(1, 1, rows.length, 2).setValues(rows);
   s.getRange(1, 1, rows.length, 1).setFontWeight('bold');
