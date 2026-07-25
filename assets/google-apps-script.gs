@@ -646,7 +646,7 @@ function migrujNaglowki_(sheet) {
   const range = sheet.getRange(1, 1, 1, sheet.getLastColumn());
   const current = range.getValues()[0].map(String);
   const renamed = current.map(h => MIGRACJA_NAGLOWKOW.hasOwnProperty(h) ? MIGRACJA_NAGLOWKOW[h] : h);
-  if (renamed.join(' ') !== current.join(' ')) range.setValues([renamed]);
+  if (JSON.stringify(renamed) !== JSON.stringify(current)) range.setValues([renamed]);
 }
 
 /** Migracja WARTOŚCI w istniejących wierszach: stare statusy (pending/verified/
