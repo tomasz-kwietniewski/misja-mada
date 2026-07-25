@@ -236,11 +236,13 @@ Apps Script; PHP woła go serwer-do-serwera z shared secret). E-mail fundacji: `
 - **Kontakt** - mail do fundacji z `Reply-To` na nadawcę.
 - **Adopcja Serca** (`assets/adopcja-form.js`) - jeden pełny formularz z selektorem liczby dzieci
   (kwota = dzieci x 70 zł), dwie ścieżki wsparcia:
-  - **Przelew** - double opt-in: zapis `pending` w arkuszu -> mail „Potwierdź zgłoszenie" -> po kliknięciu
-    linku status `verified`, mail **powitalny** z danymi do przelewu (kwota, tytuł „Adopcja Serca Madagaskar
-    - Imię Nazwisko", okres zlecenia dla formy czasowej) + powiadomienie fundacji.
+  - **Przelew** - double opt-in: zapis w arkuszu z „Weryfikacja e-mail" = `Oczekuje` -> mail „Potwierdź
+    zgłoszenie" -> po kliknięciu linku `Potwierdzony`, mail **powitalny** z danymi do przelewu (kwota,
+    tytuł „Adopcja Serca Madagaskar - Imię Nazwisko", okres zlecenia dla formy czasowej) + powiadomienie
+    fundacji.
   - **Karta (cyklicznie)** - Secure Form + `payu/recurring-first.php` (jak darowizna cykliczna); komplet
-    danych adopcyjnych trafia też do arkusza (status `oplacone-PayU`), subskrypcja do panelu.
+    danych adopcyjnych trafia też do arkusza (metoda `Karta PayU`, subskrypcja `Aktywna`), sama
+    subskrypcja do panelu.
   - Dobrowolny **newsletter** - po weryfikacji maila (klik linku / płatność kartą) dopisanie do MailerLite
     przez `newsletter/add-verified.php` (bez drugiego double opt-in).
 - **Wejście z darowizny** - w modalu „Wesprzyj nas" wybór celu „Adopcja Serca" + „Dalej" przełącza na
@@ -251,6 +253,30 @@ Apps Script; PHP woła go serwer-do-serwera z shared secret). E-mail fundacji: `
 Opłacone **jednorazowe** darowizny (`payu/notify.php` przy `COMPLETED`) oraz **cykliczne na cele inne niż
 adopcja** (każda rata, idempotentnie) trafiają do zakładki „Darowizny" w arkuszu + powiadomienie fundacji.
 Zapis przez `payu/sheet.php` -> Apps Script. Cykliczne adopcje mają własną zakładkę „Adopcja Serca".
+
+### Arkusz „Adopcja Serca" - miejsce pracy fundacji
+
+Zakładka jest głównym narzędziem pracowników, więc jest zaprojektowana pod nich, nie pod system:
+polskie nazwy kolumn, kolorowanie wierszy i osobna zakładka **„Instrukcja"** (legenda + opis kolumn).
+Zapis odbywa się **po nazwach nagłówków**, więc kolumny wolno przestawiać; nie wolno zmieniać ich nazw.
+
+- **Dwie osobne kolumny stanów** (świadomie rozdzielone porządki): „Weryfikacja e-mail"
+  (`Oczekuje` -> `Potwierdzony`, przy karcie `Nie dotyczy`) dotyczy double opt-in, a „Status subskrypcji
+  PayU" (`Aktywna` / `Anulowana`) dotyczy wyłącznie kart.
+- **Metoda płatności** (`Przelew` / `Karta PayU`) - jawna kolumna zamiast wnioskowania z trzech innych.
+- **Raty kartowe w arkuszu**: po każdej notyfikacji `COMPLETED` (`payu/notify.php` ->
+  `mada_adopcja_charge_sheet`, typ `adopcja-charge`) wiersz darczyńcy dostaje datę ostatniej wpłaty
+  i licznik opłaconych miesięcy z bazy (wartość absolutna, więc ponowiona notyfikacja jest nieszkodliwa).
+- **Kolumny robocze fundacji** (`Przypisane dzieci`, `Wpłaty przelewowe - opłacone do`, `Notatki`) -
+  system ich **nigdy** nie nadpisuje. Dwa procesy zostają świadomie ręczne: system nie widzi zaksięgowania
+  przelewów (fundacja sprawdza wyciąg) i nie przypisuje dzieci ani nie wysyła maila o dziecku.
+
+**Wdrożenie zmian w `assets/google-apps-script.gs` (KOLEJNOŚĆ MA ZNACZENIE):** najpierw wklej nową wersję
+w edytorze Apps Script i zrób *Deploy -> Manage deployments -> Edit -> New version* (URL `/exec` musi
+zostać ten sam), potem uruchom raz `setupArkuszAdopcja()` (nagłówki, migracja starych wartości, kolory,
+Instrukcja - funkcja jest idempotentna), a dopiero na końcu wypchnij PHP na produkcję. Odwrotna kolejność
+oznacza nowe PHP i stary skrypt; chroni przed tym strażnik nieznanych typów (zwraca `unknown-type`
+zamiast tworzyć fałszywy wiersz i wysyłać darczyńcy mail).
 
 ## Wysyłka maili (relay Gmail, fallback `mail()`)
 
@@ -266,7 +292,7 @@ załatwiają dostarczalność. Technicznie dwie drogi o wspólnym ujściu:
   robi **fallback na PHP `mail()`** z envelope-from `-f`; DNS ma SPF, DKIM (selektor `x`)
   i DMARC (`p=quarantine`), więc fallback też przechodzi uwierzytelnienie.
 
-Anulowanie subskrypcji adopcji dodatkowo aktualizuje wiersz w arkuszu Google na „anulowana"
+Anulowanie subskrypcji adopcji dodatkowo ustawia w arkuszu „Status subskrypcji PayU" na „Anulowana"
 i powiadamia fundację tym samym niezawodnym kanałem (`payu/sheet.php` -> Apps Script). Zależy
 to od wgranego `assets/google-apps-script.gs` (Web App) i sekretu współdzielonego z PHP.
 Uwierzytelniony SMTP pozostaje opcją docelową - świadomie odłożony, póki dzienny limit
@@ -332,13 +358,21 @@ front i logika renderują się bez nich (endpointy zwrócą błąd konfiguracji,
 ## Testy i CI
 
 ```bash
-php tests/run.php             # czysta logika panelu CMS (slug, walidacje, sprawozdania)
-php tests/run-recurring.php   # czysta logika płatności cyklicznych (harmonogram, idempotencja,
-                              # ekstrakcja tokena, decyzja o obciążeniu)
+php tests/run.php               # czysta logika panelu CMS (slug, walidacje, sprawozdania)
+php tests/run-recurring.php     # czysta logika płatności cyklicznych (harmonogram, idempotencja,
+                                # ekstrakcja tokena, decyzja o obciążeniu)
+php tests/run-sheet.php         # payloady PHP -> arkusz (adopcja-charge, adopcja-cancel)
+node tests/run-apps-script.js   # logika Apps Script na atrapach Google API: double opt-in,
+                                # raty i anulowanie kartowe, migracja arkusza i jej idempotencja
+node tests/i18n-coverage.js     # pokrycie tłumaczeń EN/FR
 ```
 
+Runner Apps Script istnieje, bo `assets/google-apps-script.gs` wdrażamy **ręcznie** (wklejenie
+w edytorze), a jego funkcje ruszają produkcyjne dane fundacji - bez niego jedyną weryfikacją
+byłoby uruchomienie na żywym arkuszu.
+
 CI (`.github/workflows/ci.yml`) przy każdym pushu/PR: `php -l` na wszystkich `.php`,
-`node --check` na `assets/*.js`, oraz oba runnery testów. Niezależne od deployu;
+`node --check` na `assets/*.js` oraz wszystkie runnery testów. Niezależne od deployu;
 `tests/` nie trafia na produkcję.
 
 ## Sekrety i dane (poza repo)

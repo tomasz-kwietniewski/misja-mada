@@ -103,6 +103,36 @@ function mada_adopcja_cancel_sheet(array $sub): void {
     mada_sheet_post($payload);
 }
 
+/**
+ * Buduje payload OPLACONEJ RATY subskrypcji ADOPCJI dla Apps Script.
+ * Zwraca null dla celow innych niz adopcja (te loguja sie w zakladce „Darowizny").
+ * monthsPaid to wartosc ABSOLUTNA z bazy (nie inkrement) - dzieki temu ponowiona
+ * notyfikacja PayU nie zafalszuje licznika w arkuszu.
+ * Wydzielone jako czysta funkcja - testowalne bez wywolania sieciowego.
+ */
+function mada_adopcja_charge_payload(array $sub, string $extOrderId, string $payuOrderId): ?array {
+    if (($sub['goal'] ?? '') !== 'adopcja') return null;
+    return [
+        'type'        => 'adopcja-charge',
+        'subId'       => (string) ($sub['id'] ?? ''),
+        'monthsPaid'  => (int) ($sub['months_paid'] ?? 0),
+        'extOrderId'  => $extOrderId,
+        'payuOrderId' => $payuOrderId,
+    ];
+}
+
+/**
+ * Odnotowuje kolejna oplacona rate ADOPCJI w arkuszu: Apps Script aktualizuje w wierszu
+ * darczyncy (po subId) date ostatniej wplaty i licznik oplaconych miesiecy. Dzieki temu
+ * fundacja widzi w arkuszu, ze karta nadal sie obciaza (dotad bylo to tylko w MySQL/panelu).
+ * Dla celow innych niz adopcja nie robi nic. Best-effort - nie przerywa obslugi notyfikacji.
+ */
+function mada_adopcja_charge_sheet(array $sub, string $extOrderId, string $payuOrderId): void {
+    $payload = mada_adopcja_charge_payload($sub, $extOrderId, $payuOrderId);
+    if ($payload === null) return;
+    mada_sheet_post($payload);
+}
+
 /** Dopisuje zweryfikowany mail na newsletter przez wewnetrzny endpoint add-verified.php. */
 function mada_newsletter_add_verified(string $email, string $imie): void {
     $cfg = __DIR__ . '/../newsletter/secret/verified-config.php';
