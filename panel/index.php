@@ -97,5 +97,15 @@ echo panel_flash();
       </div>
       <a href="subskrypcje.php" class="btn-spraw">Zarządzaj subskrypcjami →</a>
     </div>
+
+    <!-- Osobny dział: Adopcja Serca (darczyńcy i podopieczni) -->
+    <div class="spraw-panel">
+      <div class="spraw-panel-text">
+        <span class="spraw-panel-eyebrow">Osobny dział</span>
+        <h3>Adopcja Serca - darczyńcy i podopieczni</h3>
+        <p>Rejestr darczyńców Adopcji Serca, przypisane dzieci, stan opłacenia („opłacone do") i&nbsp;zaległości. Zastępuje ręczne arkusze „Lista darczyńców" i „Płatności".</p>
+      </div>
+      <a href="darczyncy.php" class="btn-spraw">Przejdź do darczyńców →</a>
+    </div>
 <?php
 panel_footer();
