@@ -73,11 +73,19 @@ function wp_flash() {
     return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
 }
 
-/* ── Okno miesięcy i filtr ─────────────────────────────────────── */
+/* ── Okno miesięcy i filtr ─────────────────────────────────────────
+   Trzy tryby okna: cały ROK kalendarzowy (styczeń-grudzień, wygodne do
+   rozliczeń), ostatnie 15 miesięcy (domyślne) albo dowolny start. */
 $filter = (string)($_GET['f'] ?? 'all');
+$yearSel = (string)($_GET['rok'] ?? '');
 $winFrom = (string)($_GET['od'] ?? '');
-if (!adopt_month_valid($winFrom)) $winFrom = adopt_month_add(date('Y-m'), -11);
-$winTo = adopt_month_add($winFrom, 14);   // 15 kolumn miesięcy
+if (preg_match('/^\d{4}$/', $yearSel)) {
+    $winFrom = $yearSel . '-01';
+    $winTo   = $yearSel . '-12';
+} else {
+    if (!adopt_month_valid($winFrom)) $winFrom = adopt_month_add(date('Y-m'), -11);
+    $winTo = adopt_month_add($winFrom, 14);   // 15 kolumn miesięcy
+}
 $months = adopt_month_range($winFrom, $winTo);
 $nowM = date('Y-m');
 $today = date('Y-m-d');
@@ -117,9 +125,19 @@ panel_header('Wpłaty - Adopcja Serca');
           <option value="zalegli" <?= $filter === 'zalegli' ? 'selected' : '' ?>>tylko zalegających</option>
         </select>
       </label>
+      <label class="hint">Okres
+        <select name="rok" onchange="this.form.submit()">
+          <option value="">ostatnie 15 miesięcy</option>
+          <?php for ($y = (int)date('Y') + 1; $y >= 2024; $y--): ?>
+            <option value="<?= $y ?>" <?= $yearSel === (string)$y ? 'selected' : '' ?>>rok <?= $y ?></option>
+          <?php endfor; ?>
+        </select>
+      </label>
+      <?php if ($yearSel === ''): ?>
       <label class="hint">Okno od miesiąca
         <input type="month" name="od" value="<?= mada_esc($winFrom) ?>" onchange="this.form.submit()">
       </label>
+      <?php endif; ?>
       <noscript><button type="submit" class="btn-secondary btn-sm">Pokaż</button></noscript>
     </form>
 
@@ -154,7 +172,10 @@ panel_header('Wpłaty - Adopcja Serca');
     <?php else: ?>
     <p class="hint" style="margin:0 0 10px;">Wierszy: <?= count($rows) ?>. Klik w czerwoną komórkę odnotowuje wpłatę
        w kwocie adopcji za ten miesiąc (metoda wg adopcji). Zakresy i inne kwoty - formularz zbiorczy powyżej.</p>
-    <div class="matrix-scroll">
+    <!-- Suwak poziomy NAD tabelą (przy wielu wierszach ten pod spodem jest
+         daleko). Szerokość ustawiana skryptem, przewijanie zsynchronizowane. -->
+    <div class="matrix-scroll-top" id="mx-top" aria-hidden="true"><div id="mx-top-inner"></div></div>
+    <div class="matrix-scroll" id="mx-main">
       <table class="matrix">
         <thead><tr>
           <th style="text-align:left;">Darczyńca / dziecko</th>
@@ -197,6 +218,31 @@ panel_header('Wpłaty - Adopcja Serca');
         </tbody>
       </table>
     </div>
+    <script>
+    /* Suwak nad tabelą: kopiuje szerokość tabeli i synchronizuje przewijanie
+       w obie strony. Bez JS wszystko działa jak dotąd (dolny pasek). */
+    (function () {
+      var top = document.getElementById('mx-top'),
+          inner = document.getElementById('mx-top-inner'),
+          main = document.getElementById('mx-main'),
+          table = main && main.querySelector('table.matrix');
+      if (!top || !inner || !main || !table) return;
+      function sync() {
+        inner.style.width = table.scrollWidth + 'px';
+        top.style.display = table.scrollWidth > main.clientWidth ? 'block' : 'none';
+      }
+      sync();
+      window.addEventListener('resize', sync);
+      // Porównanie wartości zamiast flagi blokady: przypisanie tej samej
+      // pozycji nie generuje zdarzenia, więc pętla sprzężenia nie powstaje.
+      top.addEventListener('scroll', function () {
+        if (main.scrollLeft !== top.scrollLeft) main.scrollLeft = top.scrollLeft;
+      });
+      main.addEventListener('scroll', function () {
+        if (top.scrollLeft !== main.scrollLeft) top.scrollLeft = main.scrollLeft;
+      });
+    })();
+    </script>
     <?php endif; ?>
 <?php endif; ?>
 <?php
