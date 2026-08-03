@@ -8,14 +8,24 @@ require_once __DIR__ . '/../adopcja/db.php';
 require_once __DIR__ . '/../adopcja/lib.php';
 
 $q = trim((string)($_GET['q'] ?? ''));
+$showArchived = ($_GET['arch'] ?? '') === '1';
 $dbError = '';
 $donors = [];
+$archivedCnt = 0;
 $adoptionsByDonor = [];
 $paymentsByAdoption = [];
 
 try {
     adopt_db_ensure_schema();
     $donors = adopt_sort_by_surname(adopt_donor_list($q));   // domyślnie po NAZWISKU
+    $archivedCnt = count(array_filter($donors, fn($d) => (int)$d['is_archived'] === 1));
+    /* Domyślnie lista pokazuje osoby, które aktualnie wspierają. Archiwalnych
+       (po zakończeniu wszystkich adopcji) odsłania przycisk. Wyszukiwarka
+       celowo przeszukuje WSZYSTKICH - szuka się konkretnej osoby, także tej,
+       która przestała wpłacać. */
+    if (!$showArchived && $q === '') {
+        $donors = array_values(array_filter($donors, fn($d) => (int)$d['is_archived'] === 0));
+    }
     $all = adopt_adoption_list_all();
     foreach ($all as $a) $adoptionsByDonor[(int)$a['donor_id']][] = $a;
     $paymentsByAdoption = adopt_payments_by_adoptions(array_column($all, 'id'));
@@ -41,12 +51,18 @@ panel_header('Darczyńcy - Adopcja Serca');
              style="flex:1;max-width:340px;padding:8px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;">
       <button type="submit" class="btn-secondary btn-sm">Szukaj</button>
       <?php if ($q !== ''): ?><a href="darczyncy.php" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
+      <?php if ($q === '' && $archivedCnt > 0): ?>
+        <a href="darczyncy.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm" style="margin-left:auto;">
+          <?= $showArchived ? 'Ukryj archiwalnych' : 'Pokaż archiwalnych (' . $archivedCnt . ')' ?>
+        </a>
+      <?php endif; ?>
     </form>
 
     <?php if (!$donors): ?>
       <p class="hint"><?= $q !== '' ? 'Brak wyników dla „' . mada_esc($q) . '".' : 'Baza darczyńców jest pusta - zacznij od strony Import.' ?></p>
     <?php else: ?>
-      <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny)' : '' ?></p>
+      <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny; wyszukiwarka obejmuje też archiwalnych)' : '' ?><?php
+        if ($q === '' && $archivedCnt > 0 && !$showArchived): ?>, ukrytych archiwalnych: <?= $archivedCnt ?><?php endif; ?></p>
       <table class="events">
         <thead><tr>
           <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th></th>
@@ -67,7 +83,7 @@ panel_header('Darczyńcy - Adopcja Serca');
             $methods = array_unique(array_map(fn($a) => $methodLabel[$a['method']] ?? $a['method'], $active));
         ?>
           <tr class="row-link" data-href="darczynca.php?id=<?= (int)$d['id'] ?>">
-            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><br>
+            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><?= (int)$d['is_archived'] === 1 ? ' <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">archiwum</span>' : '' ?><br>
                 <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?></span></td>
             <td><?php if ($d['children_names']): ?>
                   <?= mada_esc($d['children_names']) ?> <span class="hint">(nr <?= mada_esc($d['children_numbers']) ?>)</span>
