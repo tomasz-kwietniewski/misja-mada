@@ -102,10 +102,12 @@ try {
                     // Cykliczna wplata na cel INNY niz adopcja (pierwsza rata) -> log w arkuszu Darowizny.
                     // (helper sam pomija adopcje - ta ma wlasna zakladke). Idempotentne: aktywacja nastepuje raz.
                     mada_donation_sheet_from_sub($fresh, $extOrderId, $payuOrderId, $order);
-                    // Modul CMS: pierwsza platnosc adopcyjna -> wplata przy powiazanych adopcjach
-                    // (miesiac = miesiac startu subskrypcji). Best-effort, idempotentne.
+                    // Modul CMS: auto-rejestracja darczyncy + adopcje pending (jak przy
+                    // zgloszeniu przelewowym) i wplata za pierwszy miesiac. Best-effort.
                     try {
                         adopt_db_ensure_schema();
+                        // bez pliku pending tez zadziala (dane darczyncy sa w subskrypcji)
+                        adopt_ensure_from_card($fresh, is_array($ad ?? null) ? $ad : []);
                         $m0 = adopt_month_from_date((string)($fresh['start_date'] ?? ''));
                         if ($m0 !== null) adopt_payment_from_charge($fresh, null, $m0);
                     } catch (Throwable $e) {

@@ -95,6 +95,8 @@ function dk_flash() {
     $codes = [
         'payok'    => ['ok',    'Wpłata została odnotowana.'],
         'noteok'   => ['ok',    'Notatki zostały zapisane.'],
+        'mailok'   => ['ok',    'Zapisano. Mail z przedstawieniem dziecka został wysłany do darczyńcy.'],
+        'mailfail' => ['error', 'Zapisano, ale mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki).'],
         'paydel'   => ['ok',    'Wpłata została usunięta.'],
         'ended'    => ['ok',    'Adopcja została zakończona (miesiące po końcu nie liczą się jako zaległość).'],
         'resumed'  => ['ok',    'Adopcja wznowiona jako nowy okres - przerwa nie liczy się jako zaległość.'],

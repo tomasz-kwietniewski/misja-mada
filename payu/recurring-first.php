@@ -223,6 +223,23 @@ try {
             ]);
             // SUCCESS synchroniczny nie przechodzi przez notify FIRST - skasuj rekord tutaj.
             @unlink(__DIR__ . '/../data/adopcja-card-pending/' . (int)$subId . '.json');
+            // Modul CMS: auto-rejestracja darczyncy + adopcje pending + wplata za
+            // pierwszy miesiac (ta sciezka omija notify FIRST). Best-effort.
+            if ($goal === 'adopcja' && $fresh) {
+                try {
+                    require_once __DIR__ . '/../adopcja/db.php';
+                    adopt_db_ensure_schema();
+                    adopt_ensure_from_card($fresh, [
+                        'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email,
+                        'telefon' => $telefon, 'adres' => $adres, 'forma' => $forma,
+                        'okres' => $okres, 'dzieci' => $dzieci,
+                    ]);
+                    $m0 = adopt_month_from_date((string)($fresh['start_date'] ?? ''));
+                    if ($m0 !== null) adopt_payment_from_charge($fresh, null, $m0);
+                } catch (Throwable $e) {
+                    error_log('[PayU recurring-first] adopt ensure: ' . $e->getMessage());
+                }
+            }
         }
         payu_json(['status' => 'active']);
     }

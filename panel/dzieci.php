@@ -24,16 +24,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'edit') {
             $cid = (int)($_POST['child_id'] ?? 0);
-            $no = (int)($_POST['number'] ?? 0);
-            $name = trim((string)($_POST['name'] ?? ''));
-            $status = ($_POST['status'] ?? '') === 'inactive' ? 'inactive' : 'active';
-            $notes = trim((string)($_POST['notes'] ?? '')) ?: null;
-            if ($cid <= 0 || $no <= 0 || $name === '') mada_redirect('dzieci.php?edit=' . $cid . '&msg=invalid');
-            if (!adopt_child_update($cid, $no, $name, $status, $notes)) {
+            $d = [
+                'number' => (int)($_POST['number'] ?? 0),
+                'name' => trim((string)($_POST['name'] ?? '')),
+                'status' => (string)($_POST['status'] ?? 'active'),
+                'notes' => trim((string)($_POST['notes'] ?? '')),
+                'dossier_name' => trim((string)($_POST['dossier_name'] ?? '')),
+                'birth_date' => trim((string)($_POST['birth_date'] ?? '')),
+                'father' => trim((string)($_POST['father'] ?? '')),
+                'mother' => trim((string)($_POST['mother'] ?? '')),
+                'siblings' => trim((string)($_POST['siblings'] ?? '')),
+                'description' => trim((string)($_POST['description'] ?? '')),
+            ];
+            if ($cid <= 0 || $d['number'] <= 0 || $d['name'] === ''
+                || ($d['birth_date'] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $d['birth_date']))) {
+                mada_redirect('dzieci.php?edit=' . $cid . '&msg=invalid');
+            }
+            // Zdjęcie do dossier: uploads/dzieci/, losowa nazwa (nie do zgadnięcia
+            // z zewnątrz - katalog jest publiczny jak inne uploads/).
+            if (!empty($_FILES['photo']['tmp_name']) && is_uploaded_file($_FILES['photo']['tmp_name'])) {
+                if ((int)$_FILES['photo']['size'] > 6 * 1024 * 1024) mada_redirect('dzieci.php?edit=' . $cid . '&msg=photobig');
+                $info = @getimagesize($_FILES['photo']['tmp_name']);
+                $extMap = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+                if ($info === false || !isset($extMap[$info[2]])) mada_redirect('dzieci.php?edit=' . $cid . '&msg=phototype');
+                $dir = __DIR__ . '/../uploads/dzieci';
+                if (!is_dir($dir) && !@mkdir($dir, 0755, true)) mada_redirect('dzieci.php?edit=' . $cid . '&msg=photoerr');
+                $fname = 'dziecko-' . $cid . '-' . bin2hex(random_bytes(8)) . '.' . $extMap[$info[2]];
+                if (!@move_uploaded_file($_FILES['photo']['tmp_name'], $dir . '/' . $fname)) {
+                    mada_redirect('dzieci.php?edit=' . $cid . '&msg=photoerr');
+                }
+                $old = adopt_child_get($cid);
+                if ($old && !empty($old['photo'])) @unlink($dir . '/' . basename($old['photo']));
+                $d['photo'] = $fname;
+            }
+            if (!adopt_child_update($cid, $d)) {
                 mada_redirect('dzieci.php?edit=' . $cid . '&msg=taken');
             }
-            mada_audit('child.edit', 'child', $cid,
-                ['number' => $no, 'name' => $name, 'status' => $status, 'notes' => $notes]);
+            mada_audit('child.edit', 'child', $cid, array_diff_key($d, ['description' => 1]));
             mada_redirect('dzieci.php?msg=saved');
         }
         if ($action === 'materials') {
@@ -56,8 +83,11 @@ function dz_flash() {
     $codes = [
         'added'   => ['ok', 'Dziecko zostało dodane.'],
         'saved'   => ['ok', 'Zapisano.'],
-        'invalid' => ['error', 'Podaj numer (liczba > 0) i imię.'],
+        'invalid' => ['error', 'Podaj numer (liczba > 0) i imię; data urodzenia w formacie RRRR-MM-DD.'],
         'taken'   => ['error', 'Ten numer jest już zajęty.'],
+        'photobig'  => ['error', 'Zdjęcie jest za duże (maks. 6 MB).'],
+        'phototype' => ['error', 'Niedozwolony typ zdjęcia. Dozwolone: JPG, PNG, WEBP.'],
+        'photoerr'  => ['error', 'Nie udało się zapisać zdjęcia na serwerze.'],
     ];
     $m = $_GET['msg'] ?? '';
     if (!isset($codes[$m])) return '';
@@ -87,23 +117,50 @@ panel_header('Podopieczni - Adopcja Serca');
     <?php if ($editChild !== null): ?>
     <div class="spraw-panel" style="display:block;" id="formularz">
       <h3 style="margin:0 0 10px;">Edycja: nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?></h3>
-      <form method="post" class="form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin:0;">
+      <form method="post" enctype="multipart/form-data" class="form" style="margin:0;">
         <?= mada_csrf_field() ?>
         <input type="hidden" name="action" value="edit">
         <input type="hidden" name="child_id" value="<?= (int)$editChild['id'] ?>">
-        <label>Numer *<input type="number" name="number" min="1" required value="<?= (int)$editChild['number'] ?>" style="width:90px;"></label>
-        <label>Imię *<input type="text" name="name" required value="<?= mada_esc($editChild['name']) ?>"></label>
-        <label>Status
-          <select name="status">
-            <option value="active" <?= $editChild['status'] === 'active' ? 'selected' : '' ?>>aktywne</option>
-            <option value="inactive" <?= $editChild['status'] === 'inactive' ? 'selected' : '' ?>>nieaktywne</option>
-          </select>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <label>Numer *<input type="number" name="number" min="1" required value="<?= (int)$editChild['number'] ?>" style="width:90px;"></label>
+          <label>Imię (krótkie) *<input type="text" name="name" required value="<?= mada_esc($editChild['name']) ?>"></label>
+          <label>Status
+            <select name="status">
+              <option value="active" <?= $editChild['status'] === 'active' ? 'selected' : '' ?>>aktywne</option>
+              <option value="inactive" <?= $editChild['status'] === 'inactive' ? 'selected' : '' ?>>nieaktywne</option>
+            </select>
+          </label>
+          <label style="flex:1;min-width:180px;">Uwagi (robocze, nie idą do darczyńcy)<input type="text" name="notes" value="<?= mada_esc($editChild['notes'] ?? '') ?>"></label>
+        </div>
+
+        <h4 style="margin:16px 0 8px;color:var(--brown);">Dossier dziecka (treść maila do darczyńcy)</h4>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <label style="flex:2;min-width:240px;">Pełne imię i nazwisko<input type="text" name="dossier_name"
+                 placeholder="np. Avotriniaina Alvin RAKOTOZANANY" value="<?= mada_esc($editChild['dossier_name'] ?? '') ?>"></label>
+          <label>Data urodzenia<input type="date" name="birth_date" value="<?= mada_esc($editChild['birth_date'] ?? '') ?>"></label>
+          <label>Dzieci w rodzinie<input type="number" name="siblings" min="1" style="width:90px;" value="<?= mada_esc((string)($editChild['siblings'] ?? '')) ?>"></label>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <label style="flex:1;min-width:200px;">Ojciec<input type="text" name="father" value="<?= mada_esc($editChild['father'] ?? '') ?>"></label>
+          <label style="flex:1;min-width:200px;">Matka<input type="text" name="mother" value="<?= mada_esc($editChild['mother'] ?? '') ?>"></label>
+        </div>
+        <label>Opis sytuacji dziecka
+          <textarea name="description" rows="5" placeholder="Rodzina, w której wychowuje się..."><?= mada_esc($editChild['description'] ?? '') ?></textarea>
         </label>
-        <label style="flex:1;min-width:180px;">Uwagi<input type="text" name="notes" value="<?= mada_esc($editChild['notes'] ?? '') ?>"></label>
-        <button type="submit" class="btn-primary btn-sm">Zapisz zmiany</button>
-        <a href="dzieci.php" class="btn-ghost btn-sm">Anuluj</a>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+          <?php if (!empty($editChild['photo'])): ?>
+            <img src="../uploads/dzieci/<?= mada_esc($editChild['photo']) ?>" alt="" style="height:90px;border-radius:9px;border:1px solid var(--rule);">
+          <?php endif; ?>
+          <label style="margin:0;">Zdjęcie (JPG/PNG/WEBP, maks. 6 MB)<?= !empty($editChild['photo']) ? ' - wgranie nowego podmienia obecne' : '' ?>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+          </label>
+        </div>
+        <div style="margin-top:10px;">
+          <button type="submit" class="btn-primary btn-sm">Zapisz zmiany</button>
+          <a href="dzieci.php" class="btn-ghost btn-sm">Anuluj</a>
+        </div>
       </form>
-      <p class="hint" style="margin:8px 0 0;">Zmiana numeru jest bezpieczna - adopcje i wpłaty są powiązane z dzieckiem, nie z numerem. Status „nieaktywne" = dziecko poza programem (nie pojawia się jako wolne przy nowych adopcjach).</p>
+      <p class="hint" style="margin:8px 0 0;">Zmiana numeru jest bezpieczna - adopcje i wpłaty są powiązane z dzieckiem, nie z numerem. Status „nieaktywne" = dziecko poza programem. Dossier trafia do maila „przedstawienie dziecka" wysyłanego przy przypisaniu darczyńcy.</p>
     </div>
     <?php elseif ($showAdd): ?>
     <div class="spraw-panel" style="display:block;" id="formularz">
@@ -140,7 +197,7 @@ panel_header('Podopieczni - Adopcja Serca');
       <?php foreach ($children as $c): ?>
         <tr>
           <td><b><?= (int)$c['number'] ?></b></td>
-          <td><?= mada_esc($c['name']) ?></td>
+          <td><?= mada_esc($c['name']) ?><?= !empty($c['description']) || !empty($c['photo']) ? ' <span title="dossier uzupełnione">📋</span>' : '' ?></td>
           <td><?= $c['status'] === 'active' ? 'aktywne' : '<span class="hint">nieaktywne</span>' ?></td>
           <td><?php if ($c['donors'] !== null): ?><?= mada_esc($c['donors']) ?>
               <?php else: ?><span class="badge" style="background:#fbeeec;color:var(--err);border-color:#e6b9b1;">brak</span><?php endif; ?></td>

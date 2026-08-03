@@ -353,7 +353,14 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   `import-lacz.php` (jednorazowa migracja - do usunięcia po jej domknięciu).
 - **Raty kartowe**: `payu/notify.php` przy `COMPLETED` dopisuje wpłatę do powiązanych adopcji
   (idempotentnie, kwota dzielona między dzieci); powiązanie subskrypcji w edycji adopcji robi
-  **backfill** historycznych rat.
+  **backfill** historycznych rat. Opłacona adopcja kartowa **sama zakłada darczyńcę i adopcje
+  `pending`** (`adopt_ensure_from_card`, obie ścieżki: notify FIRST i sukces synchroniczny) -
+  baza darczyńców rośnie automatycznie z obu dróg formularza; ręcznie dodaje się tylko dzieci.
+- **Dossier dziecka** (wzór: PDF wysyłany darczyńcom): pola w Podopieczni -> Edytuj (pełne imię
+  i nazwisko, data urodzenia, rodzice, liczba dzieci w rodzinie, opis sytuacji, zdjęcie do
+  `uploads/dzieci/` z losową nazwą). Przy przypisywaniu dziecka pracownik może jednym
+  checkboxem wysłać darczyńcy **mail-dossier** (szablon fundacji + opcjonalny osobisty dopisek);
+  wysłanie odhacza „materiały wysłane".
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` (xlsx + eksporty HTML macierzy
