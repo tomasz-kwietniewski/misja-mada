@@ -364,11 +364,18 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   powiązanie z subskrypcją PayU) i **wpłaty jako zdarzenia z zakresem miesięcy** (`period_from..period_to`) -
   z tego liczy się „opłacone do" i zaległości (`adopcja/lib.php`, czysta logika pod testami).
 - **Strony panelu**: `adopcje.php` (dashboard: zalegają / wygasają), `darczyncy.php` + `darczynca.php`
-  (karta z historią wpłat i szybką wpłatą), `dzieci.php`, `wplaty.php` (**macierz miesięcy** jak
-  w arkuszu - klik czerwonej komórki odnotowuje wpłatę), `zgloszenia.php` (zgłoszenia ze strony,
-  przypisywanie dzieci), `finanse.php` (rejestr przepływów: zbiórki, wypłaty do Sióstr, wymiana walut),
-  `eksport.php` (**wyjście awaryjne**: XLSX w układzie znanym fundacji + CSV), `import.php` +
-  `import-lacz.php` (jednorazowa migracja - do usunięcia po jej domknięciu).
+  (karta z historią wpłat, szybką wpłatą i notatkami fundacji), `dzieci.php`, `wplaty.php`
+  (**macierz miesięcy** jak w arkuszu - klik czerwonej komórki odnotowuje wpłatę), `zgloszenia.php`
+  (zgłoszenia ze strony, przypisywanie dzieci), `finanse.php` (rejestr przepływów: zbiórki, wypłaty
+  do Sióstr, wymiana walut), `eksport.php` (**wyjście awaryjne**: XLSX w układzie znanym fundacji
+  + CSV), `import.php` + `import-lacz.php` (jednorazowa migracja - do usunięcia po jej domknięciu).
+- **Ergonomia list** (wypracowana z fundacją): darczyńcy sortowani po **nazwisku**
+  (`adopt_surname_key` - ostatni człon nazwy, tytuły „Ks." pomijane) z wyszukiwarką po nazwisku
+  i e-mailu; klik w dowolne miejsce wiersza otwiera kartę darczyńcy / edycję dziecka
+  (`<tr class="row-link" data-href>` obsłużone raz w `panel_footer()`); dzieci i darczyńcy
+  edytowalni wprost z listy; formularz dodawania dziecka jest identyczny z formularzem edycji;
+  macierz wpłat ma wybór okresu („rok RRRR" albo ostatnie 15 miesięcy) i suwak poziomy również
+  **nad** tabelą.
 - **Raty kartowe**: `payu/notify.php` przy `COMPLETED` dopisuje wpłatę do powiązanych adopcji
   (idempotentnie, kwota dzielona między dzieci); powiązanie subskrypcji w edycji adopcji robi
   **backfill** historycznych rat. Opłacona adopcja kartowa **sama zakłada darczyńcę i adopcje
@@ -383,9 +390,12 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   `adopcja/mail-dossier.php` - jedno źródło dla obu wejść.
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
-- **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` (xlsx + eksporty HTML macierzy
-  GR1-5 i zakładek finansowych) -> JSON -> `panel/import.php`; niejednoznaczne wiersze rozwiązuje się
-  ręcznie na `panel/import-lacz.php`.
+- **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` -> JSON -> `panel/import.php`
+  (import idempotentny, w transakcji); niejednoznaczne wiersze rozwiązuje się ręcznie na
+  `panel/import-lacz.php`. **Parser karmić PEŁNYM plikiem xlsx pobranym z Google Sheets**
+  (`…/export?format=xlsx`) - eksport zakładek do HTML pomija kolumny ukryte w arkuszu, przez co
+  opłacone miesiące wyglądają jak zaległości (przy pełnym xlsx dopasowanie wpłat urosło
+  z 70 385 do 105 910 PLN). Tryb HTML pozostaje awaryjnym fallbackiem i ostrzega o tym w konsoli.
 - **Rate-limit logowania per IP** (10 prób / 15 min, tabela `panel_login_attempts`) jako druga linia
   za throttlingiem sesyjnym + **audit log** zmian (`panel_audit_log`).
 
