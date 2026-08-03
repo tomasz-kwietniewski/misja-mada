@@ -234,6 +234,19 @@ Backend formularzy to Google Apps Script (`assets/google-apps-script.gs`, wdraż
 Apps Script; PHP woła go serwer-do-serwera z shared secret). E-mail fundacji: `kontakt@misjamada.pl`.
 
 - **Kontakt** - mail do fundacji z `Reply-To` na nadawcę.
+  - **Temat z linku:** `kontakt.html?temat=partner-biznesowy#napisz` (też `partner-edukacyjny`,
+    `wolontariat`) wstawia temat do pola „Temat" i przewija do formularza (`id="napisz"` na sekcji).
+    Tak działają przyciski „Napisz do nas" / „Zaproś nas do szkoły" / „Zgłoś się do wolontariatu"
+    w sekcji „Dołącz do nas" na `index`, `co-robimy`, `o-nas`, `wydarzenia`, `archiwum-wydarzen`.
+    **Wcześniej były to linki `mailto:`, które u odbiorcy bez skonfigurowanego klienta poczty nie
+    robiły NIC** - żadnego komunikatu, martwy przycisk (zgłoszenie z sierpnia 2026). Nie wracać
+    do `mailto:` w roli głównego CTA.
+  - Wartość parametru jest mapowana przez listę dozwolonych kluczy w `kontakt.html` - nieznana
+    wartość zostawia pole puste, nic nie trafia z URL-a do DOM.
+  - Temat wstawiamy przez `setAttribute('value', ...)`, **nie** przez `.value`. Powód: i18n tłumaczy
+    atrybut `value` (patrz `ATTRS` w `assets/i18n.js`), więc temat sam przechodzi na EN/FR, a brak
+    „dirty value flag" sprawia, że podmiana przy przełączaniu języka faktycznie zmienia to, co widać.
+    Ustawienie `.value` cicho zepsułoby tłumaczenie tego pola.
 - **Adopcja Serca** (`assets/adopcja-form.js`) - jeden pełny formularz z selektorem liczby dzieci
   (kwota = dzieci x 70 zł), dwie ścieżki wsparcia:
   - **Przelew** - double opt-in: zapis w arkuszu z „Weryfikacja e-mail" = `Oczekuje` -> mail „Potwierdź
