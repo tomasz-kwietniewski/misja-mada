@@ -211,3 +211,24 @@ table.matrix td.m-due button {
 table.matrix td.m-due button:hover { background: #fff; }
 table.matrix td.m-off  { background: var(--creamDk); color: #b9a98f; }
 table.matrix td.m-future { background: #fff; color: #b9a98f; }
+
+/* pod-menu modułu (druga belka, jaśniejsza) - trwała nawigacja sekcji */
+.panel-subnav {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  padding: 8px 28px 0; background: var(--creamDk);
+  border-bottom: 1px solid var(--rule);
+}
+.panel-subnav a {
+  padding: 7px 14px 8px; font-size: 13.5px; font-weight: 600;
+  color: var(--brown); text-decoration: none;
+  border-radius: 9px 9px 0 0; border: 1px solid transparent; border-bottom: none;
+}
+.panel-subnav a:hover { background: #e7dac6; }
+.panel-subnav a.active {
+  background: var(--cream); border-color: var(--rule);
+  position: relative; top: 1px;
+}
+@media (max-width: 720px) {
+  .panel-subnav { padding: 8px 12px 0; }
+  .panel-subnav a { padding: 6px 10px 7px; font-size: 12.5px; }
+}

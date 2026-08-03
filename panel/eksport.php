@@ -145,7 +145,6 @@ panel_header('Eksport - Adopcja Serca');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Eksport / backup danych</h2>
-      <a href="adopcje.php" class="btn-ghost btn-sm">← Przegląd</a>
     </div>
 
 <?php if ($dbError !== ''): ?>

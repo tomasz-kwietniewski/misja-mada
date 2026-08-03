@@ -126,7 +126,7 @@ panel_header('Darczyńca - Adopcja Serca');
       <span>
         <?php if ($donor): ?><a href="darczynca-edit.php?id=<?= (int)$donor['id'] ?>" class="btn-secondary btn-sm">Edytuj dane</a>
         <a href="adopcja-edit.php?donor=<?= (int)$donor['id'] ?>" class="btn-primary btn-sm">+ Nowa adopcja</a><?php endif; ?>
-        <a href="darczyncy.php" class="btn-ghost btn-sm">← Darczyńcy</a>
+
       </span>
     </div>
     <?= dk_flash() ?>

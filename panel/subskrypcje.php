@@ -88,7 +88,7 @@ panel_header('Subskrypcje');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Subskrypcje (płatności cykliczne)</h2>
-      <a href="index.php" class="btn-ghost">← Wróć do listy</a>
+
     </div>
     <?= sub_flash() ?>
 

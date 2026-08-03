@@ -28,10 +28,6 @@ panel_header('Zgłoszenia - Adopcja Serca');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Zgłoszenia ze strony</h2>
-      <span>
-        <a href="adopcje.php" class="btn-ghost btn-sm">← Przegląd</a>
-        <a href="darczyncy.php" class="btn-ghost btn-sm">Darczyńcy</a>
-      </span>
     </div>
 
 <?php if ($dbError !== ''): ?>
