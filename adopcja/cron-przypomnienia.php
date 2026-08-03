@@ -6,6 +6,11 @@
    ───────────────────────────────────────────────────────────────
    Zasady ustalone z fundacją 2026-08-03:
    - próg: zaległość od 2 miesięcy (bieżący miesiąc NIE liczy się jako zaległy),
+   - zaległość musi być BIEŻĄCA, czyli sięgać ostatniego zamkniętego miesiąca.
+     Historyczne dziury (ktoś ma lukę sprzed roku, ale płaci na bieżąco) to
+     prawie zawsze skutek importu z arkusza, gdzie wpłaty były zwijane w zakresy
+     - monit do osoby, która właśnie zapłaciła, byłby kompromitujący.
+     Takie przypadki skrypt wypisuje do ręcznego wyjaśnienia,
    - ponawianie co 14 dni, dopóki zaległość trwa,
    - wpłata przerywa cykl sama z siebie: po zaksięgowaniu zaległość spada
      poniżej progu i darczyńca wypada z listy,
@@ -37,10 +42,21 @@ try {
         fn($a) => in_array($a['status'], ['pending', 'active'], true) && $a['start_month'] !== null);
     $pays = adopt_payments_by_adoptions(array_column($ads, 'id'));
 
+    $prevM = adopt_month_add(date('Y-m'), -1);   // ostatni zamknięty miesiąc
     $perDonor = [];
+    $historyczne = [];
     foreach ($ads as $a) {
         $miss = adopt_arrears($a['start_month'], $a['end_month'], $pays[(int)$a['id']] ?? [], $today);
         if (count($miss) < PRZYPOMNIENIE_PROG_MIESIECY) continue;
+        /* Ostatni miesiąc, za który wpłata jest już należna: normalnie poprzedni
+           miesiąc, a dla adopcji z zamkniętym okresem - jej ostatni miesiąc. */
+        $dueTo = ($a['end_month'] !== null && $a['end_month'] < $prevM) ? $a['end_month'] : $prevM;
+        if (end($miss) !== $dueTo) {
+            $historyczne[] = $a['donor_name'] . ' - ' . ($a['child_name'] ?? 'bez dziecka')
+                . ' (nr ' . (int)$a['child_number'] . '): brak ' . implode(', ', $miss)
+                . ', ale opłacone do ' . (adopt_paid_until($pays[(int)$a['id']] ?? []) ?? '-');
+            continue;
+        }
         $perDonor[(int)$a['donor_id']][] = [
             'adoption_id'   => (int)$a['id'],
             'child_name'    => $a['child_name'],
@@ -49,7 +65,8 @@ try {
             'amount_grosze' => (int)$a['amount_grosze'],
         ];
     }
-    if (!$perDonor) { echo "  nikt nie przekracza progu " . PRZYPOMNIENIE_PROG_MIESIECY . " miesięcy - koniec\n"; exit(0); }
+    foreach ($historyczne as $h) echo "  LUKA HISTORYCZNA (nie piszę, do wyjaśnienia): $h\n";
+    if (!$perDonor) { echo "  nikt nie ma bieżącej zaległości od " . PRZYPOMNIENIE_PROG_MIESIECY . " miesięcy - koniec\n"; exit(0); }
 
     // ── kiedy ostatnio pisaliśmy (blokada ponawiania) ──
     $lastSent = [];
@@ -96,6 +113,7 @@ try {
 
     echo '  podsumowanie: ' . ($dry ? 'do wysłania' : 'wysłanych') . " $wyslane, "
        . "pominiętych (za wcześnie na ponowienie) $pominieteCzas, bez e-maila " . count($bezMaila)
+       . ', luk historycznych ' . count($historyczne)
        . ($bledy ? ", błędów $bledy" : '') . "\n";
     foreach ($bezMaila as $b) echo "  BEZ E-MAILA (kontakt ręczny): $b\n";
     exit($bledy > 0 ? 1 : 0);
