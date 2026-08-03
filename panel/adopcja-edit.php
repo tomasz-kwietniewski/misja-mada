@@ -38,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'donor_id' => $donorId, 'child_id' => $childId, 'subscription_id' => $subId,
             'duration' => $duration, 'start_month' => $startM, 'end_month' => $endM,
             'frequency' => $freq, 'amount_grosze' => $amount, 'method' => $method,
-            'materials_sent' => !empty($_POST['materials_sent']),
             'notes' => trim((string)($_POST['notes'] ?? '')),
         ];
         if ($id > 0) {
@@ -67,8 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dn = adopt_donor_get($donorId);
             $ch = adopt_child_get($childId);
             if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, trim((string)($_POST['personal_note'] ?? '')))) {
-                // dossier poszlo mailem -> odhacz "materialy wyslane" na tej adopcji
-                payu_db()->prepare('UPDATE adopt_adoptions SET materials_sent = 1 WHERE id = ?')->execute([$id]);
                 mada_audit('adoption.childmail', 'adoption', $id, ['dziecko' => $ch['name'], 'email' => $dn['email']]);
                 mada_redirect("darczynca.php?id=$donorId&msg=mailok");
             }
@@ -175,11 +172,6 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
         </select>
       </label>
       <p class="hint" style="margin:-6px 0 14px;">Po powiązaniu subskrypcji historyczne opłacone raty PayU dopiszą się automatycznie jako wpłaty.</p>
-
-      <label style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" name="materials_sent" value="1" <?= !empty($adoption['materials_sent']) ? 'checked' : '' ?> style="width:auto;">
-        Materiały o dziecku wysłane do darczyńcy
-      </label>
 
       <?php if (($donor['email'] ?? '') !== ''): ?>
       <div style="background:#fff;border:1px solid var(--rule);border-radius:12px;padding:14px 18px;margin:0 0 14px;">

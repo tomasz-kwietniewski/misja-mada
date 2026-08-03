@@ -27,6 +27,21 @@ function adopt_db_add_columns(PDO $pdo, string $table, array $cols): void {
     }
 }
 
+/** Usuwa wycofane kolumny (idempotentnie, zgodne z MySQL i MariaDB). */
+function adopt_db_drop_columns(PDO $pdo, string $table, array $cols): void {
+    $st = $pdo->prepare(
+        'SELECT COLUMN_NAME FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+    );
+    $st->execute([$table]);
+    $have = $st->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($cols as $name) {
+        if (in_array($name, $have, true)) {
+            $pdo->exec("ALTER TABLE `$table` DROP COLUMN `$name`");
+        }
+    }
+}
+
 /** Gwarantuje istnienie schematu - raz na proces. */
 function adopt_db_ensure_schema(): void {
     static $done = false;
@@ -81,7 +96,6 @@ function adopt_db_migrate(?PDO $pdo = null): void {
             amount_grosze   INT UNSIGNED    NOT NULL DEFAULT 7000,
             method          ENUM('transfer','card','cash') NOT NULL DEFAULT 'transfer',
             status          ENUM('pending','active','ended','cancelled') NOT NULL DEFAULT 'active',
-            materials_sent  TINYINT(1)      NOT NULL DEFAULT 0,
             notes           TEXT            NULL,
             created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
             ended_at        DATETIME        NULL,
@@ -133,6 +147,10 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         'description'  => "TEXT NULL",               // opis sytuacji dziecka
         'photo'        => "VARCHAR(120) NULL",       // nazwa pliku w uploads/dzieci/
     ]);
+
+    /* Kolumna „materiały wysłane" wycofana (2026-08-03): arkusz fundacji prowadził
+       ją tylko dla GR1, więc dla pozostałych grup dawała fałszywe „nie". */
+    adopt_db_drop_columns($pdo, 'adopt_adoptions', ['materials_sent']);
 
     /* Zgłoszenia z formularza przelewowego (double opt-in po stronie PHP). */
     $pdo->exec(
@@ -369,8 +387,7 @@ function adopt_child_by_number(int $number): ?array {
 /** Lista dzieci z aktualnym darczyńcą (adopcje pending/active). */
 function adopt_child_list(): array {
     $sql = "SELECT c.*,
-                   GROUP_CONCAT(DISTINCT d.full_name ORDER BY d.full_name SEPARATOR '; ') AS donors,
-                   MAX(a.materials_sent) AS materials_sent
+                   GROUP_CONCAT(DISTINCT d.full_name ORDER BY d.full_name SEPARATOR '; ') AS donors
               FROM adopt_children c
               LEFT JOIN adopt_adoptions a
                      ON a.child_id = c.id AND a.status IN ('pending','active')
@@ -443,8 +460,8 @@ function adopt_adoption_insert(array $d): int {
     $st = $pdo->prepare(
         'INSERT INTO adopt_adoptions
             (donor_id, child_id, subscription_id, duration, start_month, end_month,
-             frequency, amount_grosze, method, status, materials_sent, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             frequency, amount_grosze, method, status, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $st->execute([
         $d['donor_id'],
@@ -457,7 +474,6 @@ function adopt_adoption_insert(array $d): int {
         $d['amount_grosze'] ?? 7000,
         $d['method'] ?? 'transfer',
         $d['status'] ?? 'active',
-        !empty($d['materials_sent']) ? 1 : 0,
         $d['notes'] ?? null,
     ]);
     return (int)$pdo->lastInsertId();
@@ -610,7 +626,7 @@ function adopt_adoption_update(int $id, array $d): void {
     $st = payu_db()->prepare(
         'UPDATE adopt_adoptions
             SET child_id = ?, subscription_id = ?, duration = ?, start_month = ?, end_month = ?,
-                frequency = ?, amount_grosze = ?, method = ?, materials_sent = ?, notes = ?
+                frequency = ?, amount_grosze = ?, method = ?, notes = ?
           WHERE id = ?'
     );
     $st->execute([
@@ -622,7 +638,6 @@ function adopt_adoption_update(int $id, array $d): void {
         $d['frequency'],
         $d['amount_grosze'],
         $d['method'],
-        !empty($d['materials_sent']) ? 1 : 0,
         ($d['notes'] ?? '') !== '' ? $d['notes'] : null,
         $id,
     ]);
@@ -654,7 +669,6 @@ function adopt_adoption_resume(int $oldId, string $startMonth): int {
         'amount_grosze' => (int)$old['amount_grosze'],
         'method'        => $old['method'],
         'status'        => 'active',
-        'materials_sent'=> (int)$old['materials_sent'] === 1,
         'notes'         => 'Wznowienie adopcji #' . (int)$old['id'],
     ]);
 }

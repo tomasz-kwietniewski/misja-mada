@@ -62,17 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_audit($isAdd ? 'child.add' : 'child.edit', 'child', $cid, array_diff_key($d, ['description' => 1]));
             mada_redirect('dzieci.php?msg=' . ($isAdd ? 'added' : 'saved'));
         }
-        if ($action === 'materials') {
-            // przełącz flagę na wszystkich otwartych adopcjach tego dziecka
-            $cid = (int)($_POST['child_id'] ?? 0);
-            $val = ($_POST['value'] ?? '') === '1' ? 1 : 0;
-            $st = payu_db()->prepare(
-                "UPDATE adopt_adoptions SET materials_sent = ? WHERE child_id = ? AND status IN ('pending','active')"
-            );
-            $st->execute([$val, $cid]);
-            mada_audit('child.materials', 'child', $cid, ['sent' => $val]);
-            mada_redirect('dzieci.php?msg=saved');
-        }
     } catch (Throwable $e) {
         $dbError = $e->getMessage();
     }
@@ -212,7 +201,7 @@ panel_header('Podopieczni - Adopcja Serca');
        z darczyńcą: <?= $withDonor ?>, bez darczyńcy: <?= count($children) - $withDonor ?>.</p>
     <table class="events">
       <thead><tr>
-        <th>Nr</th><th>Imię</th><th>Status</th><th>Darczyńca</th><th>Materiały wysłane</th><th>Uwagi</th><th></th>
+        <th>Nr</th><th>Imię</th><th>Status</th><th>Darczyńca</th><th>Uwagi</th><th></th>
       </tr></thead>
       <tbody>
       <?php foreach ($children as $c): ?>
@@ -222,20 +211,6 @@ panel_header('Podopieczni - Adopcja Serca');
           <td><?= $c['status'] === 'active' ? 'aktywne' : '<span class="hint">nieaktywne</span>' ?></td>
           <td><?php if ($c['donors'] !== null): ?><?= mada_esc($c['donors']) ?>
               <?php else: ?><span class="badge" style="background:#fbeeec;color:var(--err);border-color:#e6b9b1;">brak</span><?php endif; ?></td>
-          <td>
-            <?php $sent = ((int)($c['materials_sent'] ?? 0)) === 1; ?>
-            <?php if ($c['donors'] !== null): ?>
-            <form method="post" style="margin:0;display:inline;">
-              <?= mada_csrf_field() ?>
-              <input type="hidden" name="action" value="materials">
-              <input type="hidden" name="child_id" value="<?= (int)$c['id'] ?>">
-              <input type="hidden" name="value" value="<?= $sent ? 0 : 1 ?>">
-              <button type="submit" class="btn-sm <?= $sent ? 'btn-secondary' : 'btn-danger' ?>" title="Kliknij, aby przełączyć">
-                <?= $sent ? 'TAK' : 'nie' ?>
-              </button>
-            </form>
-            <?php else: ?><span class="hint">-</span><?php endif; ?>
-          </td>
           <td class="hint"><?= mada_esc($c['notes'] ?? '') ?></td>
           <td><a class="btn-secondary btn-sm" href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz">Edytuj</a></td>
         </tr>
