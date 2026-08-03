@@ -89,7 +89,10 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── zgloszenie.php       formularz przelewowy ze strony (double opt-in, KROK 1)
 │   ├── potwierdz.php        potwierdzenie e-maila (KROK 2: darczyńca + adopcje pending, maile, lustro)
 │   ├── xlsx.php             minimalny writer XLSX (eksport-backup, bez Composera)
-│   └── migrate.php          migracja schematu modułu (CLI; idempotentna, także ALTER-y dossier)
+│   ├── mail-dossier.php     mail z przedstawieniem dziecka (wysyłka tylko na życzenie)
+│   ├── mail-przypomnienie.php treść monitu o zaległych wpłatach (+ kopia do fundacji)
+│   ├── cron-przypomnienia.php monity o zaległościach (CLI, tryb --dry; NIE jest w cronie)
+│   └── migrate.php          migracja schematu modułu (CLI; idempotentna, także ALTER-y i DROP-y)
 │
 ├── panel/                  panel CMS (PHP, logowanie + CSRF + rate-limit IP)
 │   ├── index.php, login.php, auth.php, layout.php, lib.php, panel.css
@@ -373,9 +376,20 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   (`adopt_surname_key` - ostatni człon nazwy, tytuły „Ks." pomijane) z wyszukiwarką po nazwisku
   i e-mailu; klik w dowolne miejsce wiersza otwiera kartę darczyńcy / edycję dziecka
   (`<tr class="row-link" data-href>` obsłużone raz w `panel_footer()`); dzieci i darczyńcy
-  edytowalni wprost z listy; formularz dodawania dziecka jest identyczny z formularzem edycji;
-  macierz wpłat ma wybór okresu („rok RRRR" albo ostatnie 15 miesięcy) i suwak poziomy również
-  **nad** tabelą.
+  edytowalni wprost z listy; formularz dodawania dziecka jest identyczny z formularzem edycji.
+  Lista darczyńców pokazuje **domyślnie tylko aktualnie wspierających**; archiwalni (mieli adopcje,
+  żadna nie jest już aktywna ani oczekująca) są pod przyciskiem „Pokaż archiwalnych" z plakietką
+  przy nazwisku. Osoba dopiero dodana, jeszcze bez adopcji, **nie** jest archiwalna - inaczej nowy
+  darczyńca znikałby z listy, zanim ktokolwiek przypisze mu dziecko. Wyszukiwarka celowo obejmuje
+  także archiwalnych.
+- **Macierz wpłat** (`panel/wplaty.php`) otwiera się na oknie **3 miesiące wstecz + bieżący +
+  3 w przód** (mieści się bez przewijania); do wyboru także „ostatnie 15 miesięcy", konkretny rok
+  i ręczne „Okno od miesiąca" (zmiana trybu czyści ręczne okno). Nad tabelą jest **przyklejony
+  pasek nawigacji** z własnym, zawsze widocznym suwakiem i strzałkami ◀ ▶; szerokość mierzona jest
+  ponownie po `load`, `resize` i `fonts.ready` (jednorazowy pomiar wypadał przed dociągnięciem
+  fontu i pasek pojawiał się dopiero po odświeżeniu). Nagłówek miesięcy i kolumna nazwisk trzymają
+  się krawędzi okna. Pod filtrami **legenda kolorów**: zielone = opłacone, czerwone `+70` = zaległe
+  (klik zapisuje wpłatę), białe = przyszły miesiąc trwającej adopcji, beżowe = poza okresem adopcji.
 - **Raty kartowe**: `payu/notify.php` przy `COMPLETED` dopisuje wpłatę do powiązanych adopcji
   (idempotentnie, kwota dzielona między dzieci); powiązanie subskrypcji w edycji adopcji robi
   **backfill** historycznych rat. Opłacona adopcja kartowa **sama zakłada darczyńcę i adopcje
@@ -392,6 +406,19 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   fundacji miał ją tylko dla grupy GR1, więc dla pozostałych grup pokazywała fałszywe „nie".
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
+- **Przypomnienia o zaległościach** (`adopcja/cron-przypomnienia.php` + `adopcja/mail-przypomnienie.php`,
+  log w `adopt_reminders`). Zasady ustalone z fundacją: monit przy zaległości **od 2 miesięcy**,
+  ponawiany **co 14 dni**, jeden mail na darczyńcę (z rozbiciem na dzieci i brakujące miesiące),
+  **kopia każdego maila do fundacji**, a zaksięgowana wpłata przerywa cykl sama z siebie.
+  Dodatkowy warunek: zaległość musi być **bieżąca**, czyli sięgać ostatniego zamkniętego miesiąca.
+  Historyczne dziury (ktoś ma lukę sprzed roku, ale płaci na bieżąco - typowa pozostałość po
+  imporcie z arkusza, gdzie wpłaty zwijano w zakresy) trafiają na listę „LUKA HISTORYCZNA" do
+  ręcznego wyjaśnienia zamiast do wysyłki; darczyńcy bez adresu e-mail również.
+  Zwroty w mailu są **bezosobowe** („Dzień dobry, X!") - formy typu „Szanowny Panie [imię]" psują
+  się na małżeństwach i instytucjach, których w bazie jest sporo.
+  **Uruchamianie:** `php adopcja/cron-przypomnienia.php --dry` pokazuje listę bez wysyłki; bez
+  `--dry` wysyła. **Stan na 2026-08-03: skryptu NIE MA w cronie, więc nic się nie wysyła** -
+  włączenie to świadoma decyzja fundacji (wpis typu `30 6 * * *`).
 - **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` -> JSON -> `panel/import.php`
   (import idempotentny, w transakcji); niejednoznaczne wiersze rozwiązuje się ręcznie na
   `panel/import-lacz.php`. **Parser karmić PEŁNYM plikiem xlsx pobranym z Google Sheets**
