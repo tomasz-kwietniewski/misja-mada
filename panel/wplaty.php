@@ -13,7 +13,11 @@ $dbError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     mada_csrf_check();
-    $back = 'wplaty.php?f=' . urlencode((string)($_POST['f'] ?? '')) . '&od=' . urlencode((string)($_POST['odw'] ?? ''));
+    // Powrót na TEN SAM widok: bez przeniesienia wyboru okresu klik w komórkę
+    // wyrzucał pracownika do okna domyślnego (gubił np. rozliczany rok).
+    $back = 'wplaty.php?f=' . urlencode((string)($_POST['f'] ?? ''))
+          . '&od=' . urlencode((string)($_POST['odw'] ?? ''))
+          . '&rok=' . urlencode((string)($_POST['rokw'] ?? ''));
     try {
         adopt_db_ensure_schema();
         $action = $_POST['action'] ?? '';
@@ -74,17 +78,22 @@ function wp_flash() {
 }
 
 /* ── Okno miesięcy i filtr ─────────────────────────────────────────
-   Trzy tryby okna: cały ROK kalendarzowy (styczeń-grudzień, wygodne do
-   rozliczeń), ostatnie 15 miesięcy (domyślne) albo dowolny start. */
+   Tryby okna: DOMYŚLNY „3 wstecz + bieżący + 3 w przód" (7 kolumn - mieści
+   się na ekranie bez przewijania, a wpłaty z góry i świeże zaległości widać
+   naraz), cały ROK kalendarzowy (wygodny do rozliczeń), ostatnie 15 miesięcy
+   (podgląd historii) albo dowolny start podany ręcznie. */
 $filter = (string)($_GET['f'] ?? 'all');
 $yearSel = (string)($_GET['rok'] ?? '');
 $winFrom = (string)($_GET['od'] ?? '');
+$span = $yearSel === '15' ? 15 : 7;          // liczba kolumn dla trybów bez roku
 if (preg_match('/^\d{4}$/', $yearSel)) {
     $winFrom = $yearSel . '-01';
     $winTo   = $yearSel . '-12';
 } else {
-    if (!adopt_month_valid($winFrom)) $winFrom = adopt_month_add(date('Y-m'), -11);
-    $winTo = adopt_month_add($winFrom, 14);   // 15 kolumn miesięcy
+    // Bez ręcznego startu okno kotwiczy się na bieżącym miesiącu: 7 kolumn ma
+    // 3 miesiące wstecz i 3 w przód, 15 kolumn - 11 wstecz (podgląd historii).
+    if (!adopt_month_valid($winFrom)) $winFrom = adopt_month_add(date('Y-m'), $span === 15 ? -11 : -3);
+    $winTo = adopt_month_add($winFrom, $span - 1);
 }
 $months = adopt_month_range($winFrom, $winTo);
 $nowM = date('Y-m');
@@ -126,14 +135,17 @@ panel_header('Wpłaty - Adopcja Serca');
         </select>
       </label>
       <label class="hint">Okres
-        <select name="rok" onchange="this.form.submit()">
-          <option value="">ostatnie 15 miesięcy</option>
+        <!-- zmiana trybu czyści ręczne „Okno od" - inaczej wybór „ostatnie 15
+             miesięcy" dziedziczył start poprzedniego okna i pokazywał przyszłość -->
+        <select name="rok" onchange="if (this.form.od) this.form.od.value = ''; this.form.submit()">
+          <option value="" <?= $yearSel === '' ? 'selected' : '' ?>>3 miesiące wstecz + 3 w przód</option>
+          <option value="15" <?= $yearSel === '15' ? 'selected' : '' ?>>ostatnie 15 miesięcy</option>
           <?php for ($y = (int)date('Y') + 1; $y >= 2024; $y--): ?>
             <option value="<?= $y ?>" <?= $yearSel === (string)$y ? 'selected' : '' ?>>rok <?= $y ?></option>
           <?php endfor; ?>
         </select>
       </label>
-      <?php if ($yearSel === ''): ?>
+      <?php if (!preg_match('/^\d{4}$/', $yearSel)): ?>
       <label class="hint">Okno od miesiąca
         <input type="month" name="od" value="<?= mada_esc($winFrom) ?>" onchange="this.form.submit()">
       </label>
@@ -148,6 +160,7 @@ panel_header('Wpłaty - Adopcja Serca');
         <input type="hidden" name="action" value="bulk">
         <input type="hidden" name="f" value="<?= mada_esc($filter) ?>">
         <input type="hidden" name="odw" value="<?= mada_esc($winFrom) ?>">
+        <input type="hidden" name="rokw" value="<?= mada_esc($yearSel) ?>">
         <label style="flex:2;min-width:260px;">Adopcja
           <select name="adoption_id" required>
             <?php foreach ($adsAll as $a): ?>
@@ -172,9 +185,21 @@ panel_header('Wpłaty - Adopcja Serca');
     <?php else: ?>
     <p class="hint" style="margin:0 0 10px;">Wierszy: <?= count($rows) ?>. Klik w czerwoną komórkę odnotowuje wpłatę
        w kwocie adopcji za ten miesiąc (metoda wg adopcji). Zakresy i inne kwoty - formularz zbiorczy powyżej.</p>
-    <!-- Suwak poziomy NAD tabelą (przy wielu wierszach ten pod spodem jest
-         daleko). Szerokość ustawiana skryptem, przewijanie zsynchronizowane. -->
-    <div class="matrix-scroll-top" id="mx-top" aria-hidden="true"><div id="mx-top-inner"></div></div>
+    <p class="matrix-legend">
+      <span><i class="lg lg-paid">✓</i> opłacone</span>
+      <span><i class="lg lg-due">+70</i> zaległe - klik odnotowuje wpłatę</span>
+      <span><i class="lg lg-future"></i> przyszły miesiąc trwającej adopcji</span>
+      <span><i class="lg lg-off"></i> poza okresem adopcji (przed startem albo po końcu)</span>
+    </p>
+    <!-- Pasek nawigacji NAD tabelą: przykleja się do góry przy przewijaniu
+         (131 wierszy - dolny pasek przeglądarki jest wtedy poza ekranem),
+         ma własny, zawsze widoczny suwak i strzałki dla myszy bez kółka
+         poziomego. Szerokość i widoczność ustawia skrypt. -->
+    <div class="matrix-nav" id="mx-nav" hidden>
+      <button type="button" class="mx-arrow" id="mx-left" aria-label="Przewiń miesiące w lewo">◀</button>
+      <div class="matrix-scroll-top" id="mx-top" aria-hidden="true"><div id="mx-top-inner"></div></div>
+      <button type="button" class="mx-arrow" id="mx-right" aria-label="Przewiń miesiące w prawo">▶</button>
+    </div>
     <div class="matrix-scroll" id="mx-main">
       <table class="matrix">
         <thead><tr>
@@ -205,6 +230,7 @@ panel_header('Wpłaty - Adopcja Serca');
                       <input type="hidden" name="action" value="quick">
                       <input type="hidden" name="f" value="<?= mada_esc($filter) ?>">
                       <input type="hidden" name="odw" value="<?= mada_esc($winFrom) ?>">
+                      <input type="hidden" name="rokw" value="<?= mada_esc($yearSel) ?>">
                       <input type="hidden" name="adoption_id" value="<?= (int)$r['id'] ?>">
                       <input type="hidden" name="month" value="<?= mada_esc($m) ?>">
                       <button type="submit" title="Odnotuj <?= number_format($r['amount_grosze'] / 100, 0, ',', ' ') ?> zł za <?= mada_esc(adopt_month_label($m)) ?>">+<?= number_format($r['amount_grosze'] / 100, 0, ',', ' ') ?></button>
@@ -219,20 +245,40 @@ panel_header('Wpłaty - Adopcja Serca');
       </table>
     </div>
     <script>
-    /* Suwak nad tabelą: kopiuje szerokość tabeli i synchronizuje przewijanie
-       w obie strony. Bez JS wszystko działa jak dotąd (dolny pasek). */
+    /* Pasek nawigacji nad tabelą: kopiuje szerokość tabeli, synchronizuje
+       przewijanie w obie strony i obsługuje strzałki. Bez JS zostaje zwykły
+       dolny pasek przeglądarki (pasek startuje jako hidden). */
     (function () {
-      var top = document.getElementById('mx-top'),
+      var nav = document.getElementById('mx-nav'),
+          top = document.getElementById('mx-top'),
           inner = document.getElementById('mx-top-inner'),
           main = document.getElementById('mx-main'),
+          left = document.getElementById('mx-left'),
+          right = document.getElementById('mx-right'),
           table = main && main.querySelector('table.matrix');
-      if (!top || !inner || !main || !table) return;
+      if (!nav || !top || !inner || !main || !table) return;
+
       function sync() {
         inner.style.width = table.scrollWidth + 'px';
-        top.style.display = table.scrollWidth > main.clientWidth ? 'block' : 'none';
+        // Pasek pokazujemy tylko wtedy, gdy tabela naprawdę wystaje poza ekran.
+        nav.hidden = table.scrollWidth <= main.clientWidth + 1;
+        arrows();
       }
+      function arrows() {
+        var max = main.scrollWidth - main.clientWidth;
+        left.disabled = main.scrollLeft <= 0;
+        right.disabled = main.scrollLeft >= max - 1;
+      }
+      /* Pomiar powtarzany: przy PIERWSZYM wejściu (pusty cache) szerokości
+         kolumn rosną dopiero po dociągnięciu fontu, więc jednorazowy pomiar
+         przy parsowaniu dawał za małe scrollWidth i pasek nie pojawiał się
+         aż do odświeżenia strony. */
       sync();
+      window.addEventListener('load', sync);
       window.addEventListener('resize', sync);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync);
+      if (window.ResizeObserver) new ResizeObserver(sync).observe(table);
+
       // Porównanie wartości zamiast flagi blokady: przypisanie tej samej
       // pozycji nie generuje zdarzenia, więc pętla sprzężenia nie powstaje.
       top.addEventListener('scroll', function () {
@@ -240,7 +286,18 @@ panel_header('Wpłaty - Adopcja Serca');
       });
       main.addEventListener('scroll', function () {
         if (top.scrollLeft !== main.scrollLeft) top.scrollLeft = main.scrollLeft;
+        arrows();
       });
+
+      function step(dir) {
+        // Krok = szerokość kolumny miesiąca (fallback 90 px), żeby przewijanie
+        // zatrzymywało się na pełnych miesiącach.
+        var cell = table.querySelector('thead th:nth-child(2)'),
+            w = cell ? Math.round(cell.getBoundingClientRect().width) : 90;
+        main.scrollBy({ left: dir * Math.max(w, 40) * 2, behavior: 'smooth' });
+      }
+      left.addEventListener('click', function () { step(-1); });
+      right.addEventListener('click', function () { step(1); });
     })();
     </script>
     <?php endif; ?>

@@ -197,10 +197,19 @@ table.events tr:last-child td { border-bottom: none; }
 .adopt-tile.tile-warn b { color: var(--err); }
 
 /* macierz wpłat: przewijana w poziomie, komórki-miesiące */
-.matrix-scroll { overflow-x: auto; background: #fff; border-radius: 12px; box-shadow: 0 8px 28px -18px rgba(66,41,24,.25); }
+/* Okno macierzy: przewijane w obu osiach. Ograniczona wysokość jest tu po to,
+   by nagłówek z miesiącami mógł się przykleić (sticky liczy się względem tego
+   kontenera) - przy 130 wierszach bez tego nie wiadomo, którą kolumnę się ogląda. */
+.matrix-scroll {
+  overflow: auto; max-height: calc(100vh - 210px); min-height: 220px;
+  background: #fff; border-radius: 12px; box-shadow: 0 8px 28px -18px rgba(66,41,24,.25);
+}
 table.matrix { border-collapse: collapse; min-width: 100%; }
 table.matrix th, table.matrix td { border: 1px solid var(--rule); padding: 6px 8px; font-size: 13px; text-align: center; white-space: nowrap; }
-table.matrix th { background: var(--creamDk); color: var(--brown); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; }
+/* nagłówek miesięcy przyklejony do górnej krawędzi okna macierzy */
+table.matrix th { background: var(--creamDk); color: var(--brown); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; z-index: 2; }
+/* róg tabeli (kolumna z nazwiskiem w nagłówku) trzyma obie osie naraz */
+table.matrix thead th:first-child { left: 0; z-index: 3; }
 table.matrix td.m-name { text-align: left; background: #fff; position: sticky; left: 0; min-width: 210px; box-shadow: 1px 0 0 var(--rule); }
 table.matrix td.m-paid { background: #e9f5ee; color: var(--ok); font-weight: 600; }
 table.matrix td.m-due  { background: #fbeeec; }
@@ -233,12 +242,53 @@ table.matrix td.m-future { background: #fff; color: #b9a98f; }
   .panel-subnav a { padding: 6px 10px 7px; font-size: 12.5px; }
 }
 
-/* suwak poziomy NAD macierzą (bliźniak dolnego paska przewijania) */
+/* pasek nawigacji NAD macierzą: przykleja się do góry przy przewijaniu listy,
+   ma zawsze widoczny suwak (systemowy bywa nakładkowy i znika) i strzałki */
+.matrix-nav {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 6px; padding: 6px 8px;
+  background: var(--cream); border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+.matrix-nav[hidden] { display: none; }
+.mx-arrow {
+  flex: 0 0 auto; width: 30px; height: 26px; line-height: 1;
+  border: 1px solid var(--rule); background: #fff; color: var(--brown);
+  border-radius: 8px; cursor: pointer; font-size: 12px;
+}
+.mx-arrow:hover:not(:disabled) { background: var(--creamDk); }
+.mx-arrow:disabled { opacity: .35; cursor: default; }
 .matrix-scroll-top {
-  overflow-x: auto; overflow-y: hidden;
-  margin: 0 0 4px; border-radius: 12px 12px 0 0;
+  flex: 1 1 auto; overflow-x: scroll; overflow-y: hidden;
+  scrollbar-color: var(--brown) var(--creamDk);   /* Firefox */
 }
 .matrix-scroll-top > div { height: 1px; }
+/* WebKit/Blink: pasek zawsze widoczny, nie nakładkowy - bez tego użytkownik
+   nie wie, że tabelę da się przesunąć w bok. */
+.matrix-scroll-top::-webkit-scrollbar { height: 12px; }
+.matrix-scroll-top::-webkit-scrollbar-track { background: var(--creamDk); border-radius: 7px; }
+.matrix-scroll-top::-webkit-scrollbar-thumb {
+  background: #b9a98f; border-radius: 7px; border: 2px solid var(--creamDk);
+}
+.matrix-scroll-top::-webkit-scrollbar-thumb:hover { background: var(--brown); }
+
+/* legenda kolorów macierzy - stany komórek nie są oczywiste bez opisu */
+.matrix-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  margin: 0 0 12px; font-size: 12.5px; color: #6d5c46;
+}
+.matrix-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.matrix-legend .lg {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; height: 20px; padding: 0 5px;
+  border: 1px solid var(--rule); border-radius: 5px;
+  font-style: normal; font-size: 11px; font-weight: 600;
+}
+.matrix-legend .lg-paid { background: #e9f5ee; color: var(--ok); }
+.matrix-legend .lg-due { background: #fbeeec; color: var(--err); border-style: dashed; border-color: #e6b9b1; }
+.matrix-legend .lg-future { background: #fff; }
+.matrix-legend .lg-off { background: var(--creamDk); }
 
 /* klikalny cały wiersz listy darczyńców */
 table.events tr.row-link { cursor: pointer; }
