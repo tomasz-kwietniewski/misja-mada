@@ -2,8 +2,29 @@
 /* ═══ CMS - wspólny layout dla stron za logowaniem ═══════════════ */
 require_once __DIR__ . '/auth.php';
 
+/**
+ * Moduły panelu do górnej nawigacji: etykieta, strona startowa modułu
+ * i lista plików, przy których zakładka jest podświetlona jako aktywna.
+ */
+function panel_nav_modules(): array {
+    return [
+        'wydarzenia'   => ['Wydarzenia', 'index.php',
+            ['index.php', 'edit.php', 'categories.php', 'translate.php', 'glossary.php', 'media.php']],
+        'sprawozdania' => ['Sprawozdania', 'sprawozdania.php',
+            ['sprawozdania.php']],
+        'subskrypcje'  => ['Subskrypcje', 'subskrypcje.php',
+            ['subskrypcje.php']],
+        'adopcja'      => ['Adopcja Serca', 'adopcje.php',
+            ['adopcje.php', 'darczyncy.php', 'darczynca.php', 'darczynca-edit.php', 'dzieci.php',
+             'adopcja-edit.php', 'wplaty.php', 'zgloszenia.php', 'import.php', 'import-lacz.php', 'eksport.php']],
+        'finanse'      => ['Finanse', 'finanse.php',
+            ['finanse.php']],
+    ];
+}
+
 function panel_header($title) {
     $user = mada_current_user();
+    $script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
     ?>
 <!doctype html>
 <html lang="pl">
@@ -17,9 +38,15 @@ function panel_header($title) {
 </head>
 <body>
   <header class="panel-top">
-    <h1><a href="index.php" style="color:inherit;text-decoration:none;">Panel wydarzeń</a></h1>
+    <h1><a href="index.php" style="color:inherit;text-decoration:none;">Fundacja Misja MADA
+      <span class="panel-sub">Panel administracyjny</span></a></h1>
     <span class="who">Zalogowano: <strong><?= mada_esc($user) ?></strong> · <a href="logout.php">Wyloguj</a></span>
   </header>
+  <nav class="panel-nav" aria-label="Moduły panelu">
+    <?php foreach (panel_nav_modules() as $m): [$label, $href, $files] = $m; ?>
+      <a href="<?= mada_esc($href) ?>"<?= in_array($script, $files, true) ? ' class="active" aria-current="page"' : '' ?>><?= mada_esc($label) ?></a>
+    <?php endforeach; ?>
+  </nav>
   <main class="panel-wrap">
 <?php
 }

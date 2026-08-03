@@ -36,7 +36,6 @@ panel_header('Darczyńcy - Adopcja Serca');
         <a href="wplaty.php" class="btn-secondary btn-sm">Macierz wpłat</a>
         <a href="dzieci.php" class="btn-secondary btn-sm">Podopieczni</a>
         <a href="import.php" class="btn-ghost btn-sm">Import</a>
-        <a href="index.php" class="btn-ghost btn-sm">← Panel</a>
       </span>
     </div>
 

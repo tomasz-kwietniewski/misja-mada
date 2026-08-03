@@ -66,7 +66,6 @@ panel_header('Podopieczni - Adopcja Serca');
       <span>
         <a href="adopcje.php" class="btn-secondary btn-sm">Przegląd</a>
         <a href="darczyncy.php" class="btn-secondary btn-sm">Darczyńcy</a>
-        <a href="index.php" class="btn-ghost btn-sm">← Panel</a>
       </span>
     </div>
     <?= dz_flash() ?>
