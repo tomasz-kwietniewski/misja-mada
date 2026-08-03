@@ -316,8 +316,11 @@ Gmaila wystarcza.
 
 ## Panel CMS
 
-Pod `/panel/` (logowanie: konta imienne w `panel/secret/users.php`, sesje + CSRF + throttling).
-Redaktorzy zarządzają dwoma typami treści:
+Pod `/panel/` (logowanie: konta imienne w `panel/secret/users.php`, sesje + CSRF + throttling
+sesyjny i per IP). Panel nazywa się **„Fundacja Misja MADA - Panel administracyjny"** i ma
+wspólną górną nawigację modułów (`panel/layout.php`): **Wydarzenia · Sprawozdania ·
+Subskrypcje · Adopcja Serca · Finanse** - aktywna zakładka wykrywana po nazwie skryptu.
+Moduły:
 
 - **Wydarzenia** - źródło prawdy `data/wydarzenia/<id>.json`; endpoint `events.js.php` emituje
   `window.MADA_EVENTS`; status (nadchodzące/archiwum) liczony z daty; zdjęcia do `uploads/`,
