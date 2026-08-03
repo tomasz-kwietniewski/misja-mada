@@ -63,7 +63,6 @@ panel_header('Adopcja Serca - przegląd');
         <a href="zgloszenia.php" class="btn-secondary btn-sm">Zgłoszenia</a>
         <a href="finanse.php" class="btn-secondary btn-sm">Finanse</a>
         <a href="eksport.php" class="btn-secondary btn-sm">Eksport</a>
-        <a href="index.php" class="btn-ghost btn-sm">← Panel</a>
       </span>
     </div>
 

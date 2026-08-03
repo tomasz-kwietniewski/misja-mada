@@ -32,8 +32,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 </head>
 <body class="panel-login">
   <main class="login-card">
-    <h1>Panel wydarzeń</h1>
-    <p class="sub">Fundacja Misja MADA</p>
+    <h1>Fundacja Misja MADA</h1>
+    <p class="sub">Panel administracyjny</p>
 
     <?php if ($error !== ''): ?>
       <div class="alert alert-error"><?= mada_esc($error) ?></div>

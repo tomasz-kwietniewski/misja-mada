@@ -26,7 +26,7 @@ foreach ($events as $e) {
 $effFeaturedId = $manualFeaturedId !== null ? $manualFeaturedId : $nearestUpcomingId;
 $effIsAuto = ($manualFeaturedId === null);
 
-panel_header('Panel wydarzeń');
+panel_header('Wydarzenia');
 echo panel_flash();
 ?>
     <div class="bar">
