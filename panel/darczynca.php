@@ -6,6 +6,7 @@ require_once __DIR__ . '/layout.php';
 mada_require_login();
 require_once __DIR__ . '/../adopcja/db.php';
 require_once __DIR__ . '/../adopcja/lib.php';
+require_once __DIR__ . '/../adopcja/mail-dossier.php';
 
 $id = (int)($_GET['id'] ?? $_POST['donor_id'] ?? 0);
 $dbError = '';
@@ -65,6 +66,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_redirect("darczynca.php?id=$id&msg=badpay");
         }
 
+        /* Skrót „Wyślij dossier": ten sam mail co przy przypisaniu dziecka
+           (adopcja-edit.php), bez wchodzenia w edycję adopcji. Bez dopisku -
+           spersonalizowaną wiadomość dodaje się w edycji adopcji. */
+        if ($action === 'senddossier') {
+            $adoptionId = (int)($_POST['adoption_id'] ?? 0);
+            $ad = $adoptionId > 0 ? adopt_adoption_get($adoptionId) : null;
+            if (!$ad || (int)$ad['donor_id'] !== $id || $ad['child_id'] === null) {
+                mada_redirect("darczynca.php?id=$id&msg=badadopt");
+            }
+            $dn = adopt_donor_get($id);
+            $ch = adopt_child_get((int)$ad['child_id']);
+            if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, '')) {
+                payu_db()->prepare('UPDATE adopt_adoptions SET materials_sent = 1 WHERE id = ?')->execute([$adoptionId]);
+                mada_audit('adoption.childmail', 'adoption', $adoptionId,
+                    ['dziecko' => $ch['name'], 'email' => $dn['email'], 'skrot' => true]);
+                mada_redirect("darczynca.php?id=$id&msg=mailok");
+            }
+            mada_redirect("darczynca.php?id=$id&msg=mailfail");
+        }
+
         if ($action === 'end') {
             $adoptionId = (int)($_POST['adoption_id'] ?? 0);
             $ad = $adoptionId > 0 ? adopt_adoption_get($adoptionId) : null;
@@ -95,8 +116,8 @@ function dk_flash() {
     $codes = [
         'payok'    => ['ok',    'Wpłata została odnotowana.'],
         'noteok'   => ['ok',    'Notatki zostały zapisane.'],
-        'mailok'   => ['ok',    'Zapisano. Mail z przedstawieniem dziecka został wysłany do darczyńcy.'],
-        'mailfail' => ['error', 'Zapisano, ale mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki).'],
+        'mailok'   => ['ok',    'Mail z przedstawieniem dziecka został wysłany do darczyńcy (odhaczono „materiały wysłane").'],
+        'mailfail' => ['error', 'Mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki). Zmiany w adopcji zostały zapisane.'],
         'paydel'   => ['ok',    'Wpłata została usunięta.'],
         'ended'    => ['ok',    'Adopcja została zakończona (miesiące po końcu nie liczą się jako zaległość).'],
         'resumed'  => ['ok',    'Adopcja wznowiona jako nowy okres - przerwa nie liczy się jako zaległość.'],
@@ -192,6 +213,19 @@ panel_header('Darczyńca - Adopcja Serca');
               <?php else: ?><span class="hint">-</span><?php endif; ?></td>
           <td style="white-space:nowrap;">
             <a class="btn-secondary btn-sm" href="adopcja-edit.php?id=<?= (int)$a['id'] ?>">Edytuj</a>
+            <?php if ($a['child_id'] !== null && ($donor['email'] ?? '') !== ''): ?>
+              <form method="post" style="display:inline;"
+                    onsubmit="return confirm('Wysłać do <?= mada_esc($donor['email']) ?> mail z przedstawieniem dziecka <?= mada_esc($a['child_name'] ?? '') ?>?\n\nOsobisty dopisek dodasz przez „Edytuj”.');">
+                <?= mada_csrf_field() ?>
+                <input type="hidden" name="action" value="senddossier">
+                <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+                <input type="hidden" name="adoption_id" value="<?= (int)$a['id'] ?>">
+                <button type="submit" class="btn-secondary btn-sm"
+                        title="Wyślij darczyńcy dossier dziecka<?= empty($a['materials_sent']) ? '' : ' (materiały już wysłane)' ?>">
+                  📧 Wyślij dossier
+                </button>
+              </form>
+            <?php endif; ?>
             <?php if ($isOpen): ?>
               <form method="post" style="display:inline;" onsubmit="return confirm('Zakończyć adopcję z końcem bieżącego miesiąca?');">
                 <?= mada_csrf_field() ?>
