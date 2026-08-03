@@ -128,6 +128,21 @@ eq(adopt_name_match('Ania Zielińska', 'Anna Zielińska'), 'exact', 'name: zdrob
 eq(adopt_name_match('Zuzia Wiewiorowska', 'Zuzanna Wiewiorowska'), 'exact', 'name: zdrobnienie Zuzia=Zuzanna -> exact');
 eq(adopt_name_match('Hanna Miszkurka', 'Anna Miszkurka'), 'fuzzy', 'name: Hanna vs Anna to RÓŻNE imiona -> fuzzy');
 
+// ── sortowanie po nazwisku ─────────────────────────────────────
+eq(adopt_surname_key('Ola i Tomasz Kwietniewscy'), 'kwietniewscy aleksandra tomasz',
+   'surname_key: para -> nazwisko na początku (Ola znormalizowana do Aleksandra)');
+eq(adopt_surname_key('Ks. Artur Aleksiejuk'), 'aleksiejuk artur', 'surname_key: tytuł Ks. pominięty');
+eq(adopt_surname_key('Parafia Kłodzko'), 'klodzko parafia', 'surname_key: instytucja - ostatni człon');
+$posort = adopt_sort_by_surname([
+    ['full_name' => 'Renata Ginak'],
+    ['full_name' => 'Agata Bal'],
+    ['full_name' => 'Marta i Tomek Świercz'],
+    ['full_name' => 'Adam Paprocki'],
+]);
+eq(array_column($posort, 'full_name'),
+   ['Agata Bal', 'Renata Ginak', 'Adam Paprocki', 'Marta i Tomek Świercz'],
+   'sort_by_surname: Bal < Ginak < Paprocki < Świercz (nie po imionach)');
+
 // ── e-maile z pola arkusza ─────────────────────────────────────
 eq(adopt_parse_emails('a@b.pl'), ['a@b.pl', null], 'emails: pojedynczy');
 eq(adopt_parse_emails('krzysiekmiszkurka@gmail.com; katarzyna.zak00@gmail.com'),

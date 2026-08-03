@@ -15,7 +15,7 @@ $typ = (string)($_GET['typ'] ?? '');
 function eks_lista_rows(): array {
     $rows = [['Lp', 'IMIĘ I NAZWISKO DARCZYŃCY', 'e-mail', 'Telefon', 'DZIECKO', 'Numer Dziecka',
               'CZAS ADOPCJI', 'PŁATNOŚĆ', 'Metoda', 'Status', 'Opłacone do', 'Zaległe miesiące', 'UWAGI']];
-    $all = adopt_adoption_list_all();
+    $all = adopt_sort_by_surname(adopt_adoption_list_all(), 'donor_name');
     $pays = adopt_payments_by_adoptions(array_column($all, 'id'));
     $today = date('Y-m-d');
     $freqL = ['monthly' => 'MIESIĘCZNIE', 'quarterly' => 'KWARTALNIE', 'yearly' => 'ROCZNIE'];
@@ -47,8 +47,8 @@ function eks_wplaty_rows(): array {
     $months = adopt_month_range($from, adopt_month_add(date('Y-m'), 3));
     $head = array_merge(['Darczyńca', 'Dziecko', 'Nr'], array_map('adopt_month_label', $months));
     $rows = [$head];
-    $all = array_values(array_filter(adopt_adoption_list_all(),
-        fn($a) => in_array($a['status'], ['pending', 'active'], true)));
+    $all = adopt_sort_by_surname(array_values(array_filter(adopt_adoption_list_all(),
+        fn($a) => in_array($a['status'], ['pending', 'active'], true))), 'donor_name');
     $pays = adopt_payments_by_adoptions(array_column($all, 'id'));
     foreach ($all as $a) {
         $covered = array_flip(adopt_coverage($pays[(int)$a['id']] ?? []));

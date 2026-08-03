@@ -86,8 +86,8 @@ $rows = [];
 $adsAll = [];
 try {
     adopt_db_ensure_schema();
-    $adsAll = array_values(array_filter(adopt_adoption_list_all(),
-        fn($a) => in_array($a['status'], ['pending', 'active'], true)));
+    $adsAll = adopt_sort_by_surname(array_values(array_filter(adopt_adoption_list_all(),
+        fn($a) => in_array($a['status'], ['pending', 'active'], true))), 'donor_name');
     $pays = adopt_payments_by_adoptions(array_column($adsAll, 'id'));
     foreach ($adsAll as $a) {
         $p = $pays[(int)$a['id']] ?? [];

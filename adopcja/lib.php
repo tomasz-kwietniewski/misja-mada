@@ -278,6 +278,26 @@ function adopt_name_match(string $a, string $b): string {
     return 'none';
 }
 
+/**
+ * Klucz sortowania po NAZWISKU: ostatni znaczący token nazwy + reszta.
+ * "Ola i Tomasz Kwietniewscy" -> "kwietniewscy ola tomasz",
+ * "Ks. Artur Aleksiejuk" -> "aleksiejuk artur", "Parafia Kłodzko" -> "klodzko parafia".
+ */
+function adopt_surname_key(string $name): string {
+    $toks = adopt_name_tokens($name);
+    if (!$toks) return adopt_name_normalize($name);
+    $last = array_pop($toks);
+    return trim($last . ' ' . implode(' ', $toks));
+}
+
+/** Sortuje wiersze po nazwisku darczyńcy (kolumna $field), stabilnie. */
+function adopt_sort_by_surname(array $rows, string $field = 'full_name'): array {
+    usort($rows, fn($a, $b) =>
+        strcmp(adopt_surname_key((string)($a[$field] ?? '')), adopt_surname_key((string)($b[$field] ?? '')))
+        ?: strcmp((string)($a[$field] ?? ''), (string)($b[$field] ?? '')));
+    return $rows;
+}
+
 /* ── Pomocnicze dla panelu ─────────────────────────────────────── */
 
 /** 'YYYY-MM' -> 'MM.YYYY' (format czytelny dla fundacji). */

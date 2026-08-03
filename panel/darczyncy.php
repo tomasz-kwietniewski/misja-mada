@@ -15,7 +15,7 @@ $paymentsByAdoption = [];
 
 try {
     adopt_db_ensure_schema();
-    $donors = adopt_donor_list($q);
+    $donors = adopt_sort_by_surname(adopt_donor_list($q));   // domyślnie po NAZWISKU
     $all = adopt_adoption_list_all();
     foreach ($all as $a) $adoptionsByDonor[(int)$a['donor_id']][] = $a;
     $paymentsByAdoption = adopt_payments_by_adoptions(array_column($all, 'id'));
