@@ -62,6 +62,21 @@ try {
                  + mada_purge_stale_pending(__DIR__ . '/../data/adopcja-card-pending', 7);
     if ($purgedFiles > 0) { cron_log("Wyczyszczono porzucone pliki pending: {$purgedFiles}."); }
 
+    // Higiena: zgłoszenia adopcyjne bez potwierdzenia e-maila > 7 dni -> wygasłe
+    // (moduł CMS Adopcja Serca; best-effort - brak tabel nie blokuje obciążeń).
+    try {
+        require_once __DIR__ . '/../adopcja/db.php';
+        adopt_db_ensure_schema();
+        $st = payu_db()->prepare(
+            "UPDATE adopt_signups SET status='expired'
+              WHERE status='pending' AND created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)"
+        );
+        $st->execute();
+        if ($st->rowCount() > 0) { cron_log('Wygaszono niepotwierdzone zgloszenia adopcyjne: ' . $st->rowCount() . '.'); }
+    } catch (Throwable $e) {
+        cron_log('Wygaszanie zgloszen adopcyjnych pominiete: ' . $e->getMessage());
+    }
+
     // Higiena (RODO - ograniczenie przechowywania): log notyfikacji PayU trzymamy
     // 12 miesięcy; starsze wpisy kasujemy, a z zachowanych usuwamy historyczne
     // pole email= (nowe wpisy już go nie mają - patrz notify.php).

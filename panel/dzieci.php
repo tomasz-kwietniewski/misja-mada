@@ -1,17 +1,62 @@
 <?php
-/* ═══ CMS - lista podopiecznych Adopcji Serca (etap A: tylko odczyt) ═
-   Numer dziecka to klucz, którym posługuje się fundacja. */
+/* ═══ CMS - podopieczni Adopcji Serca ═════════════════════════════
+   Numer dziecka to klucz, którym posługuje się fundacja.
+   Dodawanie dzieci + przełącznik "materiały wysłane" na adopcjach. */
 require_once __DIR__ . '/layout.php';
 mada_require_login();
 require_once __DIR__ . '/../adopcja/db.php';
 
 $dbError = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    mada_csrf_check();
+    try {
+        adopt_db_ensure_schema();
+        $action = $_POST['action'] ?? '';
+        if ($action === 'add') {
+            $no = (int)($_POST['number'] ?? 0);
+            $name = trim((string)($_POST['name'] ?? ''));
+            if ($no <= 0 || $name === '') mada_redirect('dzieci.php?msg=invalid');
+            if (adopt_child_by_number($no) !== null) mada_redirect('dzieci.php?msg=taken');
+            $cid = adopt_child_upsert($no, $name, trim((string)($_POST['notes'] ?? '')) ?: null);
+            mada_audit('child.add', 'child', $cid, ['number' => $no, 'name' => $name]);
+            mada_redirect('dzieci.php?msg=added');
+        }
+        if ($action === 'materials') {
+            // przełącz flagę na wszystkich otwartych adopcjach tego dziecka
+            $cid = (int)($_POST['child_id'] ?? 0);
+            $val = ($_POST['value'] ?? '') === '1' ? 1 : 0;
+            $st = payu_db()->prepare(
+                "UPDATE adopt_adoptions SET materials_sent = ? WHERE child_id = ? AND status IN ('pending','active')"
+            );
+            $st->execute([$val, $cid]);
+            mada_audit('child.materials', 'child', $cid, ['sent' => $val]);
+            mada_redirect('dzieci.php?msg=saved');
+        }
+    } catch (Throwable $e) {
+        $dbError = $e->getMessage();
+    }
+}
+
+function dz_flash() {
+    $codes = [
+        'added'   => ['ok', 'Dziecko zostało dodane.'],
+        'saved'   => ['ok', 'Zapisano.'],
+        'invalid' => ['error', 'Podaj numer (liczba > 0) i imię.'],
+        'taken'   => ['error', 'Ten numer jest już zajęty.'],
+    ];
+    $m = $_GET['msg'] ?? '';
+    if (!isset($codes[$m])) return '';
+    [$t, $txt] = $codes[$m];
+    return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
+}
+
 $children = [];
 try {
     adopt_db_ensure_schema();
     $children = adopt_child_list();
 } catch (Throwable $e) {
-    $dbError = $e->getMessage();
+    $dbError = $dbError ?: $e->getMessage();
 }
 
 panel_header('Podopieczni - Adopcja Serca');
@@ -19,10 +64,24 @@ panel_header('Podopieczni - Adopcja Serca');
     <div class="bar">
       <h2 style="margin:0;">Podopieczni (dzieci)</h2>
       <span>
+        <a href="adopcje.php" class="btn-secondary btn-sm">Przegląd</a>
         <a href="darczyncy.php" class="btn-secondary btn-sm">Darczyńcy</a>
         <a href="index.php" class="btn-ghost btn-sm">← Panel</a>
       </span>
     </div>
+    <?= dz_flash() ?>
+
+    <details style="margin:0 0 16px;">
+      <summary class="hint" style="cursor:pointer;">+ Dodaj dziecko</summary>
+      <form method="post" class="form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;">
+        <?= mada_csrf_field() ?>
+        <input type="hidden" name="action" value="add">
+        <label>Numer *<input type="number" name="number" min="1" required style="width:90px;"></label>
+        <label>Imię *<input type="text" name="name" required></label>
+        <label style="flex:1;min-width:160px;">Uwagi<input type="text" name="notes"></label>
+        <button type="submit" class="btn-primary btn-sm">Dodaj</button>
+      </form>
+    </details>
 
 <?php if ($dbError !== ''): ?>
     <div class="alert alert-error">Baza danych jest niedostępna (sprawdź <code>payu/secret/db-config.php</code>): <?= mada_esc($dbError) ?></div>
@@ -46,7 +105,20 @@ panel_header('Podopieczni - Adopcja Serca');
           <td><?= $c['status'] === 'active' ? 'aktywne' : '<span class="hint">nieaktywne</span>' ?></td>
           <td><?php if ($c['donors'] !== null): ?><?= mada_esc($c['donors']) ?>
               <?php else: ?><span class="badge" style="background:#fbeeec;color:var(--err);border-color:#e6b9b1;">brak</span><?php endif; ?></td>
-          <td><?= ((int)($c['materials_sent'] ?? 0)) === 1 ? 'TAK' : '<span class="hint">nie</span>' ?></td>
+          <td>
+            <?php $sent = ((int)($c['materials_sent'] ?? 0)) === 1; ?>
+            <?php if ($c['donors'] !== null): ?>
+            <form method="post" style="margin:0;display:inline;">
+              <?= mada_csrf_field() ?>
+              <input type="hidden" name="action" value="materials">
+              <input type="hidden" name="child_id" value="<?= (int)$c['id'] ?>">
+              <input type="hidden" name="value" value="<?= $sent ? 0 : 1 ?>">
+              <button type="submit" class="btn-sm <?= $sent ? 'btn-secondary' : 'btn-danger' ?>" title="Kliknij, aby przełączyć">
+                <?= $sent ? 'TAK' : 'nie' ?>
+              </button>
+            </form>
+            <?php else: ?><span class="hint">-</span><?php endif; ?>
+          </td>
           <td class="hint"><?= mada_esc($c['notes'] ?? '') ?></td>
         </tr>
       <?php endforeach; ?>

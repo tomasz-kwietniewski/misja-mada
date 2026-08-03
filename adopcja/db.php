@@ -107,6 +107,24 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
+    /* Zgłoszenia z formularza przelewowego (double opt-in po stronie PHP). */
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS adopt_signups (
+            id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            token        CHAR(64)     NOT NULL,
+            email        VARCHAR(255) NOT NULL,
+            payload      MEDIUMTEXT   NOT NULL,
+            status       ENUM('pending','confirmed','expired') NOT NULL DEFAULT 'pending',
+            ip           VARCHAR(45)  NULL,
+            created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            confirmed_at DATETIME     NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_token (token),
+            KEY idx_status (status, created_at),
+            KEY idx_ip (ip, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
     /* Wiersze importu wymagające ręcznej decyzji (ekran łączenia). */
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS adopt_import_pending (
@@ -491,6 +509,295 @@ function adopt_pending_resolve(int $id, string $status): void {
         "UPDATE adopt_import_pending SET status = ?, resolved_at = NOW() WHERE id = ? AND status = 'open'"
     );
     $st->execute([$status === 'skipped' ? 'skipped' : 'resolved', $id]);
+}
+
+function adopt_donor_update(int $id, array $d): void {
+    $st = payu_db()->prepare(
+        'UPDATE adopt_donors SET full_name = ?, email = ?, emails_extra = ?, phone = ?, notes = ? WHERE id = ?'
+    );
+    $st->execute([
+        $d['full_name'],
+        $d['email'] !== '' ? $d['email'] : null,
+        $d['emails_extra'] !== '' ? $d['emails_extra'] : null,
+        $d['phone'] !== '' ? $d['phone'] : null,
+        $d['notes'] !== '' ? $d['notes'] : null,
+        $id,
+    ]);
+}
+
+function adopt_adoption_get(int $id): ?array {
+    $st = payu_db()->prepare(
+        "SELECT a.*, d.full_name AS donor_name, c.number AS child_number, c.name AS child_name
+           FROM adopt_adoptions a
+           JOIN adopt_donors d ON d.id = a.donor_id
+           LEFT JOIN adopt_children c ON c.id = a.child_id
+          WHERE a.id = ?"
+    );
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+function adopt_adoption_update(int $id, array $d): void {
+    $st = payu_db()->prepare(
+        'UPDATE adopt_adoptions
+            SET child_id = ?, subscription_id = ?, duration = ?, start_month = ?, end_month = ?,
+                frequency = ?, amount_grosze = ?, method = ?, materials_sent = ?, notes = ?
+          WHERE id = ?'
+    );
+    $st->execute([
+        $d['child_id'] ?? null,
+        $d['subscription_id'] ?? null,
+        $d['duration'],
+        $d['start_month'] ?? null,
+        $d['end_month'] ?? null,
+        $d['frequency'],
+        $d['amount_grosze'],
+        $d['method'],
+        !empty($d['materials_sent']) ? 1 : 0,
+        ($d['notes'] ?? '') !== '' ? $d['notes'] : null,
+        $id,
+    ]);
+}
+
+/** Zakończenie adopcji (przerwa/rezygnacja): zamyka okres - zaległości przestają rosnąć. */
+function adopt_adoption_end(int $id, string $endMonth, string $status = 'ended'): void {
+    $st = payu_db()->prepare(
+        "UPDATE adopt_adoptions SET status = ?, end_month = ?, ended_at = NOW()
+          WHERE id = ? AND status IN ('pending','active')"
+    );
+    $st->execute([$status === 'cancelled' ? 'cancelled' : 'ended', $endMonth, $id]);
+}
+
+/**
+ * Wznowienie po przerwie: NOWY wiersz adopcji tego samego darczyńcy i dziecka
+ * (historia i wpłaty starego okresu zostają; miesiące przerwy nie liczą się
+ * jako zaległość). Zwraca id nowej adopcji.
+ */
+function adopt_adoption_resume(int $oldId, string $startMonth): int {
+    $old = adopt_adoption_get($oldId);
+    if (!$old) throw new RuntimeException('Brak adopcji do wznowienia.');
+    return adopt_adoption_insert([
+        'donor_id'      => (int)$old['donor_id'],
+        'child_id'      => $old['child_id'] !== null ? (int)$old['child_id'] : null,
+        'duration'      => 'indefinite',
+        'start_month'   => $startMonth,
+        'frequency'     => $old['frequency'],
+        'amount_grosze' => (int)$old['amount_grosze'],
+        'method'        => $old['method'],
+        'status'        => 'active',
+        'materials_sent'=> (int)$old['materials_sent'] === 1,
+        'notes'         => 'Wznowienie adopcji #' . (int)$old['id'],
+    ]);
+}
+
+function adopt_payment_get(int $id): ?array {
+    $st = payu_db()->prepare('SELECT * FROM adopt_payments WHERE id = ?');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+function adopt_payment_delete(int $id): void {
+    $st = payu_db()->prepare('DELETE FROM adopt_payments WHERE id = ?');
+    $st->execute([$id]);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Integracja z PayU (subscriptions/charges)
+  ───────────────────────────────────────────────────────────────── */
+
+/** Subskrypcje adopcyjne bez powiązanej adopcji (do selecta w edycji adopcji). */
+function adopt_subscription_candidates(?int $includeSubId = null): array {
+    $sql = "SELECT s.* FROM subscriptions s
+             WHERE s.goal = 'adopcja'
+               AND (s.id NOT IN (SELECT subscription_id FROM adopt_adoptions WHERE subscription_id IS NOT NULL)"
+         . ($includeSubId !== null ? ' OR s.id = ' . (int)$includeSubId : '')
+         . ") ORDER BY s.created_at DESC";
+    return payu_db()->query($sql)->fetchAll();
+}
+
+/**
+ * Dopisuje wpłatę adopcyjną z raty kartowej PayU do adopcji powiązanych
+ * z subskrypcją. Best-effort (woła notify.php - nie może wywrócić płatności).
+ * $periodYm = 'YYYY-MM' (miesiąc raty), $chargeId = wiersz charges (null dla FIRST).
+ * Idempotencja: charge_id przez UNIQUE(charge_id, adoption_id); FIRST (charge_id
+ * NULL) przez sprawdzenie istniejącej wpłaty kartowej za ten miesiąc.
+ */
+function adopt_payment_from_charge(array $sub, ?int $chargeId, string $periodYm): void {
+    if (($sub['goal'] ?? '') !== 'adopcja' || !adopt_month_valid($periodYm)) return;
+    $st = payu_db()->prepare(
+        "SELECT * FROM adopt_adoptions WHERE subscription_id = ? AND status IN ('pending','active') ORDER BY id"
+    );
+    $st->execute([(int)$sub['id']]);
+    $ads = $st->fetchAll();
+    if (!$ads) return;   // fundacja jeszcze nie powiązała - nadrobi backfill przy powiązaniu
+
+    $total = (int)$sub['amount_grosze'];
+    $n = count($ads);
+    $base = intdiv($total, $n);
+    $rest = $total - $base * $n;   // reszta z dzielenia -> pierwsza adopcja
+
+    $dupe = payu_db()->prepare(
+        "SELECT id FROM adopt_payments WHERE adoption_id = ? AND period_from = ? AND method = 'card' LIMIT 1"
+    );
+    foreach ($ads as $i => $a) {
+        try {
+            if ($chargeId === null) {
+                $dupe->execute([(int)$a['id'], $periodYm]);
+                if ($dupe->fetchColumn() !== false) continue;
+            }
+            adopt_payment_insert([
+                'adoption_id'   => (int)$a['id'],
+                'charge_id'     => $chargeId,
+                'amount_grosze' => $base + ($i === 0 ? $rest : 0),
+                'paid_at'       => date('Y-m-d'),
+                'period_from'   => $periodYm,
+                'period_to'     => $periodYm,
+                'method'        => 'card',
+                'note'          => $chargeId === null ? 'PayU: pierwsza płatność' : 'PayU: rata cykliczna',
+            ]);
+            adopt_adoption_backfill_start((int)$a['id']);
+        } catch (PDOException $e) {
+            if ($e->getCode() !== '23000') throw $e;   // duplikat raty -> cicho pomiń
+        }
+    }
+}
+
+/**
+ * Nadrabia wpłaty z historii subskrypcji (pierwsza płatność + completed charges).
+ * Wołane przy powiązywaniu subskrypcji z adopcją w panelu. Idempotentne.
+ */
+function adopt_backfill_subscription(int $subId): int {
+    require_once __DIR__ . '/../payu/recurring-lib.php';
+    $sub = payu_sub_get($subId);
+    if (!$sub || ($sub['goal'] ?? '') !== 'adopcja') return 0;
+    $added = 0;
+
+    // pierwsza płatność = miesiąc startu subskrypcji
+    if ((int)$sub['months_paid'] >= 1 && !empty($sub['start_date'])) {
+        $m = adopt_month_from_date((string)$sub['start_date']);
+        if ($m !== null) {
+            $before = adopt_sub_payment_count($subId);
+            adopt_payment_from_charge($sub, null, $m);
+            $added += adopt_sub_payment_count($subId) - $before;
+        }
+    }
+    // raty cykliczne completed (miesiąc z extOrderId)
+    $st = payu_db()->prepare("SELECT * FROM charges WHERE subscription_id = ? AND status = 'completed' ORDER BY id");
+    $st->execute([$subId]);
+    foreach ($st->fetchAll() as $ch) {
+        $cls = mada_sub_classify_ext((string)$ch['ext_order_id']);
+        if (($cls['period'] ?? null) === null) continue;
+        $m = substr($cls['period'], 0, 4) . '-' . substr($cls['period'], 4, 2);
+        $before = adopt_sub_payment_count($subId);
+        adopt_payment_from_charge($sub, (int)$ch['id'], $m);
+        $added += adopt_sub_payment_count($subId) - $before;
+    }
+    return $added;
+}
+
+/** Liczba wpłat kartowych podpiętych pod adopcje danej subskrypcji (do raportu backfillu). */
+function adopt_sub_payment_count(int $subId): int {
+    $st = payu_db()->prepare(
+        "SELECT COUNT(*) FROM adopt_payments p
+           JOIN adopt_adoptions a ON a.id = p.adoption_id
+          WHERE a.subscription_id = ? AND p.method = 'card'"
+    );
+    $st->execute([$subId]);
+    return (int)$st->fetchColumn();
+}
+
+/** Adopcje powiązane z subskrypcją (do akcji anulowania w subskrypcje.php). */
+function adopt_adoptions_by_subscription(int $subId): array {
+    $st = payu_db()->prepare(
+        "SELECT * FROM adopt_adoptions WHERE subscription_id = ? AND status IN ('pending','active')"
+    );
+    $st->execute([$subId]);
+    return $st->fetchAll();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Finanse misyjne (fin_flows) - rejestr przepływów na koncie
+  ───────────────────────────────────────────────────────────────── */
+
+const FIN_CATEGORIES = [
+    'adopcja'               => 'Adopcja Serca (wpływ)',
+    'zbiorka'               => 'Zbiórka (parafie)',
+    'darowizna'             => 'Darowizna',
+    'wyplata_adopcja'       => 'Wypłata do Sióstr - adopcja',
+    'wyplata_jedzenie'      => 'Wypłata do Sióstr - jedzenie',
+    'wyplata_studnia'       => 'Wypłata do Sióstr - studnia',
+    'koszt_statutowy'       => 'Koszt statutowy',
+    'koszt_administracyjny' => 'Koszt administracyjny',
+    'wymiana_walut'         => 'Wymiana walut',
+    'inne'                  => 'Inne',
+];
+
+function fin_flow_insert(array $d): int {
+    $pdo = payu_db();
+    $st = $pdo->prepare(
+        'INSERT INTO fin_flows (flow_date, direction, category, amount_grosze, currency,
+             fx_rate, amount_pln_grosze, method, counterparty, group_label, status, note, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    $st->execute([
+        $d['flow_date'],
+        $d['direction'] === 'out' ? 'out' : 'in',
+        isset(FIN_CATEGORIES[$d['category'] ?? '']) ? $d['category'] : 'inne',
+        (int)$d['amount_grosze'],
+        strtoupper(substr((string)($d['currency'] ?? 'PLN'), 0, 3)),
+        $d['fx_rate'] ?? null,
+        $d['amount_pln_grosze'] ?? null,
+        ($d['method'] ?? '') === 'gotowka' ? 'gotowka' : 'przelew',
+        ($d['counterparty'] ?? '') !== '' ? mb_substr((string)$d['counterparty'], 0, 200) : null,
+        ($d['group_label'] ?? '') !== '' ? mb_substr((string)$d['group_label'], 0, 120) : null,
+        in_array($d['status'] ?? '', ['zaplanowane', 'wykonane', 'przekazane'], true) ? $d['status'] : 'wykonane',
+        ($d['note'] ?? '') !== '' ? mb_substr((string)$d['note'], 0, 500) : null,
+        $d['created_by'] ?? null,
+    ]);
+    return (int)$pdo->lastInsertId();
+}
+
+function fin_flow_get(int $id): ?array {
+    $st = payu_db()->prepare('SELECT * FROM fin_flows WHERE id = ?');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+function fin_flow_delete(int $id): void {
+    payu_db()->prepare('DELETE FROM fin_flows WHERE id = ?')->execute([$id]);
+}
+
+/** Lista przepływów z filtrami (rok, kategoria, kierunek). */
+function fin_flow_list(?int $year = null, string $category = '', string $direction = ''): array {
+    $where = [];
+    $args = [];
+    if ($year !== null) { $where[] = 'YEAR(flow_date) = ?'; $args[] = $year; }
+    if (isset(FIN_CATEGORIES[$category])) { $where[] = 'category = ?'; $args[] = $category; }
+    if (in_array($direction, ['in', 'out'], true)) { $where[] = 'direction = ?'; $args[] = $direction; }
+    $sql = 'SELECT * FROM fin_flows'
+         . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+         . ' ORDER BY flow_date DESC, id DESC LIMIT 1000';
+    $st = payu_db()->prepare($sql);
+    $st->execute($args);
+    return $st->fetchAll();
+}
+
+/** Sumy roczne per kategoria w PLN (amount_pln_grosze, dla PLN amount_grosze). */
+function fin_flow_sums(int $year): array {
+    $st = payu_db()->prepare(
+        "SELECT category, direction,
+                SUM(COALESCE(amount_pln_grosze, IF(currency = 'PLN', amount_grosze, 0))) AS pln,
+                SUM(IF(currency <> 'PLN' AND amount_pln_grosze IS NULL, 1, 0)) AS unconverted
+           FROM fin_flows
+          WHERE YEAR(flow_date) = ?
+          GROUP BY category, direction
+          ORDER BY category"
+    );
+    $st->execute([$year]);
+    return $st->fetchAll();
 }
 
 /* ── Statystyki (dashboard / import) ───────────────────────────── */

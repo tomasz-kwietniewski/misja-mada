@@ -36,13 +36,15 @@
   window.MADA_RECURRING_URL = '/payu/recurring-first.php';
 
   /* ────────── KONFIGURACJA ────────────────────────────────────
-     Po wdrożeniu wklej tutaj URL do swojego Google Apps Script
-     Web App. Ten sam URL obsługuje formularz Adopcji Serca
-     ORAZ formularz kontaktowy (różnią się polem `type` w JSON).
-     Patrz: assets/google-apps-script.gs + DEPLOY-FORMULARZ.md.
+     Zgłoszenie adopcyjne (przelew) idzie do WŁASNEGO backendu PHP
+     (adopcja/zgloszenie.php - double opt-in + zapis w MySQL panelu,
+     arkusz Google dostaje kopię jako lustro). Apps Script obsługuje
+     nadal formularz kontaktowy (pole `type` w JSON) - stąd osobny
+     APPS_SCRIPT_URL eksportowany dla kontakt.html.
   ──────────────────────────────────────────────────────────── */
-  const SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbz_x1eI5yH3tT8xLxSpNL_Y1c-Td56oFEqdYO4s1DV_UT3VYE6g8GnR6sEvW6Mcdavm/exec';
-  window.MADA_SUBMIT_URL = SUBMIT_URL;  // udostępniamy globalnie dla kontakt.html
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_x1eI5yH3tT8xLxSpNL_Y1c-Td56oFEqdYO4s1DV_UT3VYE6g8GnR6sEvW6Mcdavm/exec';
+  const SUBMIT_URL = '/adopcja/zgloszenie.php';
+  window.MADA_SUBMIT_URL = APPS_SCRIPT_URL;  // udostępniamy globalnie dla kontakt.html
 
   function init() {
     // 1) Podpinamy modal do każdego "Zostań rodzicem adopcyjnym"
@@ -255,12 +257,9 @@
           // Pokazujemy ekran sukcesu, by można było testować UI bez skutków na produkcji.
           console.info('[Adopcja] host nieprodukcyjny (' + location.hostname + ') - pomijam wysyłkę do Apps Script.');
         } else if (SUBMIT_URL) {
-          // Zwykły CORS zamiast mode:'no-cors' (audyt 2026-07-24, W3): Apps Script
-          // (ContentService) odpowiada z Access-Control-Allow-Origin:* (zweryfikowane
-          // na wdrożonym web appie), a Content-Type text/plain nie wyzwala preflight.
-          // Dzięki temu CZYTAMY odpowiedź {ok:true/false} i nie pokazujemy ekranu
-          // sukcesu, gdy zapis do arkusza się nie powiódł (wcześniej odpowiedź była
-          // nieprzezroczysta i sukces pokazywał się zawsze).
+          // Endpoint PHP w tej samej domenie (adopcja/zgloszenie.php) - bez CORS.
+          // Content-Type text/plain zachowany dla zgodności wstecznej (PHP czyta
+          // surowe body). Odpowiedź {ok:true/false} decyduje o ekranie sukcesu.
           const res = await fetch(SUBMIT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },

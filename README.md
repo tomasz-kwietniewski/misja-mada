@@ -236,10 +236,12 @@ Apps Script; PHP woła go serwer-do-serwera z shared secret). E-mail fundacji: `
 - **Kontakt** - mail do fundacji z `Reply-To` na nadawcę.
 - **Adopcja Serca** (`assets/adopcja-form.js`) - jeden pełny formularz z selektorem liczby dzieci
   (kwota = dzieci x 70 zł), dwie ścieżki wsparcia:
-  - **Przelew** - double opt-in: zapis w arkuszu z „Weryfikacja e-mail" = `Oczekuje` -> mail „Potwierdź
-    zgłoszenie" -> po kliknięciu linku `Potwierdzony`, mail **powitalny** z danymi do przelewu (kwota,
-    tytuł „Adopcja Serca Madagaskar - Imię Nazwisko", okres zlecenia dla formy czasowej) + powiadomienie
-    fundacji.
+  - **Przelew** - double opt-in po stronie **PHP** (`adopcja/zgloszenie.php` -> mail „Potwierdź
+    zgłoszenie" przez relay Gmail -> `adopcja/potwierdz.php`): po kliknięciu linku powstaje darczyńca
+    i adopcja (status `pending`) w **MySQL modułu CMS**, darczyńca dostaje mail **powitalny** z danymi
+    do przelewu (kwota, tytuł „Adopcja Serca Madagaskar - Imię Nazwisko", okres zlecenia dla formy
+    czasowej), fundacja powiadomienie, a arkusz Google kopię wiersza (lustro, typ `adopcja-mirror`).
+    Niepotwierdzone zgłoszenia wygasają po 7 dniach (cron).
   - **Karta (cyklicznie)** - Secure Form + `payu/recurring-first.php` (jak darowizna cykliczna); komplet
     danych adopcyjnych trafia też do arkusza (metoda `Karta PayU`, subskrypcja `Aktywna`), sama
     subskrypcja do panelu.
@@ -254,9 +256,10 @@ Opłacone **jednorazowe** darowizny (`payu/notify.php` przy `COMPLETED`) oraz **
 adopcja** (każda rata, idempotentnie) trafiają do zakładki „Darowizny" w arkuszu + powiadomienie fundacji.
 Zapis przez `payu/sheet.php` -> Apps Script. Cykliczne adopcje mają własną zakładkę „Adopcja Serca".
 
-### Arkusz „Adopcja Serca" - miejsce pracy fundacji
+### Arkusz „Adopcja Serca" - lustro danych
 
-Zakładka jest głównym narzędziem pracowników, więc jest zaprojektowana pod nich, nie pod system:
+Od wdrożenia modułu CMS **źródłem prawdy jest MySQL (panel)**, a zakładka arkusza pozostaje
+lustrem/backupem i znajomym widokiem dla fundacji. Układ zakładki bez zmian:
 polskie nazwy kolumn, kolorowanie wierszy i osobna zakładka **„Instrukcja"** (legenda + opis kolumn).
 Zapis odbywa się **po nazwach nagłówków**, więc kolumny wolno przestawiać; nie wolno zmieniać ich nazw.
 
@@ -314,7 +317,34 @@ Redaktorzy zarządzają dwoma typami treści:
 - **Sprawozdania** - `data/sprawozdania.json`; PDF-y do `uploads/sprawozdania/`; render na
   `sprawozdania.html` i kaflach `o-nas.html`.
 - **Subskrypcje** - podgląd płatności cyklicznych + ręczne anulowanie i **wznawianie** wstrzymanych
-  (`paused` -> `active`, kolejne obciążenie zaplanowane na następny dzień).
+  (`paused` -> `active`, kolejne obciążenie zaplanowane na następny dzień). Anulowanie subskrypcji
+  adopcyjnej zamyka też powiązane adopcje w module poniżej.
+
+### Moduł „Adopcja Serca" (katalog `adopcja/` + strony `panel/`)
+
+Pełne zarządzanie programem Adopcji Serca w MySQL (ta sama baza co PayU, `payu_db()`), zastępuje
+ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
+
+- **Model** (`adopcja/db.php`, schemat idempotentny, CLI `php adopcja/migrate.php`): dzieci
+  (`adopt_children`, klucz = Numer Dziecka), darczyńcy, adopcje (okres od-do, częstotliwość, metoda,
+  powiązanie z subskrypcją PayU) i **wpłaty jako zdarzenia z zakresem miesięcy** (`period_from..period_to`) -
+  z tego liczy się „opłacone do" i zaległości (`adopcja/lib.php`, czysta logika pod testami).
+- **Strony panelu**: `adopcje.php` (dashboard: zalegają / wygasają), `darczyncy.php` + `darczynca.php`
+  (karta z historią wpłat i szybką wpłatą), `dzieci.php`, `wplaty.php` (**macierz miesięcy** jak
+  w arkuszu - klik czerwonej komórki odnotowuje wpłatę), `zgloszenia.php` (zgłoszenia ze strony,
+  przypisywanie dzieci), `finanse.php` (rejestr przepływów: zbiórki, wypłaty do Sióstr, wymiana walut),
+  `eksport.php` (**wyjście awaryjne**: XLSX w układzie znanym fundacji + CSV), `import.php` +
+  `import-lacz.php` (jednorazowa migracja - do usunięcia po jej domknięciu).
+- **Raty kartowe**: `payu/notify.php` przy `COMPLETED` dopisuje wpłatę do powiązanych adopcji
+  (idempotentnie, kwota dzielona między dzieci); powiązanie subskrypcji w edycji adopcji robi
+  **backfill** historycznych rat.
+- **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
+  jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
+- **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` (xlsx + eksporty HTML macierzy
+  GR1-5 i zakładek finansowych) -> JSON -> `panel/import.php`; niejednoznaczne wiersze rozwiązuje się
+  ręcznie na `panel/import-lacz.php`.
+- **Rate-limit logowania per IP** (10 prób / 15 min, tabela `panel_login_attempts`) jako druga linia
+  za throttlingiem sesyjnym + **audit log** zmian (`panel_audit_log`).
 
 ---
 

@@ -9,6 +9,7 @@ require __DIR__ . '/db.php';
 require __DIR__ . '/recurring-lib.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/sheet.php';
+require_once __DIR__ . '/../adopcja/db.php';   // wpłaty adopcyjne z rat kartowych (moduł CMS)
 
 $raw = file_get_contents('php://input');
 
@@ -101,6 +102,15 @@ try {
                     // Cykliczna wplata na cel INNY niz adopcja (pierwsza rata) -> log w arkuszu Darowizny.
                     // (helper sam pomija adopcje - ta ma wlasna zakladke). Idempotentne: aktywacja nastepuje raz.
                     mada_donation_sheet_from_sub($fresh, $extOrderId, $payuOrderId, $order);
+                    // Modul CMS: pierwsza platnosc adopcyjna -> wplata przy powiazanych adopcjach
+                    // (miesiac = miesiac startu subskrypcji). Best-effort, idempotentne.
+                    try {
+                        adopt_db_ensure_schema();
+                        $m0 = adopt_month_from_date((string)($fresh['start_date'] ?? ''));
+                        if ($m0 !== null) adopt_payment_from_charge($fresh, null, $m0);
+                    } catch (Throwable $e) {
+                        error_log('[PayU notify] adopt first: ' . $e->getMessage());
+                    }
                 }
             } else {
                 error_log('[PayU notify] FIRST sub=' . $cls['subId'] . ' COMPLETED bez tokena TOKC_.');
@@ -122,6 +132,18 @@ try {
             if ($sub) {
                 mada_donation_sheet_from_sub($sub, $extOrderId, $payuOrderId, $order);
                 mada_adopcja_charge_sheet($sub, $extOrderId, $payuOrderId);
+                // Modul CMS: rata adopcyjna -> wplata przy powiazanych adopcjach
+                // (miesiac z extOrderId; idempotencja przez UNIQUE(charge_id, adoption_id)).
+                try {
+                    adopt_db_ensure_schema();
+                    if (($cls['period'] ?? null) !== null) {
+                        $chRow = payu_charge_by_ext($extOrderId);
+                        $mYm = substr($cls['period'], 0, 4) . '-' . substr($cls['period'], 4, 2);
+                        adopt_payment_from_charge($sub, $chRow ? (int)$chRow['id'] : null, $mYm);
+                    }
+                } catch (Throwable $e) {
+                    error_log('[PayU notify] adopt charge: ' . $e->getMessage());
+                }
             }
         }
     } elseif (mada_donation_is_ext($extOrderId) && $status === 'COMPLETED') {

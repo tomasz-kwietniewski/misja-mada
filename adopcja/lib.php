@@ -76,13 +76,17 @@ function adopt_paid_until(array $payments): ?string {
 
 /**
  * Zaległości: miesiące NALEŻNE a niepokryte.
- * Należne = od start_month do min(end_month, miesiąc dzisiejszy).
+ * Należne = od start_month do min(end_month, POPRZEDNI miesiąc) - bieżący
+ * miesiąc nie liczy się jako zaległość (2. dnia miesiąca nikt jeszcze nie
+ * "zalega"; fundacja odhacza wpłaty w trakcie miesiąca). $includeCurrent=true
+ * dolicza bieżący (do widoków "co jeszcze nieopłacone").
  * $today = 'YYYY-MM-DD' lub 'YYYY-MM'. Zwraca listę brakujących miesięcy.
  */
-function adopt_arrears(string $startMonth, ?string $endMonth, array $payments, string $today): array {
+function adopt_arrears(string $startMonth, ?string $endMonth, array $payments, string $today,
+                       bool $includeCurrent = false): array {
     $nowM = adopt_month_valid($today) ? $today : adopt_month_from_date($today);
     if ($nowM === null || !adopt_month_valid($startMonth)) return [];
-    $dueTo = $nowM;
+    $dueTo = $includeCurrent ? $nowM : adopt_month_add($nowM, -1);
     if ($endMonth !== null && adopt_month_valid($endMonth) && $endMonth < $dueTo) $dueTo = $endMonth;
     $covered = array_flip(adopt_coverage($payments));
     $missing = [];
