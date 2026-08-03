@@ -100,14 +100,10 @@ try {
     $dbError = $dbError ?: $e->getMessage();
 }
 
-panel_header('Macierz wpłat - Adopcja Serca');
+panel_header('Wpłaty - Adopcja Serca');
 ?>
     <div class="bar">
-      <h2 style="margin:0;">Macierz wpłat</h2>
-      <span>
-        <a href="adopcje.php" class="btn-ghost btn-sm">← Przegląd</a>
-        <a href="darczyncy.php" class="btn-ghost btn-sm">Darczyńcy</a>
-      </span>
+      <h2 style="margin:0;">Wpłaty</h2>
     </div>
     <?= wp_flash() ?>
 <?php if ($dbError !== ''): ?>

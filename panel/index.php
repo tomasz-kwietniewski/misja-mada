@@ -78,34 +78,7 @@ echo panel_flash();
     </table>
     <?php endif; ?>
 
-    <!-- Osobny dział: sprawozdania (PDF) - niezwiązane z wydarzeniami -->
-    <div class="spraw-panel">
-      <div class="spraw-panel-text">
-        <span class="spraw-panel-eyebrow">Osobny dział</span>
-        <h3>Sprawozdania (PDF)</h3>
-        <p>Pliki sprawozdań finansowych i&nbsp;merytorycznych za poszczególne lata, widoczne na podstronie „Sprawozdania". <b>Nie dotyczy wydarzeń</b> - to oddzielne miejsce do zarządzania dokumentami fundacji.</p>
-      </div>
-      <a href="sprawozdania.php" class="btn-spraw">Zarządzaj sprawozdaniami →</a>
-    </div>
-
-    <!-- Osobny dział: subskrypcje (płatności cykliczne) -->
-    <div class="spraw-panel">
-      <div class="spraw-panel-text">
-        <span class="spraw-panel-eyebrow">Osobny dział</span>
-        <h3>Subskrypcje (płatności cykliczne)</h3>
-        <p>Lista comiesięcznych darowizn (Adopcja Serca i wpłaty cykliczne): status, kwota, kolejne obciążenie. Możliwość anulowania subskrypcji darczyńcy.</p>
-      </div>
-      <a href="subskrypcje.php" class="btn-spraw">Zarządzaj subskrypcjami →</a>
-    </div>
-
-    <!-- Osobny dział: Adopcja Serca (darczyńcy i podopieczni) -->
-    <div class="spraw-panel">
-      <div class="spraw-panel-text">
-        <span class="spraw-panel-eyebrow">Osobny dział</span>
-        <h3>Adopcja Serca - darczyńcy i podopieczni</h3>
-        <p>Rejestr darczyńców Adopcji Serca, przypisane dzieci, macierz wpłat, zaległości i&nbsp;finanse misyjne. Zastępuje ręczne arkusze „Lista darczyńców" i „Płatności".</p>
-      </div>
-      <a href="adopcje.php" class="btn-spraw">Przejdź do przeglądu →</a>
-    </div>
+    <!-- Pozostałe moduły (Sprawozdania, Subskrypcje, Adopcja Serca, Finanse)
+         są w górnej nawigacji panelu - kafle-duplikaty usunięte 2026-08-03. -->
 <?php
 panel_footer();

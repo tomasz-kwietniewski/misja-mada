@@ -163,7 +163,6 @@ panel_header('Import - Adopcja Serca');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Import danych Adopcji Serca</h2>
-      <a href="darczyncy.php" class="btn-ghost">← Darczyńcy</a>
     </div>
     <?= imp_flash() ?>
 

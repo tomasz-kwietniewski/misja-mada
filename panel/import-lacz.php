@@ -111,7 +111,6 @@ panel_header('Łączenie importu - Adopcja Serca');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Ręczne łączenie wierszy importu</h2>
-      <a href="import.php" class="btn-ghost">← Import</a>
     </div>
     <?= lacz_flash() ?>
 

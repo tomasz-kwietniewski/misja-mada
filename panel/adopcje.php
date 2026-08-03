@@ -56,14 +56,6 @@ panel_header('Adopcja Serca - przegląd');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Adopcja Serca - przegląd</h2>
-      <span>
-        <a href="wplaty.php" class="btn-primary btn-sm">Macierz wpłat</a>
-        <a href="darczyncy.php" class="btn-secondary btn-sm">Darczyńcy</a>
-        <a href="dzieci.php" class="btn-secondary btn-sm">Podopieczni</a>
-        <a href="zgloszenia.php" class="btn-secondary btn-sm">Zgłoszenia</a>
-        <a href="finanse.php" class="btn-secondary btn-sm">Finanse</a>
-        <a href="eksport.php" class="btn-secondary btn-sm">Eksport</a>
-      </span>
     </div>
 
 <?php if ($dbError !== ''): ?>

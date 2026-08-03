@@ -101,10 +101,7 @@ panel_header('Finanse misyjne');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Finanse misyjne - <?= $year ?></h2>
-      <span>
-        <a href="adopcje.php" class="btn-ghost btn-sm">← Przegląd</a>
-        <a href="eksport.php" class="btn-secondary btn-sm">Eksport</a>
-      </span>
+      <a href="eksport.php" class="btn-secondary btn-sm">Eksport CSV/XLSX</a>
     </div>
     <?= fin_flash() ?>
 

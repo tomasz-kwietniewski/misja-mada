@@ -22,9 +22,28 @@ function panel_nav_modules(): array {
     ];
 }
 
+/**
+ * Pod-menu modułu Adopcja Serca: TRWAŁE, identyczne na każdej stronie modułu
+ * (feedback Tomasza 2026-08-03: linki w paskach stron zmieniały się i znikały -
+ * nawigacja ma być stała, w treści zostają tylko przyciski akcji).
+ * Etykieta => [strona docelowa, pliki przy których pozycja jest aktywna].
+ */
+function panel_subnav_adopcja(): array {
+    return [
+        'Przegląd'    => ['adopcje.php',    ['adopcje.php']],
+        'Darczyńcy'   => ['darczyncy.php',  ['darczyncy.php', 'darczynca.php', 'darczynca-edit.php', 'adopcja-edit.php']],
+        'Podopieczni' => ['dzieci.php',     ['dzieci.php']],
+        'Wpłaty'      => ['wplaty.php',     ['wplaty.php']],
+        'Zgłoszenia'  => ['zgloszenia.php', ['zgloszenia.php']],
+        'Eksport'     => ['eksport.php',    ['eksport.php']],
+        'Import'      => ['import.php',     ['import.php', 'import-lacz.php']],
+    ];
+}
+
 function panel_header($title) {
     $user = mada_current_user();
     $script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    $inAdopcja = in_array($script, panel_nav_modules()['adopcja'][2], true);
     ?>
 <!doctype html>
 <html lang="pl">
@@ -47,6 +66,13 @@ function panel_header($title) {
       <a href="<?= mada_esc($href) ?>"<?= in_array($script, $files, true) ? ' class="active" aria-current="page"' : '' ?>><?= mada_esc($label) ?></a>
     <?php endforeach; ?>
   </nav>
+  <?php if ($inAdopcja): ?>
+  <nav class="panel-subnav" aria-label="Adopcja Serca - sekcje">
+    <?php foreach (panel_subnav_adopcja() as $label => $s): [$href, $files] = $s; ?>
+      <a href="<?= mada_esc($href) ?>"<?= in_array($script, $files, true) ? ' class="active" aria-current="page"' : '' ?>><?= mada_esc($label) ?></a>
+    <?php endforeach; ?>
+  </nav>
+  <?php endif; ?>
   <main class="panel-wrap">
 <?php
 }

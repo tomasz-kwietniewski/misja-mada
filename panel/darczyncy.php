@@ -30,13 +30,7 @@ panel_header('Darczyńcy - Adopcja Serca');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Darczyńcy Adopcji Serca</h2>
-      <span>
-        <a href="darczynca-edit.php" class="btn-primary btn-sm">+ Nowy darczyńca</a>
-        <a href="adopcje.php" class="btn-secondary btn-sm">Przegląd</a>
-        <a href="wplaty.php" class="btn-secondary btn-sm">Macierz wpłat</a>
-        <a href="dzieci.php" class="btn-secondary btn-sm">Podopieczni</a>
-        <a href="import.php" class="btn-ghost btn-sm">Import</a>
-      </span>
+      <a href="darczynca-edit.php" class="btn-primary btn-sm">+ Nowy darczyńca</a>
     </div>
 
 <?php if ($dbError !== ''): ?>
