@@ -108,6 +108,8 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
         <select name="child_id">
           <option value="">- jeszcze bez dziecka -</option>
           <?php foreach ($children as $c):
+              // nieaktywne dzieci nie sa proponowane (chyba ze to obecne dziecko tej adopcji)
+              if ($c['status'] !== 'active' && (int)($adoption['child_id'] ?? 0) !== (int)$c['id']) continue;
               $taken = $c['donors'] !== null && (int)($adoption['child_id'] ?? 0) !== (int)$c['id']; ?>
             <option value="<?= (int)$c['id'] ?>" <?= (int)($adoption['child_id'] ?? 0) === (int)$c['id'] ? 'selected' : '' ?>>
               nr <?= (int)$c['number'] ?> - <?= mada_esc($c['name']) ?><?= $taken ? ' (ma darczyńcę: ' . mada_esc($c['donors']) . ')' : ' (wolne)' ?>
