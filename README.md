@@ -91,7 +91,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── xlsx.php             minimalny writer XLSX (eksport-backup, bez Composera)
 │   ├── mail-dossier.php     mail z przedstawieniem dziecka (wysyłka tylko na życzenie)
 │   ├── mail-przypomnienie.php treść monitu o zaległych wpłatach (+ kopia do fundacji)
-│   ├── cron-przypomnienia.php monity o zaległościach (CLI, tryb --dry; NIE jest w cronie)
+│   ├── cron-przypomnienia.php monity o zaległościach (cron 6:30 codziennie; tryb --dry)
 │   └── migrate.php          migracja schematu modułu (CLI; idempotentna, także ALTER-y i DROP-y)
 │
 ├── panel/                  panel CMS (PHP, logowanie + CSRF + rate-limit IP)
@@ -239,6 +239,9 @@ Model recurring PayU z tokenizacją karty (Secure Form):
 > **Wymóg produkcyjny:** obciążenia STANDARD działają tylko, gdy na serwerze jest ustawiony
 > **cron** na `payu/cron-charge.php` (codziennie ~05:00). Bez crona pierwsza płatność przejdzie,
 > ale kolejne miesiące się nie naliczą.
+>
+> Drugi cron na produkcji: `adopcja/cron-przypomnienia.php` o **6:30** (monity o zaległych
+> wpłatach Adopcji Serca, log w `data/cron-przypomnienia.log`).
 
 Baza MySQL zakłada się sama przy pierwszym użyciu (`payu/db.php`, idempotentna migracja).
 
@@ -417,8 +420,9 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   Zwroty w mailu są **bezosobowe** („Dzień dobry, X!") - formy typu „Szanowny Panie [imię]" psują
   się na małżeństwach i instytucjach, których w bazie jest sporo.
   **Uruchamianie:** `php adopcja/cron-przypomnienia.php --dry` pokazuje listę bez wysyłki; bez
-  `--dry` wysyła. **Stan na 2026-08-03: skryptu NIE MA w cronie, więc nic się nie wysyła** -
-  włączenie to świadoma decyzja fundacji (wpis typu `30 6 * * *`).
+  `--dry` wysyła. **Od 2026-08-03 działa z crona codziennie o 6:30**
+  (`30 6 * * *`, log: `data/cron-przypomnienia.log`) - pierwsza wysyłka objęła 4 osoby.
+  Przed każdą zmianą reguł warto puścić `--dry` i sprawdzić, kto by dostał maila.
 - **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` -> JSON -> `panel/import.php`
   (import idempotentny, w transakcji); niejednoznaczne wiersze rozwiązuje się ręcznie na
   `panel/import-lacz.php`. **Parser karmić PEŁNYM plikiem xlsx pobranym z Google Sheets**
