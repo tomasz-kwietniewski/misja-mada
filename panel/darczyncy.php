@@ -66,7 +66,7 @@ panel_header('Darczyńcy - Adopcja Serca');
             }
             $methods = array_unique(array_map(fn($a) => $methodLabel[$a['method']] ?? $a['method'], $active));
         ?>
-          <tr>
+          <tr class="row-link" data-href="darczynca.php?id=<?= (int)$d['id'] ?>">
             <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><br>
                 <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?></span></td>
             <td><?php if ($d['children_names']): ?>
@@ -87,6 +87,16 @@ panel_header('Darczyńcy - Adopcja Serca');
         <?php endforeach; ?>
         </tbody>
       </table>
+      <script>
+      /* Klik w dowolne miejsce wiersza otwiera kartę darczyńcy (linki
+         i przyciski w wierszu działają normalnie; bez JS - link w nazwisku). */
+      document.querySelectorAll('table.events tr.row-link').forEach(function (tr) {
+        tr.addEventListener('click', function (e) {
+          if (e.target.closest('a, button, form, input')) return;
+          window.location.href = tr.dataset.href;
+        });
+      });
+      </script>
     <?php endif; ?>
 <?php endif; ?>
 <?php

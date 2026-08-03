@@ -232,3 +232,14 @@ table.matrix td.m-future { background: #fff; color: #b9a98f; }
   .panel-subnav { padding: 8px 12px 0; }
   .panel-subnav a { padding: 6px 10px 7px; font-size: 12.5px; }
 }
+
+/* suwak poziomy NAD macierzą (bliźniak dolnego paska przewijania) */
+.matrix-scroll-top {
+  overflow-x: auto; overflow-y: hidden;
+  margin: 0 0 4px; border-radius: 12px 12px 0 0;
+}
+.matrix-scroll-top > div { height: 1px; }
+
+/* klikalny cały wiersz listy darczyńców */
+table.events tr.row-link { cursor: pointer; }
+table.events tr.row-link:hover { background: #fdfaf5; }
