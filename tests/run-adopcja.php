@@ -42,18 +42,23 @@ eq(adopt_coverage($pays), ['2024-07','2024-08','2024-09','2024-10','2024-11','20
    'coverage: dwa pasma z dziurą w styczniu');
 eq(adopt_paid_until($pays), '2025-03', 'paid_until: max period_to');
 eq(adopt_paid_until([]), null, 'paid_until: brak wpłat -> null');
-// zaległości: adopcja od 07.2024 bez końca, dziś kwiecień 2025 -> brakuje 2025-01 i 2025-04
-eq(adopt_arrears('2024-07', null, $pays, '2025-04-15'), ['2025-01', '2025-04'],
-   'arrears: dziura w środku + bieżący miesiąc');
+// zaległości: adopcja od 07.2024 bez końca, dziś kwiecień 2025 -> brakuje TYLKO 2025-01
+// (bieżący miesiąc 2025-04 nie liczy się jako zaległość)
+eq(adopt_arrears('2024-07', null, $pays, '2025-04-15'), ['2025-01'],
+   'arrears: dziura w środku, bieżący miesiąc NIE liczony');
+eq(adopt_arrears('2024-07', null, $pays, '2025-04-15', true), ['2025-01', '2025-04'],
+   'arrears: includeCurrent dolicza bieżący');
 // adopcja OKREŚLONA do 2024-12 - po końcu nic nie jest należne
 eq(adopt_arrears('2024-07', '2024-12', $pays, '2025-04-15'), [],
    'arrears: fixed zakończona i opłacona -> brak zaległości');
 // wszystko opłacone w przód (roczna) -> brak zaległości
 $roczna = [['period_from' => '2026-01', 'period_to' => '2026-12']];
 eq(adopt_arrears('2026-01', null, $roczna, '2026-08-02'), [], 'arrears: opłacone w przód');
-// nic nie zapłacono
-eq(adopt_arrears('2026-06', null, [], '2026-08'), ['2026-06', '2026-07', '2026-08'],
-   'arrears: 3 miesiące bez wpłat');
+// nic nie zapłacono (czerwiec i lipiec zaległe; sierpień = bieżący, nie liczony)
+eq(adopt_arrears('2026-06', null, [], '2026-08'), ['2026-06', '2026-07'],
+   'arrears: 2 zaległe miesiące bez bieżącego');
+// adopcja wystartowała w bieżącym miesiącu -> jeszcze nic nie zalega
+eq(adopt_arrears('2026-08', null, [], '2026-08'), [], 'arrears: start w bieżącym miesiącu -> pusto');
 
 // ── parser okresów (realne wpisy z arkusza) ────────────────────
 $p = adopt_parse_period('NIEOKREŚLONY ');
@@ -123,6 +128,21 @@ eq(adopt_name_match('Ania Zielińska', 'Anna Zielińska'), 'exact', 'name: zdrob
 eq(adopt_name_match('Zuzia Wiewiorowska', 'Zuzanna Wiewiorowska'), 'exact', 'name: zdrobnienie Zuzia=Zuzanna -> exact');
 eq(adopt_name_match('Hanna Miszkurka', 'Anna Miszkurka'), 'fuzzy', 'name: Hanna vs Anna to RÓŻNE imiona -> fuzzy');
 
+// ── sortowanie po nazwisku ─────────────────────────────────────
+eq(adopt_surname_key('Ola i Tomasz Kwietniewscy'), 'kwietniewscy aleksandra tomasz',
+   'surname_key: para -> nazwisko na początku (Ola znormalizowana do Aleksandra)');
+eq(adopt_surname_key('Ks. Artur Aleksiejuk'), 'aleksiejuk artur', 'surname_key: tytuł Ks. pominięty');
+eq(adopt_surname_key('Parafia Kłodzko'), 'klodzko parafia', 'surname_key: instytucja - ostatni człon');
+$posort = adopt_sort_by_surname([
+    ['full_name' => 'Renata Ginak'],
+    ['full_name' => 'Agata Bal'],
+    ['full_name' => 'Marta i Tomek Świercz'],
+    ['full_name' => 'Adam Paprocki'],
+]);
+eq(array_column($posort, 'full_name'),
+   ['Agata Bal', 'Renata Ginak', 'Adam Paprocki', 'Marta i Tomek Świercz'],
+   'sort_by_surname: Bal < Ginak < Paprocki < Świercz (nie po imionach)');
+
 // ── e-maile z pola arkusza ─────────────────────────────────────
 eq(adopt_parse_emails('a@b.pl'), ['a@b.pl', null], 'emails: pojedynczy');
 eq(adopt_parse_emails('krzysiekmiszkurka@gmail.com; katarzyna.zak00@gmail.com'),
@@ -135,6 +155,34 @@ eq(adopt_parse_emails(' gagucha@op.pl'), ['gagucha@op.pl', null], 'emails: spacj
 // ── etykieta miesiąca ──────────────────────────────────────────
 eq(adopt_month_label('2026-08'), '08.2026', 'label: MM.YYYY');
 eq(adopt_month_label(null), '-', 'label: null');
+
+// ── writer XLSX (tylko gdy jest rozszerzenie zip) ──────────────
+require __DIR__ . '/../adopcja/xlsx.php';
+eq(adopt_xlsx_col_letter(0), 'A',  'xlsx: kolumna 0 -> A');
+eq(adopt_xlsx_col_letter(25), 'Z', 'xlsx: kolumna 25 -> Z');
+eq(adopt_xlsx_col_letter(26), 'AA', 'xlsx: kolumna 26 -> AA');
+eq(adopt_xlsx_sheet_name('Wpłaty [macierz]: a/b'), 'Wpłaty -macierz-- a-b', 'xlsx: nazwa arkusza bez znaków zakazanych');
+ok(mb_strlen(adopt_xlsx_sheet_name(str_repeat('x', 50))) === 31, 'xlsx: nazwa arkusza przycięta do 31');
+if (class_exists('ZipArchive')) {
+    $bin = adopt_xlsx_build([
+        ['name' => 'Test', 'rows' => [['Nagłówek', 'Kwota'], ['Ala & <b>', 70.5]]],
+        ['name' => 'Drugi', 'rows' => [['x']]],
+    ]);
+    $tmpx = sys_get_temp_dir() . '/mada_xlsx_test_' . getmypid() . '.xlsx';
+    file_put_contents($tmpx, $bin);
+    $z = new ZipArchive();
+    ok($z->open($tmpx) === true, 'xlsx: plik otwiera się jako zip');
+    $wbx = (string)$z->getFromName('xl/workbook.xml');
+    ok(str_contains($wbx, 'name="Test"') && str_contains($wbx, 'name="Drugi"'), 'xlsx: workbook z dwoma arkuszami');
+    $s1 = (string)$z->getFromName('xl/worksheets/sheet1.xml');
+    ok(str_contains($s1, 'Ala &amp; &lt;b&gt;'), 'xlsx: escapowanie XML w komórce');
+    ok(str_contains($s1, '<v>70.5</v>'), 'xlsx: liczba jako liczba');
+    ok((string)$z->getFromName('[Content_Types].xml') !== '', 'xlsx: Content_Types obecny');
+    $z->close();
+    @unlink($tmpx);
+} else {
+    fwrite(STDERR, "  (i) brak rozszerzenia zip - testy budowy XLSX pominięte\n");
+}
 
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty modułu Adopcja Serca: {$T['pass']} OK";

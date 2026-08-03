@@ -118,6 +118,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $st['pending']++;
         }
 
+        // 5. przepływy finansowe (Zbiórki/Wypłaty/Wymiana walut) - dedupe po
+        //    (data, kategoria, kwota, waluta), żeby re-import nie duplikował
+        $st['flows'] = 0;
+        $flowDupe = $pdo->prepare(
+            'SELECT id FROM fin_flows WHERE flow_date = ? AND category = ? AND amount_grosze = ? AND currency = ? LIMIT 1'
+        );
+        foreach ($data['flows'] ?? [] as $f) {
+            $flowDupe->execute([$f['flow_date'], $f['category'], (int)$f['amount_grosze'], $f['currency'] ?? 'PLN']);
+            if ($flowDupe->fetchColumn() !== false) continue;
+            fin_flow_insert($f + ['created_by' => mada_current_user()]);
+            $st['flows']++;
+        }
+
         $pdo->commit();
         mada_audit('import.run', 'import', null, $st + ['checksums' => $data['checksums'] ?? []]);
         $result = ['stats' => $st, 'checksums' => $data['checksums'] ?? []];
@@ -178,6 +191,7 @@ panel_header('Import - Adopcja Serca');
         <tr><td>Darczyńcy nowi / istniejący</td><td><?= (int)$result['stats']['donors_new'] ?> / <?= (int)$result['stats']['donors_existing'] ?></td></tr>
         <tr><td>Adopcje wstawione / pominięte (duplikaty)</td><td><?= (int)$result['stats']['adoptions'] ?> / <?= (int)$result['stats']['adoptions_skipped'] ?></td></tr>
         <tr><td>Wpłaty</td><td><?= (int)$result['stats']['payments'] ?></td></tr>
+        <tr><td>Przepływy finansowe</td><td><?= (int)($result['stats']['flows'] ?? 0) ?></td></tr>
         <tr><td>Do ręcznego łączenia</td><td><?= (int)$result['stats']['pending'] ?></td></tr>
       </tbody>
     </table>

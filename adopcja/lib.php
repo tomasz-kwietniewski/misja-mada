@@ -76,13 +76,17 @@ function adopt_paid_until(array $payments): ?string {
 
 /**
  * Zaległości: miesiące NALEŻNE a niepokryte.
- * Należne = od start_month do min(end_month, miesiąc dzisiejszy).
+ * Należne = od start_month do min(end_month, POPRZEDNI miesiąc) - bieżący
+ * miesiąc nie liczy się jako zaległość (2. dnia miesiąca nikt jeszcze nie
+ * "zalega"; fundacja odhacza wpłaty w trakcie miesiąca). $includeCurrent=true
+ * dolicza bieżący (do widoków "co jeszcze nieopłacone").
  * $today = 'YYYY-MM-DD' lub 'YYYY-MM'. Zwraca listę brakujących miesięcy.
  */
-function adopt_arrears(string $startMonth, ?string $endMonth, array $payments, string $today): array {
+function adopt_arrears(string $startMonth, ?string $endMonth, array $payments, string $today,
+                       bool $includeCurrent = false): array {
     $nowM = adopt_month_valid($today) ? $today : adopt_month_from_date($today);
     if ($nowM === null || !adopt_month_valid($startMonth)) return [];
-    $dueTo = $nowM;
+    $dueTo = $includeCurrent ? $nowM : adopt_month_add($nowM, -1);
     if ($endMonth !== null && adopt_month_valid($endMonth) && $endMonth < $dueTo) $dueTo = $endMonth;
     $covered = array_flip(adopt_coverage($payments));
     $missing = [];
@@ -272,6 +276,26 @@ function adopt_name_match(string $a, string $b): string {
 
     if ($common >= 1 || $fuzzyHit) return 'fuzzy';
     return 'none';
+}
+
+/**
+ * Klucz sortowania po NAZWISKU: ostatni znaczący token nazwy + reszta.
+ * "Ola i Tomasz Kwietniewscy" -> "kwietniewscy ola tomasz",
+ * "Ks. Artur Aleksiejuk" -> "aleksiejuk artur", "Parafia Kłodzko" -> "klodzko parafia".
+ */
+function adopt_surname_key(string $name): string {
+    $toks = adopt_name_tokens($name);
+    if (!$toks) return adopt_name_normalize($name);
+    $last = array_pop($toks);
+    return trim($last . ' ' . implode(' ', $toks));
+}
+
+/** Sortuje wiersze po nazwisku darczyńcy (kolumna $field), stabilnie. */
+function adopt_sort_by_surname(array $rows, string $field = 'full_name'): array {
+    usort($rows, fn($a, $b) =>
+        strcmp(adopt_surname_key((string)($a[$field] ?? '')), adopt_surname_key((string)($b[$field] ?? '')))
+        ?: strcmp((string)($a[$field] ?? ''), (string)($b[$field] ?? '')));
+    return $rows;
 }
 
 /* ── Pomocnicze dla panelu ─────────────────────────────────────── */

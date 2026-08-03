@@ -211,6 +211,10 @@ function doPost(e) {
       if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
       return handleAdopcjaCharge(data);
     }
+    if (data.type === 'adopcja-mirror') {
+      if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
+      return handleAdopcjaMirror(data);
+    }
     if (data.type === 'relay') {
       if (!secretOk(data)) return jsonOut({ ok: false, error: 'unauthorized' });
       return handleRelay(data);
@@ -472,6 +476,36 @@ function notifyFoundation(row, headers) {
 /** Adopcja opłacona kartą (PayU) - zapis do arkusza Adopcja jako aktywna subskrypcja.
  *  Bez double opt-in (płatność kartą zweryfikowała e-mail) - Weryfikacja = "Nie dotyczy".
  *  Pierwsza rata jest już opłacona, więc od razu Ostatnia wpłata + Opłacone miesiące = 1. */
+/** LUSTRO zgłoszenia przelewowego potwierdzonego już w PHP (adopcja/potwierdz.php).
+ *  Double opt-in, maile i baza są po stronie PHP - tu tylko kopia wiersza w arkuszu
+ *  (backup / znajomy widok fundacji). Bez żadnych maili. */
+function handleAdopcjaMirror(data) {
+  const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
+  ensureHeaders(sheet, HEADERS_ADOPCJA);
+  const ts = new Date();
+  appendRowByHeaders(sheet, {
+    [COL.TOKEN]:         Utilities.getUuid().replace(/-/g, ''),
+    [COL.WERYFIKACJA]:   WER_POTWIERDZONY,
+    [COL.ZGLOSZENIE]:    ts,
+    [COL.POTWIERDZENIE]: ts,
+    [COL.IMIE]:          data.imie || '',
+    [COL.NAZWISKO]:      data.nazwisko || '',
+    [COL.EMAIL]:         data.email || '',
+    [COL.TELEFON]:       data.telefon || '',
+    [COL.ADRES]:         data.adres || '',
+    [COL.FORMA]:         data.forma || '',
+    [COL.OKRES]:         data.okres || '',
+    [COL.CZESTOTLIWOSC]: data.czestotliwosc || '',
+    [COL.DZIECI]:        data.dzieci || '',
+    [COL.ZG_REGULAMIN]:  'TAK',
+    [COL.ZG_WIZERUNEK]:  data.zgoda_wizerunek || '',
+    [COL.ZG_RODO]:       'TAK',
+    [COL.NEWSLETTER]:    data.newsletter || '',
+    [COL.METODA]:        METODA_PRZELEW,
+  });
+  return jsonOut({ ok: true });
+}
+
 function handleAdopcjaPaid(data) {
   const sheet = getOrCreateSheet(SHEET_ADOPCJA, HEADERS_ADOPCJA);
   ensureHeaders(sheet, HEADERS_ADOPCJA);

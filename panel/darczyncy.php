@@ -15,7 +15,7 @@ $paymentsByAdoption = [];
 
 try {
     adopt_db_ensure_schema();
-    $donors = adopt_donor_list($q);
+    $donors = adopt_sort_by_surname(adopt_donor_list($q));   // domyślnie po NAZWISKU
     $all = adopt_adoption_list_all();
     foreach ($all as $a) $adoptionsByDonor[(int)$a['donor_id']][] = $a;
     $paymentsByAdoption = adopt_payments_by_adoptions(array_column($all, 'id'));
@@ -31,6 +31,9 @@ panel_header('Darczyńcy - Adopcja Serca');
     <div class="bar">
       <h2 style="margin:0;">Darczyńcy Adopcji Serca</h2>
       <span>
+        <a href="darczynca-edit.php" class="btn-primary btn-sm">+ Nowy darczyńca</a>
+        <a href="adopcje.php" class="btn-secondary btn-sm">Przegląd</a>
+        <a href="wplaty.php" class="btn-secondary btn-sm">Macierz wpłat</a>
         <a href="dzieci.php" class="btn-secondary btn-sm">Podopieczni</a>
         <a href="import.php" class="btn-ghost btn-sm">Import</a>
         <a href="index.php" class="btn-ghost btn-sm">← Panel</a>
@@ -71,7 +74,7 @@ panel_header('Darczyńcy - Adopcja Serca');
             $methods = array_unique(array_map(fn($a) => $methodLabel[$a['method']] ?? $a['method'], $active));
         ?>
           <tr>
-            <td><?= mada_esc($d['full_name']) ?><br>
+            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><br>
                 <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?></span></td>
             <td><?php if ($d['children_names']): ?>
                   <?= mada_esc($d['children_names']) ?> <span class="hint">(nr <?= mada_esc($d['children_numbers']) ?>)</span>

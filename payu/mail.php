@@ -110,6 +110,9 @@ function mada_mail_shell(string $title, string $inner): string {
 function mada_mail_html($to, string $subject, string $innerHtml): bool {
     $html = mada_mail_shell($subject, $innerHtml);
     if (mada_mail_relay((string) $to, $subject, '', $html)) return true;
+    // Fallback mail() idzie przez SMTP - RFC 5322 ogranicza linię do 998 znaków,
+    // a skorupa HTML jest jednolinijkowa. Łamiemy na spacjach (nie tnie URL-i).
+    $html = wordwrap($html, 700, "\r\n", false);
     $headers  = 'From: Fundacja Misja MADA <' . MADA_MAIL_FROM . '>' . "\r\n";
     $headers .= 'Reply-To: ' . MADA_MAIL_FROM . "\r\n";
     $headers .= 'MIME-Version: 1.0' . "\r\n";

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../payu/db.php';
 require_once __DIR__ . '/../payu/recurring-lib.php';
 require_once __DIR__ . '/../payu/mail.php';
 require_once __DIR__ . '/../payu/sheet.php';
+require_once __DIR__ . '/../adopcja/db.php';
 
 // ── Anulowanie subskrypcji przez pracownika ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -21,6 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (($sub['goal'] ?? '') === 'adopcja') {
                         // Adopcja: aktualizacja arkusza + powiadomienie fundacji kanalem Gmail (jak w manage.php).
                         mada_adopcja_cancel_sheet($sub);
+                        // Modul CMS: zamknij powiazane adopcje (koniec = ostatni oplacony miesiac,
+                        // wiec zaleglosci nie rosna; powrot darczyncy = nowa adopcja przez "Wznow").
+                        try {
+                            adopt_db_ensure_schema();
+                            foreach (adopt_adoptions_by_subscription((int)$id) as $ad) {
+                                $pays = adopt_payments_by_adoption((int)$ad['id']);
+                                $endM = adopt_paid_until($pays) ?? ($ad['start_month'] ?? date('Y-m'));
+                                adopt_adoption_end((int)$ad['id'], $endM, 'cancelled');
+                                mada_audit('adoption.cancel', 'adoption', (int)$ad['id'],
+                                    ['powod' => 'anulowanie subskrypcji #' . (int)$id, 'end_month' => $endM]);
+                            }
+                        } catch (Throwable $e) { /* best-effort */ }
                     } else {
                         mada_mail_foundation($sub, 'anulowana');
                     }

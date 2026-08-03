@@ -84,7 +84,7 @@ $adoptionsAll = [];
 try {
     adopt_db_ensure_schema();
     $open = adopt_pending_open();
-    $adoptionsAll = adopt_adoption_list_all();
+    $adoptionsAll = adopt_sort_by_surname(adopt_adoption_list_all(), 'donor_name');
 } catch (Throwable $e) {
     $dbError = $dbError ?: $e->getMessage();
 }

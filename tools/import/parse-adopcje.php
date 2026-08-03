@@ -40,6 +40,68 @@ function xlsx_col_index(string $cellRef): int {
     return $n - 1;
 }
 
+/** Czyta WSZYSTKIE zakładki xlsx: [nazwa => wiersze]. Wiersz ma prefiks ''
+ *  w kolumnie 0 (zgodność z parserem eksportów HTML, gdzie kolumna 0 to numer
+ *  wiersza arkusza); liczby normalizowane do stringów bez końcowego .0. */
+function xlsx_read_sheets(string $path): array {
+    $zip = new ZipArchive();
+    if ($zip->open($path) !== true) exit("Nie mogę otworzyć xlsx: $path\n");
+
+    $shared = [];
+    $ss = $zip->getFromName('xl/sharedStrings.xml');
+    if ($ss !== false) {
+        $sx = new SimpleXMLElement($ss);
+        foreach ($sx->si as $si) {
+            if (isset($si->t)) { $shared[] = (string)$si->t; }
+            else {
+                $txt = '';
+                foreach ($si->r as $r) $txt .= (string)$r->t;
+                $shared[] = $txt;
+            }
+        }
+    }
+
+    // mapy: rId -> plik arkusza, nazwa zakładki -> rId
+    $rels = [];
+    $rx = new SimpleXMLElement($zip->getFromName('xl/_rels/workbook.xml.rels'));
+    foreach ($rx->Relationship as $rel) {
+        $rels[(string)$rel['Id']] = 'xl/' . ltrim((string)$rel['Target'], '/');
+    }
+    $wb = new SimpleXMLElement($zip->getFromName('xl/workbook.xml'));
+    $out = [];
+    foreach ($wb->sheets->sheet as $sh) {
+        $rid = (string)$sh->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+        $file = $rels[$rid] ?? null;
+        if ($file === null) continue;
+        $xml = $zip->getFromName($file);
+        if ($xml === false) continue;
+        $sx = new SimpleXMLElement($xml);
+        $rows = [];
+        foreach ($sx->sheetData->row as $row) {
+            $r = [0 => ''];   // atrapa kolumny "numer wiersza" jak w eksporcie HTML
+            foreach ($row->c as $c) {
+                $idx = xlsx_col_index((string)$c['r']) + 1;
+                $t = (string)$c['t'];
+                if ($t === 's')             $val = $shared[(int)$c->v] ?? '';
+                elseif ($t === 'inlineStr') $val = (string)$c->is->t;
+                else                        $val = isset($c->v) ? (string)$c->v : '';
+                $val = trim($val);
+                if (preg_match('/^-?\d+(\.\d+)?$/', $val)) {
+                    $val = rtrim(rtrim($val, '0'), '.');   // 70.0 -> 70, 6643.50 -> 6643.5
+                    if ($val === '' || $val === '-') $val = '0';
+                }
+                $r[$idx] = $val;
+            }
+            for ($i = 0; $i <= max(array_keys($r)); $i++) { if (!isset($r[$i])) $r[$i] = ''; }
+            ksort($r);
+            $rows[] = $r;
+        }
+        $out[(string)$sh['name']] = $rows;
+    }
+    $zip->close();
+    return $out;
+}
+
 /** Zwraca wiersze arkusza 1 jako tablice indeksowane kolumnami (0-based). */
 function xlsx_read_first_sheet(string $path): array {
     $zip = new ZipArchive();
@@ -196,16 +258,39 @@ $GROUP_START_YEAR = [
     'GR 1' => 2024, 'GR 2' => 2024, 'GR_3' => 2025, 'GR_4' => 2026, 'GR_5' => 2026,
 ];
 
-$matrixRows = [];   // ['group','name','events'=>[],'notes'=>[],'first_month']
-$grFiles = glob(rtrim($opt['platnosci'], '/\\') . '/WP*ATY*.html');
-sort($grFiles);
-if (!$grFiles) exit("Nie znalazłem plików WPŁATY GR*.html w {$opt['platnosci']}\n");
+/* Źródło płatności: PEŁNY xlsx (pobrany z Google Sheets - zalecane, ma
+   wszystkie kolumny) albo katalog eksportów HTML (fallback; eksport ukrywa
+   schowane kolumny arkusza, więc stare miesiące mogą wyglądać jak dziury!). */
+$platIsXlsx = is_file($opt['platnosci'])
+           && preg_match('/\.xlsx$/i', $opt['platnosci']);
+$allTabs = [];   // nazwa zakładki/pliku -> wiersze (kolumna 0 = atrapa/nr wiersza)
+if ($platIsXlsx) {
+    $allTabs = xlsx_read_sheets($opt['platnosci']);
+    echo "Źródło płatności: pełny xlsx (" . count($allTabs) . " zakładek)\n";
+} else {
+    foreach (glob(rtrim($opt['platnosci'], '/\\') . '/*.html') as $f) {
+        $allTabs[basename($f)] = html_table_rows($f);
+    }
+    echo "Źródło płatności: eksporty HTML (" . count($allTabs) . " plików)\n";
+    echo "  UWAGA: eksport HTML nie zawiera ukrytych kolumn arkusza - wpłaty ze\n";
+    echo "  starych miesięcy mogą wyglądać jak zaległości. Lepiej podać pełny xlsx.\n";
+}
 
-foreach ($grFiles as $file) {
-    $base = basename($file);
+$matrixSources = [];
+foreach ($allTabs as $name => $rows) {
+    if (mb_stripos($name, 'WPŁATY') !== false || stripos($name, 'WP*ATY') !== false
+        || preg_match('/WP.ATY/ui', $name)) {
+        $matrixSources[$name] = $rows;
+    }
+}
+ksort($matrixSources);
+if (!$matrixSources) exit("Nie znalazłem zakładek/plików WPŁATY GR* w {$opt['platnosci']}\n");
+
+$matrixRows = [];   // ['group','name','events'=>[],'notes'=>[],'first_month']
+
+foreach ($matrixSources as $base => $rows) {
     $group = 'GR?';
     if (preg_match('/GR[ _]?(\d)/u', $base, $m)) $group = 'GR' . $m[1];
-    $rows = html_table_rows($file);
 
     // znajdź wiersz z nazwami miesięcy (ten z "Imię i nazwisko")
     $monthCols = [];    // index kolumny -> 'YYYY-MM'
@@ -217,18 +302,25 @@ foreach ($grFiles as $file) {
     }
     if ($nameCol === null) { echo "  POMIJAM $base - brak nagłówka\n"; continue; }
 
-    // wiersz(e) nad nagłówkiem mogą nieść lata; zbierz mapę kolumna->rok
-    $yearByCol = [];
-    for ($i = 0; $i < $headerIdx; $i++) {
-        foreach ($rows[$i] as $j => $c) {
-            if (preg_match('/^(20\d\d)\b/', trim($c), $m)) $yearByCol[$j] = (int)$m[1];
-        }
-    }
-
-    // domyślny rok startowy z konfiguracji per plik
-    $year = null;
+    // Rok startowy najpewniej z NAZWY zakładki ("...od lipca 2024") - w pełnym
+    // xlsx pierwszy miesiąc nagłówka = start grupy, a markery lat w scalonych
+    // komórkach lądują w przypadkowych kolumnach (ignorujemy je wtedy).
+    $year = null; $nameYear = null;
+    if (preg_match('/od\s+\p{L}+\s+(20\d\d)/u', $base, $m)) $nameYear = (int)$m[1];
     foreach ($GROUP_START_YEAR as $pat => $y) {
         if (str_contains($base, $pat)) { $year = $y; break; }
+    }
+    if ($platIsXlsx && $nameYear !== null) $year = $nameYear;
+
+    // Eksport HTML pokazuje tylko widoczne kolumny (okno zaczyna się w środku
+    // strumienia) - tam markery lat nad nagłówkiem są potrzebne.
+    $yearByCol = [];
+    if (!$platIsXlsx) {
+        for ($i = 0; $i < $headerIdx; $i++) {
+            foreach ($rows[$i] as $j => $c) {
+                if (preg_match('/^(20\d\d)\b/', trim($c), $m)) $yearByCol[$j] = (int)$m[1];
+            }
+        }
     }
 
     $prevMonth = null;
@@ -412,6 +504,126 @@ foreach ($adoptions as $a) {
     $final[] = $a;
 }
 
+/* ═══ 4b. Zakładki finansowe: Zbiórki / Wypłaty / Wymiana walut ═ */
+
+$flows = [];
+/** Zwraca wiersze zakładki/pliku o nazwie pasującej do wzorca (case/ogonki-insensitive). */
+function fin_tab(array $allTabs, string $pattern): array {
+    foreach ($allTabs as $name => $rows) {
+        if (preg_match($pattern, $name)) return $rows;
+    }
+    return [];
+}
+
+/** '11040,00 PLN' / '70 Euro' / '2750,00 Funtów' / '10 Franków' -> [grosze, ISO] albo null. */
+function fin_parse_amount(string $s): ?array {
+    $map = ['PLN' => 'PLN', 'ZL' => 'PLN', 'EURO' => 'EUR', 'EUR' => 'EUR',
+            'FUNT' => 'GBP', 'FUNTOW' => 'GBP', 'FUNTY' => 'GBP',
+            'FRANK' => 'CHF', 'FRANKOW' => 'CHF', 'FRANKI' => 'CHF', 'DOLAR' => 'USD'];
+    $n = strtoupper(strtr(trim($s), ['ó'=>'o','Ó'=>'O','ł'=>'l','Ł'=>'L','ę'=>'e','ą'=>'a']));
+    if (!preg_match('/^([\d\s.,]+)\s*([A-Z]+)\.?$/u', $n, $m)) return null;
+    $num = (float)str_replace([' ', "\xC2\xA0", ','], ['', '', '.'], $m[1]);
+    foreach ($map as $pref => $iso) {
+        if (str_starts_with($m[2], $pref)) return [(int)round($num * 100), $iso];
+    }
+    return null;
+}
+
+/** 'DD.MM.YYYY[r.]' / 'DD/MM/YYYY' -> 'YYYY-MM-DD' albo null. */
+function fin_parse_date(string $s): ?string {
+    if (preg_match('/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/', $s, $m)) {
+        return sprintf('%04d-%02d-%02d', (int)$m[3], (int)$m[2], (int)$m[1]);
+    }
+    return null;
+}
+
+// Zbiórki: Data | Miejsce | Kwoty (1..3 walut) | status "Przekazane"
+if ($zb = fin_tab($allTabs, '/Zbi.rki/ui')) {
+    foreach ($zb as $cells) {
+        $date = fin_parse_date($cells[1] ?? '');
+        $place = trim($cells[2] ?? '');
+        if ($date === null || $place === '') continue;
+        $status = 'wykonane';
+        foreach ($cells as $c) if (stripos($c, 'Przekazane') !== false) $status = 'przekazane';
+        $group = 'Zbiórka: ' . $place . ' ' . $date;
+        for ($j = 3; $j <= 6; $j++) {
+            $amt = fin_parse_amount($cells[$j] ?? '');
+            if ($amt === null) continue;
+            $flows[] = [
+                'flow_date' => $date, 'direction' => 'in', 'category' => 'zbiorka',
+                'amount_grosze' => $amt[0], 'currency' => $amt[1],
+                'method' => 'gotowka', 'counterparty' => $place,
+                'group_label' => $group, 'status' => $status, 'note' => 'import: Zbiórki',
+            ];
+        }
+    }
+    echo "  Zbiórki: " . count(array_filter($flows, fn($f) => $f['category'] === 'zbiorka')) . " wierszy\n";
+}
+
+// Wypłaty: opis | ... | kwota (może być 'X EURO') | data DD/MM/YYYY | kategoria | forma
+$wypCat = ['ADOPCJA' => 'wyplata_adopcja', 'JEDZENIE' => 'wyplata_jedzenie', 'STUDNIA' => 'wyplata_studnia'];
+if ($wy = fin_tab($allTabs, '/^Wyp.aty/ui')) {
+    $cnt = 0;
+    foreach ($wy as $cells) {
+        $date = null; $amount = null; $cur = 'PLN'; $cat = 'inne'; $method = 'przelew'; $desc = '';
+        foreach ($cells as $j => $c) {
+            if ($j === 0) continue;   // kolumna 0 eksportu HTML = numer wiersza arkusza
+            $c = trim($c);
+            if ($c === '') continue;
+            if ($date === null && ($dd = fin_parse_date($c)) !== null && strlen($c) <= 12) { $date = $dd; continue; }
+            if ($amount === null) {
+                if (preg_match('/^([\d\s.,]+)\s*EURO?$/i', $c, $m)) {
+                    $amount = (int)round(((float)str_replace([' ', ','], ['', '.'], $m[1])) * 100); $cur = 'EUR'; continue;
+                }
+                if (preg_match('/^[\d]+(?:[.,]\d{1,2})?$/', $c)) {
+                    $amount = (int)round(((float)str_replace(',', '.', $c)) * 100); continue;
+                }
+            }
+            foreach ($wypCat as $k => $v) if (str_starts_with(strtoupper($c), $k)) { $cat = $v; }
+            if (strcasecmp($c, 'Gotówka') === 0) $method = 'gotowka';
+            if (strcasecmp($c, 'Przelew') === 0) $method = 'przelew';
+            if ($j <= 3 && mb_strlen($c) > 8 && !preg_match('/^\d/', $c)) $desc = $desc !== '' ? $desc : $c;
+        }
+        if ($date === null || $amount === null) continue;
+        $flows[] = [
+            'flow_date' => $date, 'direction' => 'out', 'category' => $cat,
+            'amount_grosze' => $amount, 'currency' => $cur,
+            'method' => $method, 'counterparty' => 'Siostry - Madagaskar',
+            'group_label' => null, 'status' => 'wykonane',
+            'note' => mb_substr('import: Wypłaty - ' . $desc, 0, 500),
+        ];
+        $cnt++;
+    }
+    echo "  Wypłaty: $cnt wierszy\n";
+}
+
+// Wymiana walut: komórki 'a*kurs=pln' w kolumnach miesięcy (wiersz roku wyżej)
+if ($wym = fin_tab($allTabs, '/^Wymiana/ui')) {
+    $cnt = 0;
+    $year = null; $monthByCol = [];
+    foreach ($wym as $cells) {
+        foreach ($cells as $j => $c) {
+            $c = trim($c);
+            if (preg_match('/^(20\d\d)$/', $c)) { $year = (int)$c; continue; }
+            if ($year !== null && ($mo = month_from_label($c, $MONTHS)) !== null) { $monthByCol[$j] = sprintf('%04d-%02d', $year, $mo); continue; }
+            if (preg_match('/^([\d\s.,]+)\*([\d.,]+)\s*=\s*([\d\s.,]+)$/', $c, $m) && isset($monthByCol[$j])) {
+                $eur = (float)str_replace([' ', "\xC2\xA0", ','], ['', '', '.'], $m[1]);
+                $fx  = (float)str_replace(',', '.', $m[2]);
+                $pln = (float)str_replace([' ', "\xC2\xA0", ','], ['', '', '.'], $m[3]);
+                $flows[] = [
+                    'flow_date' => $monthByCol[$j] . '-01', 'direction' => 'in', 'category' => 'wymiana_walut',
+                    'amount_grosze' => (int)round($eur * 100), 'currency' => 'EUR', 'fx_rate' => $fx,
+                    'amount_pln_grosze' => (int)round($pln * 100),
+                    'method' => 'przelew', 'counterparty' => null, 'group_label' => null,
+                    'status' => 'wykonane', 'note' => 'import: Wymiana walut (' . $c . ')',
+                ];
+                $cnt++;
+            }
+        }
+    }
+    echo "  Wymiana walut: $cnt wierszy\n";
+}
+
 /* ═══ 5. Sumy kontrolne + zapis ═════════════════════════════════ */
 
 $sumAll = 0;
@@ -422,6 +634,7 @@ $out = [
     'children'   => array_values($children),
     'donors'     => array_values($donors),
     'adoptions'  => $final,
+    'flows'      => $flows,
     'pending'    => $pending,
     'warnings'   => $warnings,
     'checksums'  => [
@@ -431,6 +644,7 @@ $out = [
         'matrix_rows'       => count($matrixRows),
         'adoptions_no_start'=> $noStart,
         'match_stats'       => $stats,
+        'flows'             => count($flows),
         'sum_matched_pln'   => $sumMatched / 100,
         'sum_pending_pln'   => $sumPending / 100,
         'sum_imported_pln'  => $sumAll / 100,
