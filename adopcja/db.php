@@ -170,6 +170,23 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
+    /* Log wysłanych przypomnień o zaległościach - decyduje o ponawianiu
+       (co 14 dni na darczyńcę) i daje fundacji ślad, co poszło i kiedy. */
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS adopt_reminders (
+            id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            donor_id      BIGINT UNSIGNED NOT NULL,
+            sent_at       DATETIME        NOT NULL,
+            months_total  SMALLINT UNSIGNED NOT NULL,
+            amount_grosze INT UNSIGNED    NOT NULL,
+            detail        VARCHAR(500)    NULL,
+            PRIMARY KEY (id),
+            KEY idx_donor_sent (donor_id, sent_at),
+            CONSTRAINT fk_rem_donor FOREIGN KEY (donor_id)
+                REFERENCES adopt_donors (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
     /* Wiersze importu wymagające ręcznej decyzji (ekran łączenia). */
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS adopt_import_pending (
