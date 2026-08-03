@@ -291,6 +291,26 @@ function adopt_child_upsert(int $number, string $name, ?string $notes = null): i
     return (int)$pdo->lastInsertId();
 }
 
+function adopt_child_get(int $id): ?array {
+    $st = payu_db()->prepare('SELECT * FROM adopt_children WHERE id = ?');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+/** Edycja dziecka. Zwraca false, gdy nowy numer jest zajęty przez inne dziecko. */
+function adopt_child_update(int $id, int $number, string $name, string $status, ?string $notes): bool {
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT id FROM adopt_children WHERE number = ? AND id <> ? LIMIT 1');
+    $st->execute([$number, $id]);
+    if ($st->fetchColumn() !== false) return false;
+    $up = $pdo->prepare(
+        "UPDATE adopt_children SET number = ?, name = ?, status = ?, notes = ? WHERE id = ?"
+    );
+    $up->execute([$number, $name, $status === 'inactive' ? 'inactive' : 'active', $notes, $id]);
+    return true;
+}
+
 function adopt_child_by_number(int $number): ?array {
     $st = payu_db()->prepare('SELECT * FROM adopt_children WHERE number = ?');
     $st->execute([$number]);

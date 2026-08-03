@@ -49,7 +49,7 @@ panel_header('Darczyńcy - Adopcja Serca');
       <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny)' : '' ?></p>
       <table class="events">
         <thead><tr>
-          <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th>
+          <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th></th>
         </tr></thead>
         <tbody>
         <?php foreach ($donors as $d):
@@ -79,6 +79,10 @@ panel_header('Darczyńcy - Adopcja Serca');
                 <?php elseif ($active): ?>
                   <span class="badge" style="background:#e9f5ee;color:var(--ok);border-color:#b8dcc6;">OK</span>
                 <?php else: ?><span class="hint">-</span><?php endif; ?></td>
+            <td style="white-space:nowrap;">
+              <a class="btn-secondary btn-sm" href="darczynca.php?id=<?= (int)$d['id'] ?>">Karta</a>
+              <a class="btn-ghost btn-sm" href="darczynca-edit.php?id=<?= (int)$d['id'] ?>">Edytuj</a>
+            </td>
           </tr>
         <?php endforeach; ?>
         </tbody>

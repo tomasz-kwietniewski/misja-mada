@@ -41,6 +41,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_redirect("darczynca.php?id=$id&msg=payok");
         }
 
+        if ($action === 'savenotes') {
+            $donor = adopt_donor_get($id);
+            if (!$donor) mada_redirect('darczyncy.php');
+            $notes = trim((string)($_POST['notes'] ?? ''));
+            $st = payu_db()->prepare('UPDATE adopt_donors SET notes = ? WHERE id = ?');
+            $st->execute([$notes !== '' ? $notes : null, $id]);
+            mada_audit('donor.notes', 'donor', $id, ['notes' => $notes]);
+            mada_redirect("darczynca.php?id=$id&msg=noteok");
+        }
+
         if ($action === 'delpayment') {
             $pid = (int)($_POST['payment_id'] ?? 0);
             $p = adopt_payment_get($pid);
@@ -84,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function dk_flash() {
     $codes = [
         'payok'    => ['ok',    'Wpłata została odnotowana.'],
+        'noteok'   => ['ok',    'Notatki zostały zapisane.'],
         'paydel'   => ['ok',    'Wpłata została usunięta.'],
         'ended'    => ['ok',    'Adopcja została zakończona (miesiące po końcu nie liczą się jako zaległość).'],
         'resumed'  => ['ok',    'Adopcja wznowiona jako nowy okres - przerwa nie liczy się jako zaległość.'],
@@ -136,12 +147,23 @@ panel_header('Darczyńca - Adopcja Serca');
 <?php elseif (!$donor): ?>
     <div class="alert alert-error">Nie znaleziono darczyńcy.</div>
 <?php else: ?>
-    <p class="hint" style="margin:0 0 18px;">
+    <p class="hint" style="margin:0 0 14px;">
       E-mail: <b><?= mada_esc($donor['email'] ?: '-') ?></b><?= $donor['emails_extra'] ? ' (dodatkowe: ' . mada_esc($donor['emails_extra']) . ')' : '' ?>
       · Telefon: <?= mada_esc($donor['phone'] ?: '-') ?>
       · Źródło: <?= mada_esc($donor['source']) ?>
-      <?php if ($donor['notes']): ?><br>Notatki: <?= mada_esc($donor['notes']) ?><?php endif; ?>
     </p>
+
+    <details class="donor-notes" <?= $donor['notes'] ? 'open' : '' ?> style="margin:0 0 20px;">
+      <summary style="cursor:pointer;font-weight:600;color:var(--brown);">📝 Notatki fundacji<?= $donor['notes'] ? '' : ' <span class="hint">(brak - kliknij, aby dodać)</span>' ?></summary>
+      <form method="post" style="margin:8px 0 0;max-width:640px;">
+        <?= mada_csrf_field() ?>
+        <input type="hidden" name="action" value="savenotes">
+        <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+        <textarea name="notes" rows="3" style="width:100%;padding:10px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;"
+                  placeholder="Np. prosiła o kontakt telefoniczny; wpłaca z konta męża; wróci do adopcji od stycznia..."><?= mada_esc($donor['notes'] ?? '') ?></textarea>
+        <button type="submit" class="btn-secondary btn-sm" style="margin-top:6px;">Zapisz notatki</button>
+      </form>
+    </details>
 
     <h3>Adopcje</h3>
     <?php if (!$ads): ?><p class="hint">Brak adopcji.</p><?php else: ?>
