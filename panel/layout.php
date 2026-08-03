@@ -80,6 +80,18 @@ function panel_header($title) {
 function panel_footer() {
     ?>
   </main>
+  <script>
+  /* Klikalne wiersze tabel: <tr class="row-link" data-href="..."> otwiera
+     wskazany adres po kliknięciu w dowolne miejsce wiersza. Linki, przyciski
+     i pola formularzy w wierszu działają normalnie. Bez JS zostaje zwykły
+     link w treści wiersza - dlatego każdy taki wiersz MUSI go zawierać. */
+  document.querySelectorAll('tr.row-link[data-href]').forEach(function (tr) {
+    tr.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, form, input, select, textarea, label')) return;
+      window.location.href = tr.dataset.href;
+    });
+  });
+  </script>
 </body>
 </html>
 <?php
