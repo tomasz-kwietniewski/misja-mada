@@ -216,9 +216,9 @@ panel_header('Podopieczni - Adopcja Serca');
       </tr></thead>
       <tbody>
       <?php foreach ($children as $c): ?>
-        <tr>
+        <tr class="row-link" data-href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz">
           <td><b><?= (int)$c['number'] ?></b></td>
-          <td><?= mada_esc($c['name']) ?><?= !empty($c['description']) || !empty($c['photo']) ? ' <span title="dossier uzupełnione">📋</span>' : '' ?></td>
+          <td><a href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz"><?= mada_esc($c['name']) ?></a><?= !empty($c['description']) || !empty($c['photo']) ? ' <span title="dossier uzupełnione">📋</span>' : '' ?></td>
           <td><?= $c['status'] === 'active' ? 'aktywne' : '<span class="hint">nieaktywne</span>' ?></td>
           <td><?php if ($c['donors'] !== null): ?><?= mada_esc($c['donors']) ?>
               <?php else: ?><span class="badge" style="background:#fbeeec;color:var(--err);border-color:#e6b9b1;">brak</span><?php endif; ?></td>
