@@ -209,7 +209,6 @@ foreach ($rows as $rn => $r) {
         'frequency'    => adopt_parse_frequency($freqRaw) ?? 'monthly',
         'amount_grosze'=> 7000,
         'method'       => 'transfer',
-        'materials_sent' => false,
         'notes'        => $uwagi !== '' ? $uwagi : null,
         'period_raw'   => $periodRaw,
         'payments'     => [],
@@ -486,8 +485,8 @@ function adopt_import_attach(array &$a, array $mr): void {
         $n = 'Wpłaty (' . $mr['group'] . '): ' . implode(' | ', $mr['notes']);
         $a['notes'] = $a['notes'] !== null ? $a['notes'] . ' | ' . $n : $n;
     }
-    // kolumna GR1 "Info o dziecku - czy poszło (TAK/NIE)" -> flaga materiałów
-    if (in_array('TAK', $mr['notes'], true)) $a['materials_sent'] = true;
+    // kolumna GR1 "Info o dziecku - czy poszło (TAK/NIE)" trafia do notatek adopcji
+    // razem z resztą komórek spoza siatki miesięcy - osobnej flagi nie prowadzimy.
     // start adopcji: gdy nieznany, przyjmij pierwszy opłacony miesiąc
     if ($a['start_month'] === null && $mr['events']) {
         $a['start_month'] = $mr['events'][0]['period_from'];

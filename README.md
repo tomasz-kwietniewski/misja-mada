@@ -384,10 +384,12 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
 - **Dossier dziecka** (wzór: PDF wysyłany darczyńcom): pola w Podopieczni -> Edytuj (pełne imię
   i nazwisko, data urodzenia, rodzice, liczba dzieci w rodzinie, opis sytuacji, zdjęcie do
   `uploads/dzieci/` z losową nazwą). Przy przypisywaniu dziecka pracownik może jednym
-  checkboxem wysłać darczyńcy **mail-dossier** (szablon fundacji + opcjonalny osobisty dopisek);
-  wysłanie odhacza „materiały wysłane". Skrót **„📧 Wyślij dossier"** przy adopcji na karcie
-  darczyńcy wysyła ten sam mail bez wchodzenia w edycję (bez dopisku). Treść maila składa
-  `adopcja/mail-dossier.php` - jedno źródło dla obu wejść.
+  checkboxem wysłać darczyńcy **mail-dossier** (szablon fundacji + opcjonalny osobisty dopisek).
+  Skrót **„📧 Wyślij dossier"** przy adopcji na karcie darczyńcy wysyła ten sam mail bez wchodzenia
+  w edycję (bez dopisku). Treść maila składa `adopcja/mail-dossier.php` - jedno źródło dla obu
+  wejść, a każda wysyłka zostaje w dzienniku audytu (`adoption.childmail`).
+  Osobnej flagi „materiały wysłane" **nie prowadzimy** (kolumna wycofana 2026-08-03): arkusz
+  fundacji miał ją tylko dla grupy GR1, więc dla pozostałych grup pokazywała fałszywe „nie".
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` -> JSON -> `panel/import.php`

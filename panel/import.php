@@ -82,7 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'amount_grosze' => $a['amount_grosze'] ?? 7000,
                 'method'        => $a['method'] ?? 'transfer',
                 'status'        => 'active',
-                'materials_sent'=> !empty($a['materials_sent']),
                 'notes'         => $a['notes'] ?? null,
             ]);
             $st['adoptions']++;

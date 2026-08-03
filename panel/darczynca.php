@@ -78,7 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dn = adopt_donor_get($id);
             $ch = adopt_child_get((int)$ad['child_id']);
             if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, '')) {
-                payu_db()->prepare('UPDATE adopt_adoptions SET materials_sent = 1 WHERE id = ?')->execute([$adoptionId]);
                 mada_audit('adoption.childmail', 'adoption', $adoptionId,
                     ['dziecko' => $ch['name'], 'email' => $dn['email'], 'skrot' => true]);
                 mada_redirect("darczynca.php?id=$id&msg=mailok");
@@ -221,7 +220,7 @@ panel_header('Darczyńca - Adopcja Serca');
                 <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
                 <input type="hidden" name="adoption_id" value="<?= (int)$a['id'] ?>">
                 <button type="submit" class="btn-secondary btn-sm"
-                        title="Wyślij darczyńcy dossier dziecka<?= empty($a['materials_sent']) ? '' : ' (materiały już wysłane)' ?>">
+                        title="Wyślij darczyńcy dossier dziecka">
                   📧 Wyślij dossier
                 </button>
               </form>
