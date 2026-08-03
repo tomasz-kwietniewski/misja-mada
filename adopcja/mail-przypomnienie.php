@@ -40,7 +40,7 @@ function adopt_mail_arrears_reminder(array $donor, array $items, bool $copyToFou
        w bazie są wpisy „Krzysio i Kasia Miszkurka" i „Parafia Kłodzko". */
     $imie = trim((string)($donor['full_name'] ?? ''));
 
-    $sumaGrosze = 0; $wszystkieMiesiace = 0; $dzieci = [];
+    $sumaGrosze = 0; $wszystkieMiesiace = 0; $dzieci = []; $doTytulu = [];
     $bloki = '';
     foreach ($items as $it) {
         $mies = $it['months'] ?? [];
@@ -52,6 +52,11 @@ function adopt_mail_arrears_reminder(array $donor, array $items, bool $copyToFou
             ? $it['child_name'] . ' (nr ' . (int)$it['child_number'] . ')'
             : 'dziecko oczekujące na przypisanie';
         $dzieci[] = $nazwa;
+        // Do tytułu przelewu: samo imię i numer, bez nawiasów - część banków
+        // wycina znaki specjalne, a fundacja księguje wpłaty po numerze dziecka.
+        if (trim((string)($it['child_name'] ?? '')) !== '') {
+            $doTytulu[] = $it['child_name'] . ' ' . (int)$it['child_number'];
+        }
         $bloki .= '<p style="font-size:14.5px;line-height:1.7;margin:0 0 10px;">'
                 . '<strong>' . mada_mail_esc($nazwa) . '</strong><br>'
                 . 'brakujące miesiące: ' . mada_mail_esc(implode(', ', array_map('adopt_month_pl', $mies)))
@@ -59,7 +64,10 @@ function adopt_mail_arrears_reminder(array $donor, array $items, bool $copyToFou
     }
     if (!$bloki) return false;
 
-    $tytulPrzelewu = 'Adopcja Serca - ' . $imie;
+    /* Format tytułu ustalony przez fundację 2026-08-03: „Adopcja Serca - darowizna -
+       imię i numer dziecka". Gdy adopcja czeka jeszcze na przypisanie dziecka, w tytule
+       zostaje nazwa darczyńcy - inaczej przelew byłby nie do zidentyfikowania. */
+    $tytulPrzelewu = 'Adopcja Serca - darowizna - ' . ($doTytulu ? implode(', ', $doTytulu) : $imie);
     $inner =
         '<h2 style="font-family:Georgia,serif;font-size:24px;color:#422918;margin:0 0 16px;">Przypomnienie o wpłacie</h2>'
       . '<p style="font-size:15px;line-height:1.65;margin:0 0 14px;">Dzień dobry, ' . mada_mail_esc($imie) . '!</p>'
@@ -78,8 +86,8 @@ function adopt_mail_arrears_reminder(array $donor, array $items, bool $copyToFou
       . 'Tytuł przelewu: <strong>' . mada_mail_esc($tytulPrzelewu) . '</strong></p></div>'
       . '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Jeśli wpłata została już wykonana, prosimy o '
       . 'zignorowanie tej wiadomości albo o krótką informację - poprawimy nasze zapisy. Gdyby dalsze wspieranie nie '
-      . 'było teraz możliwe, prosimy o wiadomość: przyjmiemy każdą decyzję ze zrozumieniem i zadbamy, by dziecko '
-      . 'znalazło nowego opiekuna.</p>'
+      . 'było teraz możliwe, prosimy o wiadomość: przyjmiemy każdą decyzję ze zrozumieniem i zadbamy, '
+      . (count($dzieci) === 1 ? 'by dziecko znalazło nowego opiekuna' : 'by dzieci znalazły nowych opiekunów') . '.</p>'
       . '<p style="font-size:14px;line-height:1.6;color:#5a4836;margin:0;">Z wyrazami wdzięczności,<br>Fundacja Misja MADA</p>';
 
     $temat = 'Adopcja Serca - przypomnienie o wpłacie';
