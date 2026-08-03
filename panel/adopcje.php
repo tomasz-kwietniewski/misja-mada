@@ -35,7 +35,6 @@ try {
     usort($arrearsList, fn($x, $y) => count($y['missing']) <=> count($x['missing']));
     usort($expiring, fn($x, $y) => strcmp($x['end_month'], $y['end_month']));
 
-    $counts = adopt_counts();
     $childrenFree = (int)payu_db()->query(
         "SELECT COUNT(*) FROM adopt_children c
           WHERE c.status = 'active' AND NOT EXISTS
@@ -46,7 +45,6 @@ try {
         'arrears'   => count($arrearsList),
         'expiring'  => count($expiring),
         'free'      => $childrenFree,
-        'pending'   => $counts['pending'],
     ];
 } catch (Throwable $e) {
     $dbError = $e->getMessage();
@@ -66,9 +64,6 @@ panel_header('Adopcja Serca - przegląd');
       <div class="adopt-tile <?= $tiles['arrears'] > 0 ? 'tile-warn' : '' ?>"><b><?= $tiles['arrears'] ?></b><span>z zaległościami</span></div>
       <div class="adopt-tile"><b><?= $tiles['expiring'] ?></b><span>wygasa do <?= mada_esc(adopt_month_label(adopt_month_add(date('Y-m'), 2))) ?></span></div>
       <div class="adopt-tile"><b><?= $tiles['free'] ?></b><span>dzieci bez darczyńcy</span></div>
-      <?php if ($tiles['pending'] > 0): ?>
-        <a class="adopt-tile tile-warn" href="import-lacz.php" style="text-decoration:none;"><b><?= $tiles['pending'] ?></b><span>import do łączenia</span></a>
-      <?php endif; ?>
     </div>
 
     <h3>Zalegają (<?= count($arrearsList) ?>)</h3>
@@ -113,7 +108,7 @@ panel_header('Adopcja Serca - przegląd');
 
     <?php if ($noStart): ?>
       <h3>Bez ustalonego startu (<?= count($noStart) ?>)</h3>
-      <p class="hint">Te adopcje nie mają miesiąca startu (import bez wpłat) - zaległości nie są dla nich liczone. Uzupełnij start w edycji albo rozwiąż wiersze wpłat na <a href="import-lacz.php">ekranie łączenia</a>.</p>
+      <p class="hint">Te adopcje nie mają miesiąca startu - zaległości nie są dla nich liczone. Uzupełnij start w edycji adopcji; przy pierwszej dopisanej wpłacie start uzupełni się sam.</p>
       <ul>
       <?php foreach ($noStart as $a): ?>
         <li><a href="adopcja-edit.php?id=<?= (int)$a['id'] ?>"><?= mada_esc($a['donor_name']) ?> - <?= $a['child_name'] !== null ? mada_esc($a['child_name']) : 'bez dziecka' ?></a></li>

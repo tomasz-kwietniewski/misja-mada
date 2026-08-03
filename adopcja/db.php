@@ -187,7 +187,11 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
-    /* Wiersze importu wymagające ręcznej decyzji (ekran łączenia). */
+    /* Wiersze importu wymagające ręcznej decyzji. Ekrany importu zostały
+       usunięte po domkniętej migracji (2026-08-03), ale tabela ZOSTAJE:
+       trzyma historię 21 decyzji podjętych przy przenoszeniu danych z arkuszy.
+       Przy ewentualnym ponownym imporcie przywrócić `panel/import*.php`
+       z historii gita - schemat jest gotowy. */
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS adopt_import_pending (
             id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -582,44 +586,6 @@ function adopt_payments_by_adoptions(array $adoptionIds): array {
     return $out;
 }
 
-/* ─────────────────────────────────────────────────────────────────
-   Import - wiersze oczekujące na ręczną decyzję
-  ───────────────────────────────────────────────────────────────── */
-
-function adopt_pending_insert(string $kind, string $label, array $payload, ?string $hint = null): int {
-    $pdo = payu_db();
-    $st = $pdo->prepare(
-        'INSERT INTO adopt_import_pending (kind, label, payload, hint) VALUES (?, ?, ?, ?)'
-    );
-    $st->execute([
-        mb_substr($kind, 0, 30),
-        mb_substr($label, 0, 255),
-        json_encode($payload, JSON_UNESCAPED_UNICODE),
-        $hint !== null ? mb_substr($hint, 0, 500) : null,
-    ]);
-    return (int)$pdo->lastInsertId();
-}
-
-function adopt_pending_open(): array {
-    return payu_db()->query(
-        "SELECT * FROM adopt_import_pending WHERE status = 'open' ORDER BY id"
-    )->fetchAll();
-}
-
-function adopt_pending_get(int $id): ?array {
-    $st = payu_db()->prepare('SELECT * FROM adopt_import_pending WHERE id = ?');
-    $st->execute([$id]);
-    $row = $st->fetch();
-    return $row ?: null;
-}
-
-function adopt_pending_resolve(int $id, string $status): void {
-    $st = payu_db()->prepare(
-        "UPDATE adopt_import_pending SET status = ?, resolved_at = NOW() WHERE id = ? AND status = 'open'"
-    );
-    $st->execute([$status === 'skipped' ? 'skipped' : 'resolved', $id]);
-}
-
 function adopt_donor_update(int $id, array $d): void {
     $st = payu_db()->prepare(
         'UPDATE adopt_donors SET full_name = ?, email = ?, emails_extra = ?, phone = ?, notes = ? WHERE id = ?'
@@ -972,7 +938,7 @@ function fin_flow_sums(int $year): array {
     return $st->fetchAll();
 }
 
-/* ── Statystyki (dashboard / import) ───────────────────────────── */
+/* ── Statystyki (dashboard, eksport) ───────────────────────────── */
 
 function adopt_counts(): array {
     $pdo = payu_db();
@@ -981,6 +947,5 @@ function adopt_counts(): array {
         'donors'    => (int)$pdo->query('SELECT COUNT(*) FROM adopt_donors')->fetchColumn(),
         'adoptions' => (int)$pdo->query("SELECT COUNT(*) FROM adopt_adoptions WHERE status IN ('pending','active')")->fetchColumn(),
         'payments'  => (int)$pdo->query('SELECT COUNT(*) FROM adopt_payments')->fetchColumn(),
-        'pending'   => (int)$pdo->query("SELECT COUNT(*) FROM adopt_import_pending WHERE status = 'open'")->fetchColumn(),
     ];
 }

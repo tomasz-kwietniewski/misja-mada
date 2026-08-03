@@ -16,7 +16,7 @@ function panel_nav_modules(): array {
             ['subskrypcje.php']],
         'adopcja'      => ['Adopcja Serca', 'adopcje.php',
             ['adopcje.php', 'darczyncy.php', 'darczynca.php', 'darczynca-edit.php', 'dzieci.php',
-             'adopcja-edit.php', 'wplaty.php', 'zgloszenia.php', 'import.php', 'import-lacz.php', 'eksport.php']],
+             'adopcja-edit.php', 'wplaty.php', 'zgloszenia.php', 'eksport.php']],
         'finanse'      => ['Finanse', 'finanse.php',
             ['finanse.php']],
     ];
@@ -36,7 +36,6 @@ function panel_subnav_adopcja(): array {
         'Wpłaty'      => ['wplaty.php',     ['wplaty.php']],
         'Zgłoszenia'  => ['zgloszenia.php', ['zgloszenia.php']],
         'Eksport'     => ['eksport.php',    ['eksport.php']],
-        'Import'      => ['import.php',     ['import.php', 'import-lacz.php']],
     ];
 }
 

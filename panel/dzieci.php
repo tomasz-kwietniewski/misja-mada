@@ -192,7 +192,7 @@ panel_header('Podopieczni - Adopcja Serca');
 <?php if ($dbError !== ''): ?>
     <div class="alert alert-error">Baza danych jest niedostępna (sprawdź <code>payu/secret/db-config.php</code>): <?= mada_esc($dbError) ?></div>
 <?php elseif (!$children): ?>
-    <p class="hint">Baza podopiecznych jest pusta - zacznij od strony <a href="import.php">Import</a>.</p>
+    <p class="hint">Baza podopiecznych jest pusta - dodaj pierwsze dziecko przyciskiem „+ Dodaj dziecko".</p>
 <?php else: ?>
     <?php
       $withDonor = count(array_filter($children, fn($c) => $c['donors'] !== null));

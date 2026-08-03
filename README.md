@@ -105,8 +105,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── adopcje.php, darczyncy.php, darczynca.php, darczynca-edit.php,
 │   │   dzieci.php, adopcja-edit.php, wplaty.php, zgloszenia.php   moduł Adopcja Serca (UI)
 │   ├── finanse.php         rejestr przepływów misyjnych (fin_flows)
-│   ├── eksport.php         wyjście awaryjne: XLSX/CSV w układzie arkuszy fundacji
-│   └── import.php, import-lacz.php   jednorazowa migracja danych (do usunięcia po niej)
+│   └── eksport.php         wyjście awaryjne: XLSX/CSV w układzie arkuszy fundacji
 │
 ├── tools/                  narzędzia lokalne - POZA deployem
 │   └── import/parse-adopcje.php   parser arkuszy fundacji -> JSON importu
@@ -376,7 +375,7 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   (**macierz miesięcy** jak w arkuszu - klik czerwonej komórki odnotowuje wpłatę), `zgloszenia.php`
   (zgłoszenia ze strony, przypisywanie dzieci), `finanse.php` (rejestr przepływów: zbiórki, wypłaty
   do Sióstr, wymiana walut), `eksport.php` (**wyjście awaryjne**: XLSX w układzie znanym fundacji
-  + CSV), `import.php` + `import-lacz.php` (jednorazowa migracja - do usunięcia po jej domknięciu).
+  + CSV).
 - **Ergonomia list** (wypracowana z fundacją): darczyńcy sortowani po **nazwisku**
   (`adopt_surname_key` - ostatni człon nazwy, tytuły „Ks." pomijane) z wyszukiwarką po nazwisku
   i e-mailu; klik w dowolne miejsce wiersza otwiera kartę darczyńcy / edycję dziecka
@@ -425,12 +424,15 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   `--dry` wysyła. **Od 2026-08-03 działa z crona codziennie o 6:30**
   (`30 6 * * *`, log: `data/cron-przypomnienia.log`) - pierwsza wysyłka objęła 4 osoby.
   Przed każdą zmianą reguł warto puścić `--dry` i sprawdzić, kto by dostał maila.
-- **Migracja danych**: lokalny parser `tools/import/parse-adopcje.php` -> JSON -> `panel/import.php`
-  (import idempotentny, w transakcji); niejednoznaczne wiersze rozwiązuje się ręcznie na
-  `panel/import-lacz.php`. **Parser karmić PEŁNYM plikiem xlsx pobranym z Google Sheets**
-  (`…/export?format=xlsx`) - eksport zakładek do HTML pomija kolumny ukryte w arkuszu, przez co
-  opłacone miesiące wyglądają jak zaległości (przy pełnym xlsx dopasowanie wpłat urosło
-  z 70 385 do 105 910 PLN). Tryb HTML pozostaje awaryjnym fallbackiem i ostrzega o tym w konsoli.
+- **Migracja danych - ZAKOŃCZONA 2026-08-03**, ekrany `panel/import.php` i `panel/import-lacz.php`
+  usunięte z repo. Dane fundacji są w bazie, wszystkie 21 niejednoznacznych wierszy rozstrzygnięte.
+  Został lokalny parser `tools/import/parse-adopcje.php` (poza deployem) - jako narzędzie
+  i dokumentacja tego, skąd wzięły się dane. Tabela `adopt_import_pending` zostaje z historią
+  decyzji; **gdyby import był znów potrzebny, przywrócić oba ekrany z historii gita** - schemat
+  jest gotowy. Wtedy pamiętać: **parser karmić PEŁNYM plikiem xlsx pobranym z Google Sheets**
+  (`…/export?format=xlsx`), bo eksport zakładek do HTML pomija kolumny ukryte w arkuszu i opłacone
+  miesiące wyglądają jak zaległości (przy pełnym xlsx dopasowanie wpłat urosło z 70 385
+  do 105 910 PLN).
 - **Rate-limit logowania per IP** (10 prób / 15 min, tabela `panel_login_attempts`) jako druga linia
   za throttlingiem sesyjnym + **audit log** zmian (`panel_audit_log`).
 
