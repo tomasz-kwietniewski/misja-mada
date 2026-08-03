@@ -83,20 +83,38 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── subscribe.php, confirm.php, lib.php, confirm-email.html
 │   └── add-verified.php     dopisanie ZWERYFIKOWANEGO maila do MailerLite (z adopcji, shared secret)
 │
-├── panel/                  panel CMS (PHP, logowanie + CSRF)
+├── adopcja/                moduł Adopcja Serca - backend (PHP + MySQL)
+│   ├── db.php               schemat (adopt_*/fin_flows/panel_*) + CRUD + audyt + auto-rejestracja z karty
+│   ├── lib.php              czysta logika: pokrycie wpłat, zaległości, parser okresów, sort po nazwisku
+│   ├── zgloszenie.php       formularz przelewowy ze strony (double opt-in, KROK 1)
+│   ├── potwierdz.php        potwierdzenie e-maila (KROK 2: darczyńca + adopcje pending, maile, lustro)
+│   ├── xlsx.php             minimalny writer XLSX (eksport-backup, bez Composera)
+│   └── migrate.php          migracja schematu modułu (CLI; idempotentna, także ALTER-y dossier)
+│
+├── panel/                  panel CMS (PHP, logowanie + CSRF + rate-limit IP)
 │   ├── index.php, login.php, auth.php, layout.php, lib.php, panel.css
+│   │                        layout = wspólna nawigacja modułów + pod-menu Adopcji Serca
 │   ├── edit.php, save.php, delete.php, upload.php, media.php, categories.php
 │   ├── translate.php, glossary.php    tłumaczenia DeepL + glosariusz
 │   ├── sprawozdania.php, sprawozdania-upload.php, sprawozdania-delete.php
-│   └── subskrypcje.php     podgląd subskrypcji + ręczne anulowanie i wznawianie
+│   ├── subskrypcje.php     podgląd subskrypcji + ręczne anulowanie i wznawianie
+│   ├── adopcje.php, darczyncy.php, darczynca.php, darczynca-edit.php,
+│   │   dzieci.php, adopcja-edit.php, wplaty.php, zgloszenia.php   moduł Adopcja Serca (UI)
+│   ├── finanse.php         rejestr przepływów misyjnych (fin_flows)
+│   ├── eksport.php         wyjście awaryjne: XLSX/CSV w układzie arkuszy fundacji
+│   └── import.php, import-lacz.php   jednorazowa migracja danych (do usunięcia po niej)
+│
+├── tools/                  narzędzia lokalne - POZA deployem
+│   └── import/parse-adopcje.php   parser arkuszy fundacji -> JSON importu
 │
 ├── events.js.php, sprawozdania.js.php   endpointy emitujące dane CMS na front
 ├── media/                  zdjęcia, logo, PDF-y (płaska struktura)
-├── tests/                  run.php (logika CMS), run-recurring.php (logika płatności)
+├── tests/                  run.php (CMS), run-recurring.php (płatności), run-adopcja.php (moduł adopcji)
 └── .github/workflows/      deploy.yml (SEO Host), ci.yml (lint + testy)
 ```
 
 Nie są w repo (żyją tylko na serwerze, poza deployem): katalogi `data/`, `uploads/`
+(w tym `uploads/dzieci/` - zdjęcia do dossier podopiecznych)
 oraz wszystkie `*/secret/` (patrz „Sekrety i dane").
 
 ---
