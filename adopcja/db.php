@@ -12,6 +12,21 @@
 require_once __DIR__ . '/../payu/db.php';
 require_once __DIR__ . '/lib.php';
 
+/** Dokłada brakujące kolumny (idempotentnie, zgodne z MySQL i MariaDB). */
+function adopt_db_add_columns(PDO $pdo, string $table, array $cols): void {
+    $st = $pdo->prepare(
+        'SELECT COLUMN_NAME FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+    );
+    $st->execute([$table]);
+    $have = $st->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($cols as $name => $ddl) {
+        if (!in_array($name, $have, true)) {
+            $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$name` $ddl");
+        }
+    }
+}
+
 /** Gwarantuje istnienie schematu - raz na proces. */
 function adopt_db_ensure_schema(): void {
     static $done = false;
@@ -106,6 +121,18 @@ function adopt_db_migrate(?PDO $pdo = null): void {
                 REFERENCES charges (id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+
+    /* Dossier dziecka (wzór: PDF wysyłany darczyńcom) - kolumny dokładane do
+       istniejących instalacji przez ALTER (MySQL 8 nie zna ADD COLUMN IF NOT EXISTS). */
+    adopt_db_add_columns($pdo, 'adopt_children', [
+        'dossier_name' => "VARCHAR(200) NULL",       // pełne imię i nazwisko (np. Avotriniaina Alvin RAKOTOZANANY)
+        'birth_date'   => "DATE NULL",
+        'father'       => "VARCHAR(150) NULL",
+        'mother'       => "VARCHAR(150) NULL",
+        'siblings'     => "SMALLINT UNSIGNED NULL",  // ilość dzieci w rodzinie
+        'description'  => "TEXT NULL",               // opis sytuacji dziecka
+        'photo'        => "VARCHAR(120) NULL",       // nazwa pliku w uploads/dzieci/
+    ]);
 
     /* Zgłoszenia z formularza przelewowego (double opt-in po stronie PHP). */
     $pdo->exec(
@@ -298,16 +325,37 @@ function adopt_child_get(int $id): ?array {
     return $row ?: null;
 }
 
-/** Edycja dziecka. Zwraca false, gdy nowy numer jest zajęty przez inne dziecko. */
-function adopt_child_update(int $id, int $number, string $name, string $status, ?string $notes): bool {
+/** Edycja dziecka (dane podstawowe + dossier). Zwraca false, gdy nowy numer
+ *  jest zajęty przez inne dziecko. Klucz 'photo' aktualizowany tylko, gdy podany. */
+function adopt_child_update(int $id, array $d): bool {
     $pdo = payu_db();
     $st = $pdo->prepare('SELECT id FROM adopt_children WHERE number = ? AND id <> ? LIMIT 1');
-    $st->execute([$number, $id]);
+    $st->execute([(int)$d['number'], $id]);
     if ($st->fetchColumn() !== false) return false;
+    $photoSql = array_key_exists('photo', $d) ? ', photo = :photo' : '';
     $up = $pdo->prepare(
-        "UPDATE adopt_children SET number = ?, name = ?, status = ?, notes = ? WHERE id = ?"
+        "UPDATE adopt_children
+            SET number = :number, name = :name, status = :status, notes = :notes,
+                dossier_name = :dossier_name, birth_date = :birth_date,
+                father = :father, mother = :mother, siblings = :siblings,
+                description = :description$photoSql
+          WHERE id = :id"
     );
-    $up->execute([$number, $name, $status === 'inactive' ? 'inactive' : 'active', $notes, $id]);
+    $args = [
+        ':number' => (int)$d['number'],
+        ':name' => $d['name'],
+        ':status' => ($d['status'] ?? '') === 'inactive' ? 'inactive' : 'active',
+        ':notes' => ($d['notes'] ?? '') !== '' ? $d['notes'] : null,
+        ':dossier_name' => ($d['dossier_name'] ?? '') !== '' ? $d['dossier_name'] : null,
+        ':birth_date' => ($d['birth_date'] ?? '') !== '' ? $d['birth_date'] : null,
+        ':father' => ($d['father'] ?? '') !== '' ? $d['father'] : null,
+        ':mother' => ($d['mother'] ?? '') !== '' ? $d['mother'] : null,
+        ':siblings' => ($d['siblings'] ?? '') !== '' ? (int)$d['siblings'] : null,
+        ':description' => ($d['description'] ?? '') !== '' ? $d['description'] : null,
+        ':id' => $id,
+    ];
+    if (array_key_exists('photo', $d)) $args[':photo'] = $d['photo'];
+    $up->execute($args);
     return true;
 }
 
@@ -635,6 +683,71 @@ function adopt_subscription_candidates(?int $includeSubId = null): array {
          . ($includeSubId !== null ? ' OR s.id = ' . (int)$includeSubId : '')
          . ") ORDER BY s.created_at DESC";
     return payu_db()->query($sql)->fetchAll();
+}
+
+/**
+ * Auto-rejestracja darczyńcy z opłaconej ADOPCJI KARTOWEJ (PayU): darczyńca
+ * (dopięty po e-mailu albo nowy) + adopcje `pending` (bez dziecka) powiązane
+ * z subskrypcją - dokładnie jak przy potwierdzonym zgłoszeniu przelewowym.
+ * Dzięki temu baza darczyńców rośnie sama z OBU ścieżek formularza, a fundacja
+ * tylko przypisuje dzieci w panelu (Zgłoszenia). Idempotentne: nic nie robi,
+ * gdy subskrypcja ma już adopcje. Best-effort (wołane z płatności).
+ * $ad = payload adopcyjny z data/adopcja-card-pending (imie, nazwisko, email,
+ * telefon, adres, forma, okres, dzieci).
+ */
+function adopt_ensure_from_card(array $sub, array $ad): void {
+    if (($sub['goal'] ?? '') !== 'adopcja') return;
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT id FROM adopt_adoptions WHERE subscription_id = ? LIMIT 1');
+    $st->execute([(int)$sub['id']]);
+    if ($st->fetchColumn() !== false) return;   // już zarejestrowana (np. ręcznie)
+
+    $email = trim((string)($ad['email'] ?? $sub['email'] ?? ''));
+    $fullName = trim(trim((string)($ad['imie'] ?? $sub['first_name'] ?? '')) . ' '
+              . trim((string)($ad['nazwisko'] ?? $sub['last_name'] ?? '')));
+    if ($fullName === '') return;
+
+    $donorId = null;
+    if ($email !== '') {
+        $st = $pdo->prepare('SELECT id FROM adopt_donors WHERE email = ? LIMIT 1');
+        $st->execute([$email]);
+        $found = $st->fetchColumn();
+        if ($found !== false) $donorId = (int)$found;
+    }
+    if ($donorId === null) {
+        $donorId = adopt_donor_insert([
+            'full_name' => $fullName,
+            'email'     => $email !== '' ? $email : null,
+            'phone'     => trim((string)($ad['telefon'] ?? '')) ?: null,
+            'source'    => 'site',
+            'notes'     => ($adres = trim((string)($ad['adres'] ?? ''))) !== '' ? 'Adres: ' . $adres : null,
+        ]);
+    }
+
+    // okres z formularza ("czasowa" ma zakres w polu okres, np. "2026-09 - 2027-08")
+    $duration = ($ad['forma'] ?? '') === 'czasowa' || stripos((string)($ad['forma'] ?? ''), 'czasow') !== false
+        ? 'fixed' : 'indefinite';
+    $startM = adopt_month_from_date((string)($sub['start_date'] ?? '')) ?? date('Y-m');
+    $endM = null;
+    if ($duration === 'fixed' && preg_match_all('/\d{4}-\d{2}|\d{1,2}\.\d{4}/', (string)($ad['okres'] ?? ''), $mm)
+        && count($mm[0]) >= 2) {
+        $endM = adopt_parse_month_token(end($mm[0]));
+    }
+    if ($duration === 'indefinite') $endM = null;
+
+    $dzieci = max(1, min(10, (int)($ad['dzieci'] ?? ($sub['children'] ?? 1))));
+    $ids = [];
+    for ($i = 0; $i < $dzieci; $i++) {
+        $ids[] = adopt_adoption_insert([
+            'donor_id' => $donorId, 'child_id' => null,
+            'subscription_id' => (int)$sub['id'],
+            'duration' => $duration, 'start_month' => $startM, 'end_month' => $endM,
+            'frequency' => 'monthly', 'amount_grosze' => 7000, 'method' => 'card',
+            'status' => 'pending',
+            'notes' => 'Zgłoszenie przez stronę - karta PayU (' . date('Y-m-d') . ')',
+        ]);
+    }
+    mada_audit('signup.card', 'donor', $donorId, ['sub' => (int)$sub['id'], 'adopcje' => $ids]);
 }
 
 /**
