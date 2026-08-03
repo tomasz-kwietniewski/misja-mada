@@ -70,6 +70,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── secure-config.js.php config Secure Form dla frontu (tylko posId/env/sdkUrl)
 │   ├── recurring-first.php  pierwsza płatność cykliczna (FIRST + 3DS, zapis tokena)
 │   ├── cron-charge.php      scheduler kolejnych obciążeń (STANDARD) - uruchamiany cronem
+│   ├── cron-backup.php      dzienny mysqldump bazy do ~/backups (cron 3:00, retencja 30 dni)
 │   ├── notify.php           notyfikacje serwer-do-serwera (weryfikacja podpisu)
 │   ├── manage.php           link rezygnacji z subskrypcji (token + CSRF)
 │   ├── db.php               warstwa MySQL (subskrypcje, obciążenia)
@@ -240,8 +241,9 @@ Model recurring PayU z tokenizacją karty (Secure Form):
 > **cron** na `payu/cron-charge.php` (codziennie ~05:00). Bez crona pierwsza płatność przejdzie,
 > ale kolejne miesiące się nie naliczą.
 >
-> Drugi cron na produkcji: `adopcja/cron-przypomnienia.php` o **6:30** (monity o zaległych
-> wpłatach Adopcji Serca, log w `data/cron-przypomnienia.log`).
+> Pozostałe crony na produkcji: `adopcja/cron-przypomnienia.php` o **6:30** (monity o zaległych
+> wpłatach Adopcji Serca, log w `data/cron-przypomnienia.log`) i `payu/cron-backup.php`
+> o **3:00** (kopia bazy, log w `data/cron-backup.log`).
 
 Baza MySQL zakłada się sama przy pierwszym użyciu (`payu/db.php`, idempotentna migracja).
 
@@ -503,6 +505,22 @@ Nigdy nie ma ich w repo ani w deployu; muszą istnieć na serwerze:
 Dostęp do `data/` i `*/secret/` z weba jest zablokowany (`.htaccess` w repo + na serwerze),
 a pliki `*.log`/`*.sql` odmawiane. **Uwaga:** `data/` i `uploads/` żyją tylko na serwerze -
 warto je okresowo backupować (DirectAdmin / backup hostingu).
+
+### Kopia bazy (`payu/cron-backup.php`)
+
+Codziennie o 3:00 cron robi `mysqldump` całej bazy (PayU + Adopcja Serca + panel) do
+`~/backups/auto-RRRRMMDD-GGMMSS.sql.gz` - **poza `public_html`**, katalog ma prawa 700, więc
+zrzut nie jest osiągalny przez WWW. Hasło idzie tymczasowym `--defaults-extra-file` (600),
+nie w linii poleceń, bo `ps` na współdzielonym hostingu widzą inni. Po zapisie plik jest
+sprawdzany `gzip -t`; uszkodzony albo podejrzanie mały jest kasowany, a skrypt kończy się
+błędem - cichy, zepsuty backup byłby gorszy niż jego brak.
+
+Retencja **30 dni** obejmuje wyłącznie pliki `auto-*`; ręczne zrzuty robione przed większymi
+operacjami (`mada-...-przed-...`) zostają nietknięte. Podgląd bez zapisu: `--dry`.
+
+Odtworzenie: `gzip -dc auto-....sql.gz | mysql -u UŻYTKOWNIK -p NAZWA_BAZY`. Backup z 2026-08-03
+został tak odtworzony do bazy testowej i zgadzał się z produkcją co do rekordu (130 dzieci,
+124 darczyńców, 141 adopcji, 143 wpłaty = 126 280 zł).
 
 ---
 
