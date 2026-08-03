@@ -65,13 +65,35 @@ function mada_require_login() {
     }
 }
 
-/* ── Throttling nieudanych prób (per sesja) ─────────────────────── */
+/* ── Throttling nieudanych prób ─────────────────────────────────
+   Linia 1: per sesja (natychmiastowa, bez bazy).
+   Linia 2: per IP w MySQL (przeżywa skasowanie cookie) - best-effort:
+   gdy baza niedostępna, panel działa jak dotąd (tylko linia 1). */
+
+/** Ładuje warstwę DB modułu adopcji (z tabelą panel_login_attempts). Best-effort. */
+function mada_ip_guard_ready() {
+    static $ready = null;
+    if ($ready !== null) return $ready;
+    try {
+        require_once __DIR__ . '/../adopcja/db.php';
+        adopt_db_ensure_schema();
+        $ready = true;
+    } catch (Throwable $e) {
+        $ready = false;
+    }
+    return $ready;
+}
+
 function mada_login_locked_for() {
     $fails = $_SESSION['mada_fails'] ?? 0;
     $last  = $_SESSION['mada_last_fail'] ?? 0;
     if ($fails >= MADA_MAX_ATTEMPTS) {
         $left = MADA_LOCK_SECONDS - (time() - $last);
-        return $left > 0 ? $left : 0;
+        if ($left > 0) return $left;
+    }
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    if ($ip !== '' && mada_ip_guard_ready()) {
+        return adopt_ip_locked_for($ip);
     }
     return 0;
 }
@@ -91,14 +113,17 @@ function mada_attempt_login($login, $pass) {
         password_verify((string)$pass, '$2y$10$usesomesillystringfeartrugmw7Q9jR0p3sJ.0Z3z3z3z3z3z3z3');
     }
 
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
     if ($ok) {
         session_regenerate_id(true);
         $_SESSION['mada_user'] = $login;
         unset($_SESSION['mada_fails'], $_SESSION['mada_last_fail']);
+        if ($ip !== '' && mada_ip_guard_ready()) adopt_ip_clear($ip);
         return true;
     }
     $_SESSION['mada_fails'] = ($_SESSION['mada_fails'] ?? 0) + 1;
     $_SESSION['mada_last_fail'] = time();
+    if ($ip !== '' && mada_ip_guard_ready()) adopt_ip_register_fail($ip);
     return false;
 }
 
