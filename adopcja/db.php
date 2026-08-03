@@ -434,8 +434,16 @@ function adopt_donor_list(string $search = ''): array {
         $like = '%' . $search . '%';
         $args = [$like, $like, $like];
     }
+    /* is_archived: darczyńca, który MIAŁ adopcje, ale żadna nie jest już
+       aktywna ani oczekująca (czyli po „Zakończ"). Osoba dopiero dodana,
+       jeszcze bez żadnej adopcji, NIE jest archiwalna - musi być widoczna,
+       żeby dało się jej przypisać dziecko. */
     $sql = "SELECT d.*,
                    COUNT(a.id) AS adoptions_cnt,
+                   (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) AS adoptions_total,
+                   CASE WHEN COUNT(a.id) = 0
+                         AND (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) > 0
+                        THEN 1 ELSE 0 END AS is_archived,
                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.number SEPARATOR '; ') AS children_names,
                    GROUP_CONCAT(DISTINCT c.number ORDER BY c.number SEPARATOR ', ') AS children_numbers,
                    GROUP_CONCAT(DISTINCT a.method) AS methods
