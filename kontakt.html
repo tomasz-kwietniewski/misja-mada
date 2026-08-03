@@ -320,7 +320,10 @@ z nami</h1>
 </section>
 
 <!-- ═══ FORMULARZ + DANE KONTAKTOWE ═════════════════════════════ -->
-<section class="contact-section">
+<!-- id="napisz" - cel linków „Napisz do nas" z sekcji „Dołącz do nas"
+     (kontakt.html?temat=...#napisz). Odsunięcie spod przyklejonego menu
+     załatwia scroll-padding-top na <html>. -->
+<section class="contact-section" id="napisz">
   <div class="container">
     <div class="contact-layout">
 
@@ -630,6 +633,31 @@ z nami</h1>
   const formWrap = document.querySelector('.cf-form-wrap');
   const emailInput = form.querySelector('#cf-email');
 
+  /* Temat z linku: kontakt.html?temat=partner-biznesowy#napisz
+     ───────────────────────────────────────────────────────────
+     Przyciski „Napisz do nas" / „Zaproś nas do szkoły" w sekcji „Dołącz do nas"
+     prowadziły wcześniej do mailto:. U kogoś bez skonfigurowanego klienta poczty
+     klik nie robił NIC (zgłoszenie Piotrka, 2026-08). Teraz prowadzą tutaj,
+     a temat wstawiamy z parametru.
+
+     Ustawiamy ATRYBUT value, a nie właściwość .value - dwa powody:
+       1. i18n.js tłumaczy atrybut `value` (ATTRS), więc temat sam przechodzi na
+          EN/FR, bo „Partner Biznesowy" itd. są w słownikach;
+       2. brak „dirty value flag" na polu sprawia, że późniejsze setAttribute
+          z i18n (także przy przełączaniu języka) faktycznie zmienia to, co widać. */
+  (function prefillTemat() {
+    const TEMATY = {
+      'partner-biznesowy': 'Partner Biznesowy',
+      'partner-edukacyjny': 'Partner Edukacyjny',
+      'wolontariat': 'Wolontariat',
+    };
+    let param = '';
+    try { param = new URLSearchParams(location.search).get('temat') || ''; } catch (e) { return; }
+    const label = TEMATY[param.trim().toLowerCase()];
+    const temat = form.querySelector('#cf-temat');
+    if (label && temat) temat.setAttribute('value', label);
+  })();
+
   function clearErrors() {
     form.querySelectorAll('.cf-error').forEach(e => e.remove());
     form.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
@@ -741,8 +769,8 @@ z nami</h1>
 <script src="assets/site-a11y.js" defer></script>
 <script src="assets/adopcja-form.js?v=20260724" defer></script>
 <script src="assets/newsletter.js?v=20260724" defer></script>
-<script src="assets/i18n-dict.js?v=20260717" defer></script>
-<script src="assets/i18n-dict-fr.js?v=20260717" defer></script>
+<script src="assets/i18n-dict.js?v=20260803" defer></script>
+<script src="assets/i18n-dict-fr.js?v=20260803" defer></script>
 <script src="assets/i18n.js?v=20260717" defer></script>
 </body>
 </html>
