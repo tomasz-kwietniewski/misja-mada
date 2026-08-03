@@ -6,7 +6,13 @@
    Czyta dwa źródła fundacji:
      1. "LISTA WSZYSTKICH DARCZYŃCÓW....xlsx" (arkusz 1) - rejestr adopcji
      2. katalog z eksportami HTML zakładek "WPŁATY GR..." (macierze wpłat)
-   i produkuje JEDEN plik JSON do wgrania przez panel/import.php.
+   i produkuje JEDEN plik JSON do wgrania przez ekran importu w panelu.
+
+   UWAGA (2026-08-03): migracja danych fundacji została domknięta i ekrany
+   `panel/import.php` + `panel/import-lacz.php` USUNIĘTO z repo. Parser
+   zostaje jako narzędzie i dokumentacja tego, skąd wzięły się dane; gdyby
+   import był znów potrzebny, przywrócić te dwa pliki z historii gita
+   (schemat `adopt_import_pending` nadal jest w bazie).
 
    Uruchom:
      php -d extension=zip tools/import/parse-adopcje.php \
