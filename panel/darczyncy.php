@@ -96,8 +96,7 @@ panel_header('Darczyńcy - Adopcja Serca');
                   <span class="badge" style="background:#e9f5ee;color:var(--ok);border-color:#b8dcc6;">OK</span>
                 <?php else: ?><span class="hint">-</span><?php endif; ?></td>
             <td style="white-space:nowrap;">
-              <a class="btn-secondary btn-sm" href="darczynca.php?id=<?= (int)$d['id'] ?>">Karta</a>
-              <a class="btn-ghost btn-sm" href="darczynca-edit.php?id=<?= (int)$d['id'] ?>">Edytuj</a>
+              <a class="btn-secondary btn-sm" href="darczynca-edit.php?id=<?= (int)$d['id'] ?>">Edytuj</a>
             </td>
           </tr>
         <?php endforeach; ?>
