@@ -207,6 +207,51 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
+    /* Operacje wczytane z wyciągu bankowego - POCZEKALNIA, nie księga.
+       Wiersz żyje tu od wgrania pliku do decyzji pracownika (wpłata / przepływ
+       / pomiń); `op_hash` chroni przed zdublowaniem przy ponownym imporcie
+       tego samego okresu. Kwota ZE ZNAKIEM (wydatek ujemny), stąd BIGINT. */
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS adopt_bank_ops (
+            id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            op_hash       CHAR(40)        NOT NULL,
+            op_date       DATE            NOT NULL,
+            amount_grosze BIGINT          NOT NULL,
+            currency      CHAR(3)         NOT NULL DEFAULT 'PLN',
+            title         VARCHAR(255)    NULL,
+            party         VARCHAR(200)    NULL,
+            account       VARCHAR(40)     NULL,
+            account_key   VARCHAR(34)     NULL,
+            status        ENUM('open','payment','flow','skipped') NOT NULL DEFAULT 'open',
+            target_id     BIGINT UNSIGNED NULL,        -- id wpłaty albo przepływu
+            imported_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            imported_by   VARCHAR(64)     NULL,
+            resolved_at   DATETIME        NULL,
+            resolved_by   VARCHAR(64)     NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_op_hash (op_hash),
+            KEY idx_status (status, op_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    /* Rachunki darczyńców potwierdzone przy imporcie - dzięki temu kolejne
+       wpłaty tej samej osoby dopasowują się same, nawet przy byle jakim
+       tytule przelewu. Numer rachunku to dana osobowa: trzymamy sam klucz
+       cyfrowy, wyłącznie do dopasowań, i znika razem z darczyńcą (kaskada). */
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS adopt_donor_accounts (
+            account_key VARCHAR(34)     NOT NULL,
+            donor_id    BIGINT UNSIGNED NOT NULL,
+            label       VARCHAR(120)    NULL,          -- jak podpisał się nadawca
+            added_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            added_by    VARCHAR(64)     NULL,
+            PRIMARY KEY (account_key),
+            KEY idx_donor (donor_id),
+            CONSTRAINT fk_acc_donor FOREIGN KEY (donor_id)
+                REFERENCES adopt_donors (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS fin_flows (
             id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -936,6 +981,138 @@ function fin_flow_sums(int $year): array {
     );
     $st->execute([$year]);
     return $st->fetchAll();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Wyciąg bankowy: poczekalnia operacji i rachunki darczyńców
+   (parsowanie i dopasowania siedzą w adopcja/bank.php - bez bazy)
+  ───────────────────────────────────────────────────────────────── */
+
+/** Dopisuje operacje z wgranego pliku. Zwraca [dodane, pominięte-duplikaty]. */
+function bank_ops_insert_many(array $ops, ?string $user = null): array {
+    $pdo = payu_db();
+    $st = $pdo->prepare(
+        'INSERT IGNORE INTO adopt_bank_ops
+            (op_hash, op_date, amount_grosze, currency, title, party, account, account_key, imported_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    $added = 0;
+    foreach ($ops as $op) {
+        $st->execute([
+            $op['op_hash'],
+            $op['op_date'],
+            (int)$op['amount_grosze'],
+            mb_substr((string)($op['currency'] ?? 'PLN'), 0, 3),
+            mb_substr((string)($op['title'] ?? ''), 0, 255) ?: null,
+            mb_substr((string)($op['party'] ?? ''), 0, 200) ?: null,
+            mb_substr((string)($op['account'] ?? ''), 0, 40) ?: null,
+            mb_substr((string)($op['account_key'] ?? ''), 0, 34) ?: null,
+            $user,
+        ]);
+        $added += $st->rowCount();
+    }
+    return ['added' => $added, 'dups' => count($ops) - $added];
+}
+
+/** Operacje z poczekalni; '' = wszystkie statusy. Najnowsze u góry. */
+function bank_ops_list(string $status = 'open', int $limit = 500): array {
+    $sql = 'SELECT * FROM adopt_bank_ops';
+    $args = [];
+    if ($status !== '') { $sql .= ' WHERE status = ?'; $args[] = $status; }
+    $sql .= ' ORDER BY op_date DESC, id DESC LIMIT ' . max(1, min(2000, $limit));
+    $st = payu_db()->prepare($sql);
+    $st->execute($args);
+    return $st->fetchAll();
+}
+
+function bank_op_get(int $id): ?array {
+    $st = payu_db()->prepare('SELECT * FROM adopt_bank_ops WHERE id = ?');
+    $st->execute([$id]);
+    return $st->fetch() ?: null;
+}
+
+/** Liczba operacji wg statusu (do licznika przy pozycji w menu). */
+function bank_ops_counts(): array {
+    $out = ['open' => 0, 'payment' => 0, 'flow' => 0, 'skipped' => 0];
+    foreach (payu_db()->query('SELECT status, COUNT(*) c FROM adopt_bank_ops GROUP BY status') as $r) {
+        $out[$r['status']] = (int)$r['c'];
+    }
+    return $out;
+}
+
+/** Zamyka operację decyzją pracownika (status + id utworzonego wiersza). */
+function bank_op_resolve(int $id, string $status, ?int $targetId, ?string $user = null): void {
+    $st = payu_db()->prepare(
+        'UPDATE adopt_bank_ops
+            SET status = ?, target_id = ?, resolved_at = NOW(), resolved_by = ?
+          WHERE id = ?'
+    );
+    $st->execute([$status, $targetId, $user, $id]);
+}
+
+/** Przywraca operację do poczekalni (cofnięcie pomyłkowej decyzji). */
+function bank_op_reopen(int $id): void {
+    payu_db()->prepare(
+        "UPDATE adopt_bank_ops SET status = 'open', target_id = NULL, resolved_at = NULL, resolved_by = NULL
+          WHERE id = ?"
+    )->execute([$id]);
+}
+
+/** Mapa zapamiętanych rachunków: klucz cyfrowy => id darczyńcy. */
+function bank_accounts_map(): array {
+    $out = [];
+    foreach (payu_db()->query('SELECT account_key, donor_id FROM adopt_donor_accounts') as $r) {
+        $out[$r['account_key']] = (int)$r['donor_id'];
+    }
+    return $out;
+}
+
+/** Zapamiętuje rachunek przy darczyńcy (ponowne wskazanie nadpisuje wpis). */
+function bank_account_remember(string $accountKey, int $donorId, string $label = '', ?string $user = null): void {
+    if ($accountKey === '') return;
+    payu_db()->prepare(
+        'INSERT INTO adopt_donor_accounts (account_key, donor_id, label, added_by)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE donor_id = VALUES(donor_id), label = VALUES(label)'
+    )->execute([mb_substr($accountKey, 0, 34), $donorId, mb_substr($label, 0, 120) ?: null, $user]);
+}
+
+/** Rachunki zapamiętane przy darczyńcy (karta darczyńcy, RODO - do wglądu). */
+function bank_accounts_by_donor(int $donorId): array {
+    $st = payu_db()->prepare(
+        'SELECT * FROM adopt_donor_accounts WHERE donor_id = ? ORDER BY added_at'
+    );
+    $st->execute([$donorId]);
+    return $st->fetchAll();
+}
+
+/**
+ * Materiał dla bank_match_op(): dzieci, darczyńcy, aktywne adopcje z policzonym
+ * „opłacone do" i zapamiętane rachunki. Jedno zapytanie na tabelę - lista
+ * operacji z pliku dopasowuje się potem w pamięci.
+ */
+function bank_match_context(): array {
+    require_once __DIR__ . '/lib.php';
+    $pdo = payu_db();
+    $children = $pdo->query('SELECT id, number, name FROM adopt_children')->fetchAll();
+    $donors   = $pdo->query('SELECT id, full_name FROM adopt_donors')->fetchAll();
+    $adoptions = $pdo->query(
+        "SELECT id, donor_id, child_id, amount_grosze, start_month, end_month, status
+           FROM adopt_adoptions WHERE status IN ('pending','active')"
+    )->fetchAll();
+
+    $pays = adopt_payments_by_adoptions(array_map(fn($a) => (int)$a['id'], $adoptions));
+    foreach ($adoptions as &$a) {
+        $a['paid_until'] = adopt_paid_until($pays[(int)$a['id']] ?? []);
+    }
+    unset($a);
+
+    return [
+        'children'  => $children,
+        'donors'    => $donors,
+        'adoptions' => $adoptions,
+        'accounts'  => bank_accounts_map(),
+    ];
 }
 
 /* ── Statystyki (dashboard, eksport) ───────────────────────────── */

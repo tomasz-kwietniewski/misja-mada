@@ -17,8 +17,10 @@ function panel_nav_modules(): array {
         'adopcja'      => ['Adopcja Serca', 'adopcje.php',
             ['adopcje.php', 'darczyncy.php', 'darczynca.php', 'darczynca-edit.php', 'dzieci.php',
              'adopcja-edit.php', 'wplaty.php', 'zgloszenia.php', 'eksport.php']],
+        // Import z wyciągu należy do Finansów: źródłem jest konto fundacji,
+        // a operacje rozchodzą się stąd i do przepływów, i do wpłat Adopcji.
         'finanse'      => ['Finanse', 'finanse.php',
-            ['finanse.php']],
+            ['finanse.php', 'import-bank.php']],
     ];
 }
 
@@ -39,10 +41,22 @@ function panel_subnav_adopcja(): array {
     ];
 }
 
+/**
+ * Pod-menu modułu Finanse - te same zasady co przy Adopcji: nawigacja jest
+ * TRWAŁA i identyczna na każdej stronie modułu.
+ */
+function panel_subnav_finanse(): array {
+    return [
+        'Przepływy'     => ['finanse.php',     ['finanse.php']],
+        'Import z banku'=> ['import-bank.php', ['import-bank.php']],
+    ];
+}
+
 function panel_header($title) {
     $user = mada_current_user();
     $script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
     $inAdopcja = in_array($script, panel_nav_modules()['adopcja'][2], true);
+    $inFinanse = in_array($script, panel_nav_modules()['finanse'][2], true);
     ?>
 <!doctype html>
 <html lang="pl">
@@ -65,9 +79,9 @@ function panel_header($title) {
       <a href="<?= mada_esc($href) ?>"<?= in_array($script, $files, true) ? ' class="active" aria-current="page"' : '' ?>><?= mada_esc($label) ?></a>
     <?php endforeach; ?>
   </nav>
-  <?php if ($inAdopcja): ?>
-  <nav class="panel-subnav" aria-label="Adopcja Serca - sekcje">
-    <?php foreach (panel_subnav_adopcja() as $label => $s): [$href, $files] = $s; ?>
+  <?php if ($inAdopcja || $inFinanse): ?>
+  <nav class="panel-subnav" aria-label="<?= $inAdopcja ? 'Adopcja Serca - sekcje' : 'Finanse - sekcje' ?>">
+    <?php foreach ($inAdopcja ? panel_subnav_adopcja() : panel_subnav_finanse() as $label => $s): [$href, $files] = $s; ?>
       <a href="<?= mada_esc($href) ?>"<?= in_array($script, $files, true) ? ' class="active" aria-current="page"' : '' ?>><?= mada_esc($label) ?></a>
     <?php endforeach; ?>
   </nav>

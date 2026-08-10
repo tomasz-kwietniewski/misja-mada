@@ -50,6 +50,15 @@ jobs:
       - name: Testy payloadów do arkusza Google
         run: php tests/run-sheet.php
 
+      - name: Testy logiki Adopcji Serca (miesiące, zaległości, dopasowania nazwisk)
+        run: php tests/run-adopcja.php
+
+      # Układ kolumn w eksporcie bankowości nie jest udokumentowany i może się
+      # zmienić - testy pilnują, że parser dalej radzi sobie z wariantami
+      # separatora, kodowania i nazw kolumn, a dedup łapie ponowny import.
+      - name: Testy parsera wyciągu bankowego
+        run: php tests/run-bank.php
+
       # Apps Script wdrażamy RĘCZNIE (wklejenie w edytorze), a jego funkcje ruszają
       # produkcyjne dane fundacji (m.in. migracja arkusza). Testy na atrapach Google
       # API są jedyną automatyczną bramką dla tego pliku przed wklejeniem.
