@@ -11,6 +11,9 @@ $dbError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     mada_csrf_check();
+    // Powrót na TEN SAM widok (rok + filtry) - formularz niesie je w polu "qs".
+    $qs = preg_replace('/[^A-Za-z0-9=&_-]/', '', (string)($_POST['qs'] ?? ''));
+    $back = 'finanse.php?' . ($qs !== '' ? $qs . '&' : '');
     try {
         adopt_db_ensure_schema();
         $action = $_POST['action'] ?? '';
@@ -18,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $amount = (int)round(((float)str_replace([' ', ','], ['', '.'], (string)($_POST['kwota'] ?? '0'))) * 100);
             $date = trim((string)($_POST['flow_date'] ?? ''));
             if ($amount <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-                mada_redirect('finanse.php?msg=invalid');
+                mada_redirect($back . 'msg=invalid');
             }
             $currency = strtoupper(trim((string)($_POST['currency'] ?? 'PLN'))) ?: 'PLN';
             $fx = str_replace(',', '.', trim((string)($_POST['fx_rate'] ?? '')));
@@ -46,13 +49,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     fin_flow_delete($fid);           // update = wymiana wiersza (prosty model)
                     $newId = fin_flow_insert($d);
                     mada_audit('flow.edit', 'flow', $newId, ['stary' => $fid] + $d);
-                    mada_redirect('finanse.php?msg=saved');
+                    mada_redirect($back . 'msg=saved');
                 }
-                mada_redirect('finanse.php?msg=gone');
+                mada_redirect($back . 'msg=gone');
             }
             $newId = fin_flow_insert($d);
             mada_audit('flow.add', 'flow', $newId, $d);
-            mada_redirect('finanse.php?msg=added');
+            mada_redirect($back . 'msg=added');
         }
         if ($action === 'delete') {
             $fid = (int)($_POST['id'] ?? 0);
@@ -60,9 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($row) {
                 fin_flow_delete($fid);
                 mada_audit('flow.delete', 'flow', $fid, $row);
-                mada_redirect('finanse.php?msg=deleted');
+                mada_redirect($back . 'msg=deleted');
             }
-            mada_redirect('finanse.php?msg=gone');
+            mada_redirect($back . 'msg=gone');
         }
     } catch (Throwable $e) {
         $dbError = $e->getMessage();
@@ -86,6 +89,12 @@ function fin_flash() {
 $year = (int)($_GET['rok'] ?? date('Y'));
 $fCat = (string)($_GET['kat'] ?? '');
 $fDir = (string)($_GET['kier'] ?? '');
+$showAdd = isset($_GET['dodaj']);
+/* Aktywny widok (rok + filtry) wędruje za przyciskami akcji i wraca po zapisie -
+   inaczej dodanie wiersza wyrzucało pracownika do domyślnego roku bez filtrów. */
+$filterQs = http_build_query(array_filter([
+    'rok' => $year, 'kat' => $fCat, 'kier' => $fDir,
+], fn($v) => $v !== '' && $v !== null));
 $editRow = null;
 $flows = []; $sums = [];
 try {
@@ -101,7 +110,10 @@ panel_header('Finanse misyjne');
 ?>
     <div class="bar">
       <h2 style="margin:0;">Finanse misyjne - <?= $year ?></h2>
-      <a href="eksport.php" class="btn-secondary btn-sm">Eksport CSV/XLSX</a>
+      <span style="display:flex;gap:8px;align-items:center;">
+        <a href="eksport.php" class="btn-secondary btn-sm">Eksport CSV/XLSX</a>
+        <a href="finanse.php?<?= mada_esc($filterQs) ?>&amp;dodaj=1#formularz" class="btn-primary btn-sm">+ Dodaj przepływ</a>
+      </span>
     </div>
     <?= fin_flash() ?>
 
@@ -152,10 +164,12 @@ panel_header('Finanse misyjne');
       </table>
     <?php endif; ?>
 
-    <details <?= $editRow ? 'open' : '' ?> style="margin:16px 0;">
-      <summary class="hint" style="cursor:pointer;"><?= $editRow ? 'Edycja wiersza #' . (int)$editRow['id'] : '+ Dodaj przepływ' ?></summary>
-      <form method="post" class="form" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
+    <?php if ($editRow || $showAdd): ?>
+    <div class="spraw-panel" style="display:block;margin-top:16px;" id="formularz">
+      <h3 style="margin:0 0 10px;"><?= $editRow ? 'Edycja wiersza #' . (int)$editRow['id'] : 'Nowy przepływ' ?></h3>
+      <form method="post" class="form" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:0;">
         <?= mada_csrf_field() ?>
+        <input type="hidden" name="qs" value="<?= mada_esc($filterQs) ?>">
         <input type="hidden" name="action" value="<?= $editRow ? 'update' : 'add' ?>">
         <?php if ($editRow): ?><input type="hidden" name="id" value="<?= (int)$editRow['id'] ?>"><?php endif; ?>
         <label>Data<input type="date" name="flow_date" required value="<?= mada_esc($editRow['flow_date'] ?? date('Y-m-d')) ?>"></label>
@@ -198,10 +212,11 @@ panel_header('Finanse misyjne');
         <label style="min-width:150px;">Etykieta grupy (zbiórka)<input type="text" name="group_label" value="<?= mada_esc($editRow['group_label'] ?? '') ?>"></label>
         <label style="flex:1;min-width:160px;">Notatka<input type="text" name="note" value="<?= mada_esc($editRow['note'] ?? '') ?>"></label>
         <button type="submit" class="btn-primary btn-sm"><?= $editRow ? 'Zapisz' : 'Dodaj' ?></button>
-        <?php if ($editRow): ?><a href="finanse.php" class="btn-ghost btn-sm">Anuluj edycję</a><?php endif; ?>
+        <a href="finanse.php?<?= mada_esc($filterQs) ?>" class="btn-ghost btn-sm"><?= $editRow ? 'Anuluj edycję' : 'Anuluj' ?></a>
       </form>
       <p class="hint" style="margin:8px 0 0;">Zbiórka w kilku walutach: dodaj osobny wiersz na każdą walutę z tą samą etykietą grupy (np. „Zbiórka Londyn 02.2026").</p>
-    </details>
+    </div>
+    <?php endif; ?>
 
     <?php if (!$flows): ?>
       <p class="hint">Brak przepływów w wybranym filtrze.</p>
@@ -222,9 +237,10 @@ panel_header('Finanse misyjne');
             <td><?= mada_esc($f['status']) ?></td>
             <td class="hint"><?= mada_esc($f['note'] ?? '') ?></td>
             <td style="white-space:nowrap;">
-              <a class="btn-secondary btn-sm" href="finanse.php?edit=<?= (int)$f['id'] ?>&rok=<?= $year ?>">Edytuj</a>
+              <a class="btn-secondary btn-sm" href="finanse.php?<?= mada_esc($filterQs) ?>&amp;edit=<?= (int)$f['id'] ?>#formularz">Edytuj</a>
               <form method="post" style="display:inline;" onsubmit="return confirm('Usunąć ten wiersz?');">
                 <?= mada_csrf_field() ?>
+                <input type="hidden" name="qs" value="<?= mada_esc($filterQs) ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="<?= (int)$f['id'] ?>">
                 <button type="submit" class="btn-danger btn-sm">Usuń</button>
