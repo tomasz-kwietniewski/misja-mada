@@ -390,14 +390,25 @@ function emailShell(inner) {
     + '</td></tr></table></td></tr></table></body></html>';
 }
 
-/** Mail powitalny po weryfikacji zgłoszenia adopcji (dane do przelewu, info o dziecku). */
+/** Stawka za JEDNO dziecko wg częstotliwości wpłat (musi zgadzać się z adopcja/lib.php). */
+function stawkaZaOkres(czestotliwosc) {
+  const c = String(czestotliwosc || '');
+  if (/kwart/i.test(c)) return { kwota: 210, etykieta: 'kwartalnie' };
+  if (/rocz/i.test(c))  return { kwota: 840, etykieta: 'rocznie' };
+  return { kwota: 70, etykieta: 'miesięcznie' };
+}
+
+/** Mail powitalny po weryfikacji zgłoszenia adopcji (dane do przelewu, info o dziecku).
+ *  UWAGA: ścieżka historyczna - zgłoszenia ze strony obsługuje dziś adopcja/potwierdz.php.
+ *  Treść trzymana zgodnie z PHP, żeby ewentualne stare linki nie wysyłały innych danych. */
 function sendWelcomeEmail(row, headers) {
   const get = (c) => row[headers.indexOf(c)];
   const imie = esc(get(COL.IMIE));
   const nazwisko = esc(get(COL.NAZWISKO));
   const dzieci = parseInt(get(COL.DZIECI), 10) || 1;
-  const kwota = dzieci * 70;
-  const tytul = 'Adopcja Serca Madagaskar - ' + get(COL.IMIE) + ' ' + get(COL.NAZWISKO);
+  const okresStawka = stawkaZaOkres(get(COL.CZESTOTLIWOSC));
+  const kwota = dzieci * okresStawka.kwota;
+  const tytul = 'Adopcja Serca - darowizna - ' + get(COL.IMIE) + ' ' + get(COL.NAZWISKO);
   // Dla wsparcia w formie czasowej (okres od-do) podajemy, na jaki czas ustawic zlecenie stale.
   const okres = String(get(COL.OKRES) || '');
   const forma = String(get(COL.FORMA) || '');
@@ -412,7 +423,8 @@ function sendWelcomeEmail(row, headers) {
     + '<strong style="color:#c99d66;">Dane do przelewu (zlecenie stałe)</strong><br>'
     + 'Odbiorca: <strong>Fundacja Misja MADA</strong><br>'
     + 'Konto PLN: <strong>70 1090 1056 0000 0001 5832 5871</strong><br>'
-    + 'Kwota: <strong>' + kwota + ' zł miesięcznie</strong> (' + dzieci + ' × 70 zł)<br>'
+    + 'Kwota: <strong>' + kwota + ' zł ' + okresStawka.etykieta + '</strong> ('
+    + dzieci + ' × ' + okresStawka.kwota + ' zł)<br>'
     + okresRow
     + 'Tytuł przelewu: <strong>' + esc(tytul) + '</strong></div>'
     + '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Szczegóły dotyczące konkretnego dziecka objętego Twoim '

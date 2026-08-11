@@ -5,6 +5,7 @@
 require_once __DIR__ . '/layout.php';
 mada_require_login();
 require_once __DIR__ . '/../adopcja/db.php';
+require_once __DIR__ . '/../adopcja/lib.php';
 
 $dbError = '';
 
@@ -85,11 +86,31 @@ function dz_flash() {
 
 $children = [];
 $editChild = null;
+$editAdoptions = [];
 $showAdd = isset($_GET['dodaj']);
+$q = trim((string)($_GET['q'] ?? ''));
+$totalChildren = 0;
 try {
     adopt_db_ensure_schema();
     $children = adopt_child_list();
-    if (isset($_GET['edit'])) $editChild = adopt_child_get((int)$_GET['edit']);
+    $totalChildren = count($children);
+    if ($q !== '') {
+        /* Szukanie po imieniu dziecka, numerze, pełnym imieniu z dossier
+           i po darczyńcy - fundacja pyta „u kogo jest Kiady" równie często
+           jak „które dziecko ma numer 23". */
+        $needle = mb_strtolower($q, 'UTF-8');
+        $children = array_values(array_filter($children, function ($c) use ($needle) {
+            $hay = mb_strtolower(implode(' ', [
+                (string)$c['name'], (string)$c['number'], (string)($c['dossier_name'] ?? ''),
+                (string)($c['donors'] ?? ''), (string)($c['notes'] ?? ''),
+            ]), 'UTF-8');
+            return mb_strpos($hay, $needle) !== false;
+        }));
+    }
+    if (isset($_GET['edit'])) {
+        $editChild = adopt_child_get((int)$_GET['edit']);
+        if ($editChild) $editAdoptions = adopt_adoptions_by_child((int)$editChild['id']);
+    }
 } catch (Throwable $e) {
     $dbError = $dbError ?: $e->getMessage();
 }
@@ -103,8 +124,45 @@ panel_header('Podopieczni - Adopcja Serca');
     <?= dz_flash() ?>
 
     <?php if ($editChild !== null): ?>
+    <?php
+      $statusLabel = ['pending' => 'oczekująca', 'active' => 'aktywna', 'ended' => 'zakończona', 'cancelled' => 'anulowana'];
+      $openAd = array_values(array_filter($editAdoptions, fn($a) => in_array($a['status'], ['pending', 'active'], true)));
+    ?>
+    <div class="donor-card">
+      <div style="grid-column:1/-1;">
+        <span class="dc-label">Darczyńca / opiekun</span>
+        <?php if (!$openAd): ?>
+          <span class="badge badge-err">brak przypisanego darczyńcy</span>
+          <span class="hint">- dziecko czeka na opiekuna. Przypisanie robi się z karty darczyńcy („+ Nowa adopcja") albo w Zgłoszeniach.</span>
+        <?php else: foreach ($openAd as $a): ?>
+          <div style="margin-bottom:6px;">
+            <a href="darczynca.php?id=<?= (int)$a['donor_id'] ?>"><b><?= mada_esc($a['donor_name']) ?></b></a>
+            <span class="badge <?= $a['status'] === 'active' ? 'badge-ok' : 'badge-arch' ?>"><?= mada_esc($statusLabel[$a['status']] ?? $a['status']) ?></span>
+            <span class="hint">· od <?= mada_esc(adopt_month_label($a['start_month'])) ?><?php
+              if ($a['end_month'] !== null) echo ' do ' . mada_esc(adopt_month_label($a['end_month']));
+              if (($a['donor_email'] ?? '') !== '') echo ' · ' . mada_esc($a['donor_email']);
+              if (($a['donor_phone'] ?? '') !== '') echo ' · ' . mada_esc($a['donor_phone']);
+            ?></span>
+            <span class="badge <?= $a['dossier_sent_at'] !== null ? 'badge-ok' : 'badge-err' ?>">dossier: <?php
+              echo $a['dossier_sent_at'] !== null
+                ? 'wysłane ' . mada_esc(date('d.m.Y', strtotime((string)$a['dossier_sent_at'])))
+                : 'nie wysłano'; ?></span>
+          </div>
+        <?php endforeach; endif; ?>
+        <?php $closed = array_filter($editAdoptions, fn($a) => !in_array($a['status'], ['pending', 'active'], true)); ?>
+        <?php if ($closed): ?>
+          <p class="hint" style="margin:6px 0 0;">Wcześniejsi opiekunowie: <?php
+            echo implode(', ', array_map(fn($a) => mada_esc($a['donor_name']) . ' (do ' . mada_esc(adopt_month_label($a['end_month'])) . ')', $closed));
+          ?></p>
+        <?php endif; ?>
+      </div>
+    </div>
+
     <div class="spraw-panel" style="display:block;" id="formularz">
-      <h3 style="margin:0 0 10px;">Edycja: nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?></h3>
+      <div class="bar" style="margin-bottom:12px;">
+        <h3 style="margin:0;">Edycja: nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?></h3>
+        <a href="dzieci.php" class="btn-ghost btn-sm">← Wróć do listy podopiecznych</a>
+      </div>
       <form method="post" enctype="multipart/form-data" class="form" style="margin:0;">
         <?= mada_csrf_field() ?>
         <input type="hidden" name="action" value="edit">
@@ -191,13 +249,23 @@ panel_header('Podopieczni - Adopcja Serca');
 
 <?php if ($dbError !== ''): ?>
     <div class="alert alert-error">Baza danych jest niedostępna (sprawdź <code>payu/secret/db-config.php</code>): <?= mada_esc($dbError) ?></div>
-<?php elseif (!$children): ?>
+<?php elseif ($totalChildren === 0): ?>
     <p class="hint">Baza podopiecznych jest pusta - dodaj pierwsze dziecko przyciskiem „+ Dodaj dziecko".</p>
 <?php else: ?>
+    <form method="get" style="margin:0 0 16px;display:flex;gap:10px;">
+      <input type="search" name="q" value="<?= mada_esc($q) ?>" placeholder="Szukaj: imię, numer, darczyńca"
+             style="flex:1;max-width:340px;padding:8px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;">
+      <button type="submit" class="btn-secondary btn-sm">Szukaj</button>
+      <?php if ($q !== ''): ?><a href="dzieci.php" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
+    </form>
+
+    <?php if (!$children): ?>
+      <p class="hint">Brak wyników dla „<?= mada_esc($q) ?>".</p>
+    <?php else: ?>
     <?php
       $withDonor = count(array_filter($children, fn($c) => $c['donors'] !== null));
     ?>
-    <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($children) ?>,
+    <p class="hint" style="margin:0 0 12px;"><?php if ($q !== ''): ?>Znaleziono: <?= count($children) ?> z <?= $totalChildren ?><?php else: ?>Łącznie: <?= $totalChildren ?><?php endif; ?>,
        z darczyńcą: <?= $withDonor ?>, bez darczyńcy: <?= count($children) - $withDonor ?>.</p>
     <table class="events">
       <thead><tr>
@@ -209,7 +277,11 @@ panel_header('Podopieczni - Adopcja Serca');
           <td><b><?= (int)$c['number'] ?></b></td>
           <td><a href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz"><?= mada_esc($c['name']) ?></a><?= !empty($c['description']) || !empty($c['photo']) ? ' <span title="dossier uzupełnione">📋</span>' : '' ?></td>
           <td><?= $c['status'] === 'active' ? 'aktywne' : '<span class="hint">nieaktywne</span>' ?></td>
-          <td><?php if ($c['donors'] !== null): ?><?= mada_esc($c['donors']) ?>
+          <td><?php if ($c['donors'] !== null):
+                $dids = array_values(array_filter(explode(',', (string)($c['donor_ids'] ?? '')))); ?>
+                <?php if (count($dids) === 1): ?>
+                  <a href="darczynca.php?id=<?= (int)$dids[0] ?>"><?= mada_esc($c['donors']) ?></a>
+                <?php else: ?><?= mada_esc($c['donors']) ?><?php endif; ?>
               <?php else: ?><span class="badge" style="background:#fbeeec;color:var(--err);border-color:#e6b9b1;">brak</span><?php endif; ?></td>
           <td class="hint"><?= mada_esc($c['notes'] ?? '') ?></td>
           <td><a class="btn-secondary btn-sm" href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz">Edytuj</a></td>
@@ -217,6 +289,7 @@ panel_header('Podopieczni - Adopcja Serca');
       <?php endforeach; ?>
       </tbody>
     </table>
+    <?php endif; ?>
 <?php endif; ?>
 <?php
 panel_footer();

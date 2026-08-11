@@ -582,9 +582,16 @@ window.MADA_I18N_FR = {
 
   // ═══ FORMULARZ ADOPCJI ═══
   "Wypełnij poniższy formularz - odezwiemy się do Ciebie z dalszymi krokami. Otrzymasz informację o dziecku objętym Twoim wsparciem. Wszystkie pola są wymagane.": "Remplissez le formulaire ci-dessous - nous reviendrons vers vous avec les prochaines étapes. Vous recevrez des informations sur l'enfant couvert par votre soutien. Tous les champs sont obligatoires.",
+  "Wypełnij poniższy formularz - odezwiemy się do Ciebie z dalszymi krokami. Otrzymasz informację o dziecku objętym Twoim wsparciem. Adres korespondencyjny jest dobrowolny, pozostałe pola są wymagane.": "Remplissez le formulaire ci-dessous - nous reviendrons vers vous avec les prochaines étapes. Vous recevrez des informations sur l'enfant couvert par votre soutien. L'adresse postale est facultative, tous les autres champs sont obligatoires.",
   "Nazwisko": "Nom",
   "Numer telefonu": "Numéro de téléphone",
   "Adres korespondencyjny": "Adresse postale",
+  "Pole dobrowolne. Podaj adres, jeśli chcesz otrzymywać pocztą podziękowania i materiały o swoim podopiecznym.": "Champ facultatif. Indiquez une adresse si vous souhaitez recevoir par courrier nos remerciements et des nouvelles de votre filleul.",
+  "Ulica": "Rue",
+  "Nr domu / lokalu": "N° de bâtiment / appartement",
+  "Kod pocztowy": "Code postal",
+  "Miejscowość": "Ville",
+  "Podaj kod pocztowy w formacie 00-000.": "Indiquez le code postal au format 00-000.",
   "Liczba dzieci, które chcesz wesprzeć": "Nombre d'enfants que vous souhaitez soutenir",
   "Forma adopcji": "Forme d'adoption",
   "Na czas nieokreślony": "Durée indéterminée",

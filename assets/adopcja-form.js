@@ -235,7 +235,9 @@
             imie: data.imie, nazwisko: data.nazwisko, email: data.email, telefon: data.telefon,
             goal: 'adopcja', goalLabel: 'Adopcja Serca - ' + data.dzieci + ' dziecko/dzieci',
             amount: data.amount, currency: 'PLN', dzieci: data.dzieci,
-            adres: data.adres, forma: data.formaLabel, okres: data.okres,
+            adres: data.adres, ulica: data.ulica, nr_domu: data.nr_domu,
+            kod_pocztowy: data.kod_pocztowy, miejscowosc: data.miejscowosc,
+            forma: data.formaLabel, okres: data.okres,
             zgoda_wizerunek: data.zgoda_wizerunek, newsletter: data.newsletter,
           };
           const res = await fetch(RURL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
@@ -300,18 +302,43 @@
     });
   }
 
+  // Reguła kodu pocztowego dotyczy TYLKO wersji polskiej. Francuz wpisujący
+  // "75001" dostałby inaczej cichą podmianę na "75-001", czyli zepsuty adres.
+  const isPlForm = () => (document.documentElement.getAttribute('lang') || 'pl').toLowerCase() === 'pl';
+
+  // Kod pocztowy w formacie 00-000: przyjmujemy też "00000" i "00 000" i normalizujemy,
+  // żeby nie odbijać poprawnie podanego adresu z powodu formatu zapisu.
+  function normPostcode(v) {
+    const t = v.trim();
+    if (!isPlForm()) return t;
+    const m = /^(\d{2})[\s-]?(\d{3})$/.exec(t);
+    return m ? m[1] + '-' + m[2] : t;
+  }
+
   function collectData(form, dzieci) {
     const fd = new FormData(form);
     const forma = fd.get('forma') || '';
     const imie = (fd.get('imie') || '').toString().trim();
     const nazwisko = (fd.get('nazwisko') || '').toString().trim();
+    const ulica = (fd.get('ulica') || '').toString().trim();
+    const nrDomu = (fd.get('nr_domu') || '').toString().trim();
+    const kod = normPostcode((fd.get('kod_pocztowy') || '').toString());
+    const miejscowosc = (fd.get('miejscowosc') || '').toString().trim();
+    // `adres` zostaje jako gotowa linia adresowa - tak trafia do arkusza fundacji
+    // i do maili; rozbite pola idą obok, dla bazy i wydruku kopert.
+    const adres = [ (ulica + ' ' + nrDomu).trim(), (kod + ' ' + miejscowosc).trim() ]
+      .filter(Boolean).join(', ');
     return {
       imie: imie,
       nazwisko: nazwisko,
       imieNazwisko: (imie + ' ' + nazwisko).trim(),
       email: (fd.get('email') || '').toString().trim(),
       telefon: (fd.get('telefon') || '').toString().trim(),
-      adres: (fd.get('adres') || '').toString().trim(),
+      adres: adres,
+      ulica: ulica,
+      nr_domu: nrDomu,
+      kod_pocztowy: kod,
+      miejscowosc: miejscowosc,
       dzieci: dzieci || 1,
       amount: (dzieci || 1) * 70,
       forma: forma,
@@ -339,7 +366,11 @@
     if (!d.nazwisko || d.nazwisko.length < 2) errs.push({ field: 'nazwisko', msg: 'Podaj nazwisko.' });
     if (!madaEmailRe().test(d.email)) errs.push({ field: 'email', msg: 'Podaj prawidłowy adres e-mail.' });
     if (!d.telefon || d.telefon.replace(/\D/g, '').length < 9) errs.push({ field: 'telefon', msg: 'Podaj numer telefonu.' });
-    if (!d.adres) errs.push({ field: 'adres', msg: 'Podaj adres korespondencyjny.' });
+    // Adres jest DOBROWOLNY - sprawdzamy tylko format kodu, gdy ktoś go podał
+    // (i tylko w wersji polskiej - inne kraje mają własne formaty).
+    if (d.kod_pocztowy && isPlForm() && !/^\d{2}-\d{3}$/.test(d.kod_pocztowy)) {
+      errs.push({ field: 'kod_pocztowy', msg: 'Podaj kod pocztowy w formacie 00-000.' });
+    }
     if (!d.forma) errs.push({ field: 'forma', msg: 'Wybierz formę adopcji.' });
     if (d.forma === 'czasowa' && (!d.od || !d.do)) errs.push({ field: 'od', msg: 'Wskaż okres trwania (od - do).' });
     if (!d.metoda) errs.push({ field: 'metoda', msg: 'Wybierz sposób przekazywania wsparcia.' });
@@ -380,7 +411,7 @@
           <header class="am-head">
             <span class="am-eyebrow">Program Adopcja Serca</span>
             <h2 id="am-title">Zostań rodzicem adopcyjnym</h2>
-            <p>Wypełnij poniższy formularz - odezwiemy się do Ciebie z dalszymi krokami. Otrzymasz informację o dziecku objętym Twoim wsparciem. Wszystkie pola są wymagane.</p>
+            <p>Wypełnij poniższy formularz - odezwiemy się do Ciebie z dalszymi krokami. Otrzymasz informację o dziecku objętym Twoim wsparciem. Adres korespondencyjny jest dobrowolny, pozostałe pola są wymagane.</p>
           </header>
 
           <fieldset class="am-fieldset am-dzieci-set">
@@ -412,11 +443,30 @@
               <span class="am-label">Numer telefonu</span>
               <input type="tel" name="telefon" autocomplete="tel" required />
             </label>
-            <label class="am-field am-field-full">
-              <span class="am-label">Adres korespondencyjny</span>
-              <input type="text" name="adres" autocomplete="street-address" required />
-            </label>
           </div>
+
+          <fieldset class="am-fieldset am-addr-set">
+            <legend>Adres korespondencyjny</legend>
+            <p class="am-addr-note">Pole dobrowolne. Podaj adres, jeśli chcesz otrzymywać pocztą podziękowania i materiały o swoim podopiecznym.</p>
+            <div class="am-addr">
+              <label class="am-field am-addr-street">
+                <span class="am-label">Ulica</span>
+                <input type="text" name="ulica" autocomplete="address-line1" />
+              </label>
+              <label class="am-field am-addr-no">
+                <span class="am-label">Nr domu / lokalu</span>
+                <input type="text" name="nr_domu" autocomplete="address-line2" />
+              </label>
+              <label class="am-field am-addr-post">
+                <span class="am-label">Kod pocztowy</span>
+                <input type="text" name="kod_pocztowy" autocomplete="postal-code" inputmode="numeric" placeholder="00-000" />
+              </label>
+              <label class="am-field am-addr-city">
+                <span class="am-label">Miejscowość</span>
+                <input type="text" name="miejscowosc" autocomplete="address-level2" />
+              </label>
+            </div>
+          </fieldset>
 
           <fieldset class="am-fieldset">
             <legend>Forma adopcji</legend>

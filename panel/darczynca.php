@@ -78,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dn = adopt_donor_get($id);
             $ch = adopt_child_get((int)$ad['child_id']);
             if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, '')) {
+                adopt_adoption_mark_dossier_sent($adoptionId, mada_current_user());
                 mada_audit('adoption.childmail', 'adoption', $adoptionId,
                     ['dziecko' => $ch['name'], 'email' => $dn['email'], 'skrot' => true]);
                 mada_redirect("darczynca.php?id=$id&msg=mailok");
@@ -115,7 +116,7 @@ function dk_flash() {
     $codes = [
         'payok'    => ['ok',    'Wpłata została odnotowana.'],
         'noteok'   => ['ok',    'Notatki zostały zapisane.'],
-        'mailok'   => ['ok',    'Mail z przedstawieniem dziecka został wysłany do darczyńcy (odhaczono „materiały wysłane").'],
+        'mailok'   => ['ok',    'Mail z przedstawieniem dziecka (dossier) został wysłany - data wysyłki jest odnotowana przy adopcji.'],
         'mailfail' => ['error', 'Mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki). Zmiany w adopcji zostały zapisane.'],
         'paydel'   => ['ok',    'Wpłata została usunięta.'],
         'ended'    => ['ok',    'Adopcja została zakończona (miesiące po końcu nie liczą się jako zaległość).'],
@@ -130,11 +131,12 @@ function dk_flash() {
     return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
 }
 
-$donor = null; $ads = []; $pays = []; $subs = [];
+$donor = null; $ads = []; $pays = []; $subs = []; $sharing = [];
 try {
     adopt_db_ensure_schema();
     $donor = adopt_donor_get($id);
     if ($donor) {
+        $sharing = adopt_donors_sharing_email($donor['email'] ?? null, $id);
         $ads = adopt_adoptions_by_donor($id);
         $pays = adopt_payments_by_adoptions(array_column($ads, 'id'));
         foreach ($ads as $a) {
@@ -157,6 +159,7 @@ panel_header('Darczyńca - Adopcja Serca');
     <div class="bar">
       <h2 style="margin:0;"><?= $donor ? mada_esc($donor['full_name']) : 'Darczyńca' ?></h2>
       <span>
+        <a href="darczyncy.php" class="btn-ghost btn-sm">← Wróć do listy darczyńców</a>
         <?php if ($donor): ?><a href="darczynca-edit.php?id=<?= (int)$donor['id'] ?>" class="btn-secondary btn-sm">Edytuj dane</a>
         <a href="adopcja-edit.php?donor=<?= (int)$donor['id'] ?>" class="btn-primary btn-sm">+ Nowa adopcja</a><?php endif; ?>
 
@@ -169,11 +172,44 @@ panel_header('Darczyńca - Adopcja Serca');
 <?php elseif (!$donor): ?>
     <div class="alert alert-error">Nie znaleziono darczyńcy.</div>
 <?php else: ?>
-    <p class="hint" style="margin:0 0 14px;">
-      E-mail: <b><?= mada_esc($donor['email'] ?: '-') ?></b><?= $donor['emails_extra'] ? ' (dodatkowe: ' . mada_esc($donor['emails_extra']) . ')' : '' ?>
-      · Telefon: <?= mada_esc($donor['phone'] ?: '-') ?>
-      · Źródło: <?= mada_esc($donor['source']) ?>
-    </p>
+    <?php if ($sharing): ?>
+      <div class="alert alert-warn">
+        <b>Ten sam adres e-mail ma jeszcze <?= count($sharing) === 1 ? 'inny darczyńca' : count($sharing) . ' innych darczyńców' ?>:</b>
+        <?php foreach ($sharing as $i => $s): ?><?= $i ? ', ' : ' ' ?><a href="darczynca.php?id=<?= (int)$s['id'] ?>"><?= mada_esc($s['full_name']) ?></a><?php endforeach; ?>.
+        Zdarza się, że jedna osoba zgłasza kogoś ze swojej skrzynki (np. proboszcz zgłaszający mamę) -
+        sprawdź, czy adopcje wiszą przy właściwej osobie. Adopcję przenosi się przez „Edytuj" przy adopcji.
+      </div>
+    <?php endif; ?>
+
+    <?php
+      $adres = adopt_address_compose($donor);
+      $imieNazwisko = trim(((string)($donor['first_name'] ?? '')) . ' ' . ((string)($donor['last_name'] ?? '')));
+    ?>
+    <div class="donor-card">
+      <div><span class="dc-label">E-mail</span>
+        <?php if (($donor['email'] ?? '') !== ''): ?>
+          <a href="mailto:<?= mada_esc($donor['email']) ?>"><?= mada_esc($donor['email']) ?></a>
+        <?php else: ?><span class="hint">nie podano</span><?php endif; ?>
+        <?= $donor['emails_extra'] ? '<br><span class="hint">dodatkowe: ' . mada_esc($donor['emails_extra']) . '</span>' : '' ?>
+      </div>
+      <div><span class="dc-label">Telefon</span>
+        <?php if (($donor['phone'] ?? '') !== ''): ?>
+          <a href="tel:<?= mada_esc(preg_replace('/[^\d+]/', '', (string)$donor['phone'])) ?>"><?= mada_esc($donor['phone']) ?></a>
+        <?php else: ?><span class="hint">nie podano</span><?php endif; ?>
+      </div>
+      <div><span class="dc-label">Adres korespondencyjny</span>
+        <?php if ($adres !== ''): ?>
+          <?= implode('<br>', array_map('mada_esc', adopt_address_lines($donor))) ?>
+        <?php else: ?><span class="hint">nie podano</span><?php endif; ?>
+      </div>
+      <div><span class="dc-label">Imię i nazwisko</span>
+        <?= $imieNazwisko !== '' ? mada_esc($imieNazwisko) : '<span class="hint">tylko nazwa wyświetlana</span>' ?>
+      </div>
+      <div><span class="dc-label">Źródło</span>
+        <?= mada_esc(['site' => 'zgłoszenie ze strony', 'import' => 'import z arkusza', 'manual' => 'wpis ręczny'][$donor['source']] ?? $donor['source']) ?>
+        <br><span class="hint">dodany <?= mada_esc(date('d.m.Y', strtotime((string)$donor['created_at']))) ?></span>
+      </div>
+    </div>
 
     <details class="donor-notes" <?= $donor['notes'] ? 'open' : '' ?> style="margin:0 0 20px;">
       <summary style="cursor:pointer;font-weight:600;color:var(--brown);">📝 Notatki fundacji<?= $donor['notes'] ? '' : ' <span class="hint">(brak - kliknij, aby dodać)</span>' ?></summary>
@@ -190,7 +226,7 @@ panel_header('Darczyńca - Adopcja Serca');
     <h3>Adopcje</h3>
     <?php if (!$ads): ?><p class="hint">Brak adopcji.</p><?php else: ?>
     <table class="events">
-      <thead><tr><th>Dziecko</th><th>Okres</th><th>Częst.</th><th>Kwota</th><th>Metoda</th><th>Status</th><th>Opłacone do</th><th>Zaległość</th><th>Akcje</th></tr></thead>
+      <thead><tr><th>Dziecko</th><th>Okres</th><th>Częst.</th><th>Kwota</th><th>Metoda</th><th>Status</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th>Akcje</th></tr></thead>
       <tbody>
       <?php foreach ($ads as $a):
           $p = $pays[(int)$a['id']] ?? [];
@@ -210,18 +246,32 @@ panel_header('Darczyńca - Adopcja Serca');
           <td><?php if ($miss): ?><span class="badge badge-err"><?= count($miss) ?> mies.</span>
               <?php elseif ($isOpen && $a['start_month'] !== null): ?><span class="badge badge-ok">OK</span>
               <?php else: ?><span class="hint">-</span><?php endif; ?></td>
+          <?php
+            /* „Dossier" = czy do darczyńcy poszedł mail z przedstawieniem TEGO dziecka.
+               Zapisywane w chwili realnej wysyłki, więc „nie wysłano" jest wiarygodne. */
+            $dsAt = $a['dossier_sent_at'] ?? null;
+            $dsCnt = (int)($a['dossier_sent_count'] ?? 0);
+          ?>
+          <td><?php if ($a['child_id'] === null): ?><span class="hint">-</span>
+              <?php elseif ($dsAt !== null): ?>
+                <span class="badge badge-ok">wysłane</span><br>
+                <span class="hint"><?= mada_esc(date('d.m.Y', strtotime((string)$dsAt))) ?><?php
+                  if ($a['dossier_sent_by']) echo ', ' . mada_esc((string)$a['dossier_sent_by']);
+                  if ($dsCnt > 1) echo ' (×' . $dsCnt . ')';
+                ?></span>
+              <?php else: ?><span class="badge badge-err">nie wysłano</span><?php endif; ?></td>
           <td style="white-space:nowrap;">
             <a class="btn-secondary btn-sm" href="adopcja-edit.php?id=<?= (int)$a['id'] ?>">Edytuj</a>
             <?php if ($a['child_id'] !== null && ($donor['email'] ?? '') !== ''): ?>
               <form method="post" style="display:inline;"
-                    onsubmit="return confirm('Wysłać do <?= mada_esc($donor['email']) ?> mail z przedstawieniem dziecka <?= mada_esc($a['child_name'] ?? '') ?>?\n\nOsobisty dopisek dodasz przez „Edytuj”.');">
+                    onsubmit="return confirm('<?= $dsAt !== null ? 'Dossier tego dziecka zostało już wysłane. Wysłać PONOWNIE' : 'Wysłać' ?> do <?= mada_esc($donor['email']) ?> mail z przedstawieniem dziecka <?= mada_esc($a['child_name'] ?? '') ?>?\n\nOsobisty dopisek dodasz przez „Edytuj”.');">
                 <?= mada_csrf_field() ?>
                 <input type="hidden" name="action" value="senddossier">
                 <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
                 <input type="hidden" name="adoption_id" value="<?= (int)$a['id'] ?>">
                 <button type="submit" class="btn-secondary btn-sm"
-                        title="Wyślij darczyńcy dossier dziecka">
-                  📧 Wyślij dossier
+                        title="<?= $dsAt !== null ? 'Wyślij dossier jeszcze raz' : 'Wyślij darczyńcy dossier dziecka' ?>">
+                  📧 <?= $dsAt !== null ? 'Wyślij ponownie' : 'Wyślij dossier' ?>
                 </button>
               </form>
             <?php endif; ?>

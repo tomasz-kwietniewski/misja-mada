@@ -65,7 +65,7 @@ panel_header('Darczyńcy - Adopcja Serca');
         if ($q === '' && $archivedCnt > 0 && !$showArchived): ?>, ukrytych archiwalnych: <?= $archivedCnt ?><?php endif; ?></p>
       <table class="events">
         <thead><tr>
-          <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th></th>
+          <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th></th>
         </tr></thead>
         <tbody>
         <?php foreach ($donors as $d):
@@ -83,8 +83,12 @@ panel_header('Darczyńcy - Adopcja Serca');
             $methods = array_unique(array_map(fn($a) => $methodLabel[$a['method']] ?? $a['method'], $active));
         ?>
           <tr class="row-link" data-href="darczynca.php?id=<?= (int)$d['id'] ?>">
-            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><?= (int)$d['is_archived'] === 1 ? ' <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">archiwum</span>' : '' ?><br>
-                <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?></span></td>
+            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><?= (int)$d['is_archived'] === 1 ? ' <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">archiwum</span>' : '' ?><?php
+                if ((int)($d['shared_email'] ?? 0) === 1): ?> <span class="badge badge-arch" title="Ten adres e-mail ma w bazie więcej niż jeden darczyńca">wspólny e-mail</span><?php endif; ?><br>
+                <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?><?php
+                  if (($d['phone'] ?? '') !== '') echo ' · ' . mada_esc($d['phone']);
+                  if (($d['city'] ?? '') !== '') echo ' · ' . mada_esc($d['city']);
+                ?></span></td>
             <td><?php if ($d['children_names']): ?>
                   <?= mada_esc($d['children_names']) ?> <span class="hint">(nr <?= mada_esc($d['children_numbers']) ?>)</span>
                 <?php else: ?><span class="hint">-</span><?php endif; ?></td>
@@ -95,6 +99,20 @@ panel_header('Darczyńcy - Adopcja Serca');
                 <?php elseif ($active): ?>
                   <span class="badge" style="background:#e9f5ee;color:var(--ok);border-color:#b8dcc6;">OK</span>
                 <?php else: ?><span class="hint">-</span><?php endif; ?></td>
+            <?php
+              /* Dossier = mail z przedstawieniem dziecka. Liczymy tylko adopcje,
+                 które mają już przypisane dziecko - bez dziecka nie ma czego wysyłać. */
+              $withChild = (int)($d['with_child_cnt'] ?? 0);
+              $dsSent    = (int)($d['dossier_sent_cnt'] ?? 0);
+            ?>
+            <td><?php if ($withChild === 0): ?><span class="hint">-</span>
+                <?php elseif ($dsSent >= $withChild): ?>
+                  <span class="badge badge-ok">wysłane<?= $withChild > 1 ? ' (' . $dsSent . '/' . $withChild . ')' : '' ?></span>
+                <?php elseif ($dsSent > 0): ?>
+                  <span class="badge badge-err"><?= $dsSent ?>/<?= $withChild ?></span>
+                <?php else: ?>
+                  <span class="badge badge-err">nie wysłano</span>
+                <?php endif; ?></td>
             <td style="white-space:nowrap;">
               <a class="btn-secondary btn-sm" href="darczynca-edit.php?id=<?= (int)$d['id'] ?>">Edytuj</a>
             </td>

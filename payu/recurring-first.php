@@ -68,6 +68,12 @@ $goalLabel = trim((string)($data['goalLabel'] ?? 'Darowizna cykliczna na rzecz F
 $amount    = isset($data['amount']) ? (float)$data['amount'] : 0;
 $dzieci    = isset($data['dzieci']) ? (int)$data['dzieci'] : null;
 $adres     = trim((string)($data['adres'] ?? ''));
+// Adres rozbity na pola (dobrowolny) - do bazy panelu; `adres` zostaje gotową
+// linią do arkusza i maili. Przycinamy do długości kolumn w adopt_donors.
+$ulica     = mb_substr(trim((string)($data['ulica'] ?? '')), 0, 160);
+$nrDomu    = mb_substr(trim((string)($data['nr_domu'] ?? '')), 0, 30);
+$kodPoczt  = mb_substr(trim((string)($data['kod_pocztowy'] ?? '')), 0, 12);
+$miejsc    = mb_substr(trim((string)($data['miejscowosc'] ?? '')), 0, 120);
 $forma     = trim((string)($data['forma'] ?? ''));
 $okres     = trim((string)($data['okres'] ?? ''));
 $wizerunek = !empty($data['zgoda_wizerunek']);
@@ -141,7 +147,9 @@ try {
         // Bez e-maila w logu (RODO) - subId wystarczy do odnalezienia subskrypcji w bazie.
         $adOk = @file_put_contents($adDir . '/' . (int)$subId . '.json', json_encode([
             'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email, 'telefon' => $telefon,
-            'adres' => $adres, 'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
+            'adres' => $adres, 'ulica' => $ulica, 'nr_domu' => $nrDomu,
+            'kod_pocztowy' => $kodPoczt, 'miejscowosc' => $miejsc,
+            'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
             'wizerunek' => $wizerunek, 'newsletter' => $newsletter, 'ts' => time(),
         ], JSON_UNESCAPED_UNICODE), LOCK_EX);
         if ($adOk === false) {
@@ -231,8 +239,9 @@ try {
                     adopt_db_ensure_schema();
                     adopt_ensure_from_card($fresh, [
                         'imie' => $imie, 'nazwisko' => $nazwisko, 'email' => $email,
-                        'telefon' => $telefon, 'adres' => $adres, 'forma' => $forma,
-                        'okres' => $okres, 'dzieci' => $dzieci,
+                        'telefon' => $telefon, 'adres' => $adres, 'ulica' => $ulica,
+                        'nr_domu' => $nrDomu, 'kod_pocztowy' => $kodPoczt, 'miejscowosc' => $miejsc,
+                        'forma' => $forma, 'okres' => $okres, 'dzieci' => $dzieci,
                     ]);
                     $m0 = adopt_month_from_date((string)($fresh['start_date'] ?? ''));
                     if ($m0 !== null) adopt_payment_from_charge($fresh, null, $m0);
