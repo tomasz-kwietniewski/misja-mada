@@ -740,6 +740,28 @@ function adopt_donor_update(int $id, array $d): void {
     ]);
 }
 
+/**
+ * Usuwa darczyńcę - WYŁĄCZNIE gdy nie ma żadnej adopcji (a więc i żadnej wpłaty,
+ * bo te wiszą przy adopcji). Domyka scalanie duplikatów: adopcje przenosi się
+ * do właściwego wpisu, pusty wpis znika z listy. Zwraca false, gdy coś przy nim
+ * jeszcze wisi - wtedy nic nie kasujemy.
+ */
+function adopt_donor_delete_if_empty(int $id): bool {
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM adopt_adoptions WHERE donor_id = ?');
+    $st->execute([$id]);
+    if ((int)$st->fetchColumn() > 0) return false;
+    $pdo->prepare('DELETE FROM adopt_reminders WHERE donor_id = ?')->execute([$id]);
+    $pdo->prepare('DELETE FROM adopt_donors WHERE id = ?')->execute([$id]);
+    return true;
+}
+
+/** Darczyńcy do selecta „przenieś adopcję" - posortowani po nazwisku. */
+function adopt_donor_options(): array {
+    $rows = payu_db()->query('SELECT id, full_name, email FROM adopt_donors')->fetchAll();
+    return adopt_sort_by_surname($rows);
+}
+
 /** Odnotowuje realną wysyłkę dossier dziecka (data, kto, licznik ponowień). */
 function adopt_adoption_mark_dossier_sent(int $adoptionId, ?string $user): void {
     $st = payu_db()->prepare(
@@ -764,13 +786,18 @@ function adopt_adoption_get(int $id): ?array {
 }
 
 function adopt_adoption_update(int $id, array $d): void {
+    /* donor_id jest edytowalne: bez tego nie dało się PRZENIEŚĆ adopcji do innego
+       darczyńcy, a to jedyna droga naprawy dwóch realnych sytuacji - zgłoszenia,
+       które wpadło pod cudzy rekord przez wspólny e-mail, i scalenia dwóch wpisów
+       tej samej osoby. Wpłaty wiszą przy adopcji, więc idą razem z nią. */
     $st = payu_db()->prepare(
         'UPDATE adopt_adoptions
-            SET child_id = ?, subscription_id = ?, duration = ?, start_month = ?, end_month = ?,
+            SET donor_id = ?, child_id = ?, subscription_id = ?, duration = ?, start_month = ?, end_month = ?,
                 frequency = ?, amount_grosze = ?, method = ?, notes = ?
           WHERE id = ?'
     );
     $st->execute([
+        $d['donor_id'],
         $d['child_id'] ?? null,
         $d['subscription_id'] ?? null,
         $d['duration'],
