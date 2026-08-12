@@ -179,6 +179,12 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         // adopt_donor_list i adopt_donors_sharing_email), bo rekordy sprzed
         // wprowadzenia flagi nigdy by jej nie dostały.
         'shared_email' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        // Ręczne archiwum darczyńcy (2026-08-12). Dochodzi DO reguły automatycznej
+        // („miał adopcje, żadna już nie trwa"), a nie zamiast niej: pozwala schować
+        // z listy kogoś, kto zgłosił się i wycofał przed przypisaniem dziecka -
+        // wcześniej taki wpis dało się tylko usunąć razem z danymi kontaktowymi.
+        'archived_at'  => 'DATETIME NULL',
+        'archived_by'  => 'VARCHAR(64) NULL',
     ]);
 
     /* Zgłoszenia z formularza przelewowego (double opt-in po stronie PHP). */
@@ -578,15 +584,20 @@ function adopt_donor_list(string $search = ''): array {
         $like = '%' . $search . '%';
         $args = array_fill(0, 7, $like);
     }
-    /* is_archived: darczyńca, który MIAŁ adopcje, ale żadna nie jest już
-       aktywna ani oczekująca (czyli po „Zakończ"). Osoba dopiero dodana,
-       jeszcze bez żadnej adopcji, NIE jest archiwalna - musi być widoczna,
-       żeby dało się jej przypisać dziecko. */
+    /* Archiwum darczyńcy ma DWA źródła i jedno nie zastępuje drugiego:
+       - automatyczne: MIAŁ adopcje, ale żadna nie jest już aktywna ani oczekująca
+         (czyli po „Zakończ") - dzieje się samo, bez klikania,
+       - ręczne (`archived_at`): pracownik chowa wpis z listy, np. gdy ktoś zgłosił
+         się i wycofał, zanim dostał dziecko.
+       Osoba dopiero dodana, jeszcze bez żadnej adopcji, NIE jest archiwalna
+       automatycznie - musi być widoczna, żeby dało się jej przypisać dziecko. */
     $sql = "SELECT d.*,
                    COUNT(a.id) AS adoptions_cnt,
                    (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) AS adoptions_total,
-                   CASE WHEN COUNT(a.id) = 0
-                         AND (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) > 0
+                   CASE WHEN d.archived_at IS NOT NULL THEN 1 ELSE 0 END AS is_archived_manual,
+                   CASE WHEN d.archived_at IS NOT NULL
+                          OR (COUNT(a.id) = 0
+                              AND (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) > 0)
                         THEN 1 ELSE 0 END AS is_archived,
                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.number SEPARATOR '; ') AS children_names,
                    GROUP_CONCAT(DISTINCT c.number ORDER BY c.number SEPARATOR ', ') AS children_numbers,
@@ -754,6 +765,35 @@ function adopt_donor_delete_if_empty(int $id): bool {
     $pdo->prepare('DELETE FROM adopt_reminders WHERE donor_id = ?')->execute([$id]);
     $pdo->prepare('DELETE FROM adopt_donors WHERE id = ?')->execute([$id]);
     return true;
+}
+
+/**
+ * Ręczne archiwum darczyńcy (bez dotykania jego historii i adopcji).
+ * Zdjęcie flagi nie zawsze wyciąga wpis z archiwum - darczyńca z samymi
+ * zakończonymi adopcjami zostaje archiwalny automatycznie i tak ma być.
+ */
+function adopt_donor_set_archived(int $id, bool $archived, ?string $user): void {
+    $st = payu_db()->prepare('UPDATE adopt_donors SET archived_at = ?, archived_by = ? WHERE id = ?');
+    $st->execute([
+        $archived ? date('Y-m-d H:i:s') : null,
+        $archived && $user !== null ? mb_substr($user, 0, 64) : null,
+        $id,
+    ]);
+}
+
+/**
+ * Czy darczyńca jest archiwalny AUTOMATYCZNIE (miał adopcje, żadna już nie trwa).
+ * Karta używa tego, żeby uczciwie powiedzieć, dlaczego wpis jest w archiwum -
+ * inaczej „Przywróć" wyglądałoby na przycisk, który nic nie robi.
+ */
+function adopt_donor_auto_archived(int $id): bool {
+    $st = payu_db()->prepare(
+        "SELECT COUNT(*) total, SUM(status IN ('pending','active')) otwarte
+           FROM adopt_adoptions WHERE donor_id = ?"
+    );
+    $st->execute([$id]);
+    $r = $st->fetch();
+    return (int)$r['total'] > 0 && (int)$r['otwarte'] === 0;
 }
 
 /** Przełącza dziecko między programem a archiwum (bez dotykania jego historii). */
