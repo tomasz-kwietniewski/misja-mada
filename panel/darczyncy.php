@@ -7,6 +7,8 @@ mada_require_login();
 require_once __DIR__ . '/../adopcja/db.php';
 require_once __DIR__ . '/../adopcja/lib.php';
 
+$flash = ($_GET['msg'] ?? '') === 'donordel'
+    ? '<div class="alert alert-ok">Pusty wpis darczyńcy został usunięty.</div>' : '';
 $q = trim((string)($_GET['q'] ?? ''));
 $showArchived = ($_GET['arch'] ?? '') === '1';
 $dbError = '';
@@ -42,6 +44,7 @@ panel_header('Darczyńcy - Adopcja Serca');
       <h2 style="margin:0;">Darczyńcy Adopcji Serca</h2>
       <a href="darczynca-edit.php" class="btn-primary btn-sm">+ Nowy darczyńca</a>
     </div>
+    <?= $flash ?>
 
 <?php if ($dbError !== ''): ?>
     <div class="alert alert-error">Baza danych jest niedostępna (sprawdź <code>payu/secret/db-config.php</code>): <?= mada_esc($dbError) ?></div>

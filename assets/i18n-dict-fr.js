@@ -634,8 +634,6 @@ window.MADA_I18N_FR = {
   "Dane do przelewu (zlecenie stałe)": "Coordonnées de virement (ordre permanent)",
   "Konto PLN": "Compte PLN",
   "Tytuł": "Libellé",
-  "Adopcja Serca - [Imię i nazwisko]": "Adoption de Cœur - [Prénom et nom]",
-  "Kwota: 70 zł miesięcznie (lub 210 zł kwartalnie / 840 zł rocznie). Pełne dane wyślemy również mailem po potwierdzeniu.": "Montant : 70 PLN par mois (ou 210 PLN par trimestre / 840 PLN par an). Nous enverrons aussi les coordonnées complètes par e-mail après confirmation.",
   "Super, że jesteś z nami i chcesz pomóc dzieciom na Madagaskarze ❤︎": "C'est formidable que vous soyez avec nous et vouliez aider les enfants de Madagascar ❤︎",
   "Podaj prawidłowy adres e-mail (np. jan@przykład.pl).": "Indiquez une adresse e-mail valide (par ex. jean@exemple.fr).",
   "Przejdź do płatności PayU →": "Aller au paiement PayU →",

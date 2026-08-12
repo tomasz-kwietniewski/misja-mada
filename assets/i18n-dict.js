@@ -636,8 +636,6 @@ window.MADA_I18N = {
   "Dane do przelewu (zlecenie stałe)": "Transfer details (standing order)",
   "Konto PLN": "PLN account",
   "Tytuł": "Title",
-  "Adopcja Serca - [Imię i nazwisko]": "Heart Adoption - [First and last name]",
-  "Kwota: 70 zł miesięcznie (lub 210 zł kwartalnie / 840 zł rocznie). Pełne dane wyślemy również mailem po potwierdzeniu.": "Amount: 70 PLN monthly (or 210 PLN quarterly / 840 PLN yearly). We will also send the full details by e-mail after confirmation.",
   "Super, że jesteś z nami i chcesz pomóc dzieciom na Madagaskarze ❤︎": "We're so glad you're with us and want to help children in Madagascar ❤︎",
   "Podaj prawidłowy adres e-mail (np. jan@przykład.pl).": "Please enter a valid e-mail address (e.g. jan@example.com).",
   "Przejdź do płatności PayU →": "Go to PayU payment →",

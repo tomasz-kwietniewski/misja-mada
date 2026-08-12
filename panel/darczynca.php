@@ -97,6 +97,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_redirect("darczynca.php?id=$id&msg=ended");
         }
 
+        /* Domknięcie scalania duplikatów: po przeniesieniu adopcji pusty wpis
+           trzeba dać się usunąć, inaczej zostaje na liście i myli pracowników.
+           Kasujemy WYŁĄCZNIE wpis bez żadnej adopcji (a więc i bez wpłat). */
+        if ($action === 'deldonor') {
+            $dn = adopt_donor_get($id);
+            if (!$dn) mada_redirect('darczyncy.php');
+            if (adopt_donor_delete_if_empty($id)) {
+                mada_audit('donor.delete', 'donor', $id, ['nazwa' => $dn['full_name'], 'email' => $dn['email']]);
+                mada_redirect('darczyncy.php?msg=donordel');
+            }
+            mada_redirect("darczynca.php?id=$id&msg=notempty");
+        }
+
         if ($action === 'resume') {
             $adoptionId = (int)($_POST['adoption_id'] ?? 0);
             $ad = $adoptionId > 0 ? adopt_adoption_get($adoptionId) : null;
@@ -124,6 +137,7 @@ function dk_flash() {
         'saved'    => ['ok',    'Zapisano zmiany.'],
         'badpay'   => ['error', 'Nieprawidłowe dane (kwota, miesiące YYYY-MM albo data).'],
         'badadopt' => ['error', 'Nieprawidłowa adopcja.'],
+        'notempty' => ['error', 'Nie usunięto: przy tym darczyńcy wciąż wisi adopcja. Najpierw przenieś ją do innego darczyńcy („Edytuj" przy adopcji).'],
     ];
     $m = $_GET['msg'] ?? '';
     if (!isset($codes[$m])) return '';
@@ -177,7 +191,10 @@ panel_header('Darczyńca - Adopcja Serca');
         <b>Ten sam adres e-mail ma jeszcze <?= count($sharing) === 1 ? 'inny darczyńca' : count($sharing) . ' innych darczyńców' ?>:</b>
         <?php foreach ($sharing as $i => $s): ?><?= $i ? ', ' : ' ' ?><a href="darczynca.php?id=<?= (int)$s['id'] ?>"><?= mada_esc($s['full_name']) ?></a><?php endforeach; ?>.
         Zdarza się, że jedna osoba zgłasza kogoś ze swojej skrzynki (np. proboszcz zgłaszający mamę) -
-        sprawdź, czy adopcje wiszą przy właściwej osobie. Adopcję przenosi się przez „Edytuj" przy adopcji.
+        sprawdź, czy adopcje wiszą przy właściwej osobie.
+        <br>Jeśli nie: załóż jej wpis („+ Nowy darczyńca"), a potem w „Edytuj" przy adopcji zmień pole
+        <b>Darczyńca</b> - adopcja przeniesie się razem z wpłatami. Gdy oba wpisy to jednak ta sama
+        osoba, przenieś wszystkie adopcje na jeden, a pusty usuń z jego karty.
       </div>
     <?php endif; ?>
 
@@ -224,7 +241,18 @@ panel_header('Darczyńca - Adopcja Serca');
     </details>
 
     <h3>Adopcje</h3>
-    <?php if (!$ads): ?><p class="hint">Brak adopcji.</p><?php else: ?>
+    <?php if (!$ads): ?>
+      <p class="hint">Brak adopcji.</p>
+      <form method="post" style="margin:0 0 20px;"
+            onsubmit="return confirm('Usunąć darczyńcę „<?= mada_esc($donor['full_name']) ?>”?\n\nNie ma przy nim żadnej adopcji ani wpłaty, więc nic nie przepadnie. Tego nie można cofnąć.');">
+        <?= mada_csrf_field() ?>
+        <input type="hidden" name="action" value="deldonor">
+        <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+        <button type="submit" class="btn-danger btn-sm">Usuń tego darczyńcę</button>
+        <span class="hint">Przydatne po scaleniu duplikatu: gdy wszystkie adopcje przeniesiesz
+          na drugi wpis, ten zostaje pusty i można go skasować.</span>
+      </form>
+    <?php else: ?>
     <table class="events">
       <thead><tr><th>Dziecko</th><th>Okres</th><th>Częst.</th><th>Kwota</th><th>Metoda</th><th>Status</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th>Akcje</th></tr></thead>
       <tbody>
