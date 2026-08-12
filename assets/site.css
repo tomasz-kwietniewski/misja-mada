@@ -547,6 +547,23 @@ footer ul a:hover { color: var(--gold); }
   margin-top: 12px;
 }
 
+/* Adres korespondencyjny - pola rozbite (ulica / nr / kod / miejscowość).
+   Siatka 6-kolumnowa daje ulicy i miejscowości szerokość, a numerowi
+   i kodowi tyle, ile realnie zajmują. */
+.am-addr-note {
+  font-size: 12.5px; line-height: 1.55; color: var(--brown);
+  opacity: .72; margin: 0 0 12px;
+}
+.am-addr {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px 18px;
+}
+.am-addr-street { grid-column: span 4; }
+.am-addr-no     { grid-column: span 2; }
+.am-addr-post   { grid-column: span 2; }
+.am-addr-city   { grid-column: span 4; }
+
 .am-consents {
   margin: 6px 0 24px;
   display: flex; flex-direction: column; gap: 12px;
@@ -621,6 +638,11 @@ footer ul a:hover { color: var(--gold); }
   .am-head h2 { font-size: 24px; }
   .am-grid { grid-template-columns: 1fr; }
   .am-okres { grid-template-columns: 1fr; }
+  /* Adres na wąskim ekranie: ulica i miejscowość pełną szerokością,
+     numer i kod parami - inaczej pola robią się nieczytelnie wąskie. */
+  .am-addr { grid-template-columns: repeat(2, 1fr); }
+  .am-addr-street, .am-addr-city { grid-column: span 2; }
+  .am-addr-no, .am-addr-post { grid-column: span 1; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

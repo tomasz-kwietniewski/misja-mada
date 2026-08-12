@@ -175,6 +175,13 @@ ok(sentMails.some(m => /Nowe zgłoszenie/.test(m.subject)), 'przelew: fundacja p
 const welcome = sentMails.find(m => /Witaj w programie/.test(m.subject));
 ok(/140 zł/.test(welcome.opts.htmlBody), 'przelew: mail powitalny liczy kwotę 2 × 70 zł');
 ok(/Anna Kowalska/.test(welcome.opts.htmlBody), 'przelew: tytuł przelewu z danymi darczyńcy');
+ok(/Adopcja Serca - darowizna - Anna Kowalska/.test(welcome.opts.htmlBody),
+   'przelew: tytuł przelewu w formacie wspólnym z PHP');
+// Stawka musi iść za częstotliwością: deklaracja roczna to 840 zł, nie 70 zł.
+eq(G.stawkaZaOkres('Rocznie').kwota, 840, 'stawka: deklaracja roczna = 840 zł za dziecko');
+eq(G.stawkaZaOkres('Kwartalnie').kwota, 210, 'stawka: deklaracja kwartalna = 210 zł za dziecko');
+eq(G.stawkaZaOkres('Miesięcznie').kwota, 70, 'stawka: deklaracja miesięczna = 70 zł za dziecko');
+eq(G.stawkaZaOkres('').kwota, 70, 'stawka: brak deklaracji -> miesięcznie');
 // ponowne kliknięcie tego samego linku nie psuje wiersza
 const before = JSON.stringify(sheet.data[1]);
 G.doGet({ parameter: { confirm: token } });

@@ -13,14 +13,20 @@ $typ = (string)($_GET['typ'] ?? '');
 
 /* ── Budowa danych eksportu (wspólne dla CSV i XLSX) ───────────── */
 function eks_lista_rows(): array {
-    $rows = [['Lp', 'IMIĘ I NAZWISKO DARCZYŃCY', 'e-mail', 'Telefon', 'DZIECKO', 'Numer Dziecka',
-              'CZAS ADOPCJI', 'PŁATNOŚĆ', 'Metoda', 'Status', 'Opłacone do', 'Zaległe miesiące', 'UWAGI']];
+    /* Komplet danych kontaktowych darczyńcy - adres rozbity na kolumny, bo fundacja
+       drukuje z tego koperty (życzenie z 2026-08-11). Kolumna „Dossier wysłane"
+       pokazuje realną datę wysyłki maila z przedstawieniem dziecka. */
+    $rows = [['Lp', 'IMIĘ I NAZWISKO DARCZYŃCY', 'Imię', 'Nazwisko', 'e-mail', 'Telefon',
+              'Ulica', 'Nr domu / lokalu', 'Kod pocztowy', 'Miejscowość',
+              'DZIECKO', 'Numer Dziecka', 'CZAS ADOPCJI', 'PŁATNOŚĆ', 'Metoda', 'Status',
+              'Opłacone do', 'Zaległe miesiące', 'Dossier wysłane', 'UWAGI']];
     $all = adopt_sort_by_surname(adopt_adoption_list_all(), 'donor_name');
     $pays = adopt_payments_by_adoptions(array_column($all, 'id'));
     $today = date('Y-m-d');
     $freqL = ['monthly' => 'MIESIĘCZNIE', 'quarterly' => 'KWARTALNIE', 'yearly' => 'ROCZNIE'];
     $metL = ['transfer' => 'przelew', 'card' => 'karta', 'cash' => 'gotówka'];
     $stL = ['pending' => 'oczekująca', 'active' => 'aktywna', 'ended' => 'zakończona', 'cancelled' => 'anulowana'];
+    $donors = [];   // cache - kilka adopcji może wisieć przy jednym darczyńcy
     $lp = 0;
     foreach ($all as $a) {
         $p = $pays[(int)$a['id']] ?? [];
@@ -29,14 +35,18 @@ function eks_lista_rows(): array {
             : 'NIEOKREŚLONY' . ($a['start_month'] !== null ? ' (od ' . adopt_month_label($a['start_month']) . ')' : '');
         $miss = in_array($a['status'], ['pending', 'active'], true) && $a['start_month'] !== null
             ? count(adopt_arrears($a['start_month'], $a['end_month'], $p, $today)) : 0;
-        $donor = adopt_donor_get((int)$a['donor_id']);
+        $did = (int)$a['donor_id'];
+        $donor = $donors[$did] ??= (adopt_donor_get($did) ?: []);
+        $dossier = $a['child_id'] === null ? ''
+            : (($a['dossier_sent_at'] ?? null) !== null ? date('Y-m-d', strtotime((string)$a['dossier_sent_at'])) : 'NIE');
         $rows[] = [
-            ++$lp, $a['donor_name'],
+            ++$lp, $a['donor_name'], $donor['first_name'] ?? '', $donor['last_name'] ?? '',
             trim(($donor['email'] ?? '') . (($donor['emails_extra'] ?? '') ? '; ' . $donor['emails_extra'] : '')),
             $donor['phone'] ?? '',
+            $donor['street'] ?? '', $donor['house_no'] ?? '', $donor['postcode'] ?? '', $donor['city'] ?? '',
             $a['child_name'] ?? '', $a['child_number'] !== null ? (int)$a['child_number'] : '',
             $czas, $freqL[$a['frequency']] ?? '', $metL[$a['method']] ?? '', $stL[$a['status']] ?? '',
-            adopt_month_label(adopt_paid_until($p)), $miss, $a['notes'] ?? '',
+            adopt_month_label(adopt_paid_until($p)), $miss, $dossier, $a['notes'] ?? '',
         ];
     }
     return $rows;

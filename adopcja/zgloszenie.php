@@ -33,17 +33,24 @@ $imie     = trim((string)($d['imie'] ?? ''));
 $nazwisko = trim((string)($d['nazwisko'] ?? ''));
 $email    = trim((string)($d['email'] ?? ''));
 $telefon  = trim((string)($d['telefon'] ?? ''));
-$adres    = trim((string)($d['adres'] ?? ''));
 $forma    = (string)($d['forma'] ?? '');
 $dzieci   = max(1, min(10, (int)($d['dzieci'] ?? 1)));
 
 if (mb_strlen($imie) < 2 || mb_strlen($nazwisko) < 2
     || !filter_var($email, FILTER_VALIDATE_EMAIL)
     || strlen(preg_replace('/\D/', '', $telefon)) < 9
-    || $adres === ''
     || !in_array($forma, ['nieokreslony', 'czasowa'], true)
     || empty($d['zgoda_regulamin']) || empty($d['zgoda_wizerunek']) || empty($d['zgoda_rodo'])) {
     zg_out(false, 'validation');
+}
+
+/* Adres korespondencyjny jest DOBROWOLNY (decyzja fundacji 2026-08-11) - rozbity
+   na pola, żeby dało się z niego drukować koperty. Formatu kodu pocztowego NIE
+   narzucamy tutaj: reguła 00-000 jest polska i pilnuje jej formularz, który zna
+   język strony. Serwer tylko przycina długości do kolumn w bazie - inaczej
+   Francuz z kodem „75001" dostałby cichą podmianę na „75-001". */
+foreach (['ulica' => 160, 'nr_domu' => 30, 'kod_pocztowy' => 12, 'miejscowosc' => 120] as $k => $max) {
+    $d[$k] = mb_substr(trim((string)($d[$k] ?? '')), 0, $max);
 }
 
 try {

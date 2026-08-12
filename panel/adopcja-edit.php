@@ -66,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dn = adopt_donor_get($donorId);
             $ch = adopt_child_get($childId);
             if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, trim((string)($_POST['personal_note'] ?? '')))) {
+                adopt_adoption_mark_dossier_sent($id, mada_current_user());
                 mada_audit('adoption.childmail', 'adoption', $id, ['dziecko' => $ch['name'], 'email' => $dn['email']]);
                 mada_redirect("darczynca.php?id=$donorId&msg=mailok");
             }
@@ -185,7 +186,8 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
         </label>
         <p class="hint" style="margin:6px 0 0;">Mail pójdzie na <?= mada_esc($donor['email']) ?> w szablonie fundacji: zdjęcie, imię i nazwisko,
            data urodzenia, rodzice, opis sytuacji (dane z <a href="dzieci.php">Podopieczni -> Edytuj</a>) + Twój dopisek.
-           Wysłanie odhacza „materiały wysłane". Bez zaznaczenia nic się nie wysyła.</p>
+           Data wysyłki zostaje odnotowana przy adopcji (kolumna „Dossier" na karcie darczyńcy).
+           Bez zaznaczenia nic się nie wysyła.</p>
       </div>
       <?php endif; ?>
 
