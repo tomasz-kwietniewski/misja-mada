@@ -243,15 +243,27 @@ panel_header('Darczyńca - Adopcja Serca');
     <h3>Adopcje</h3>
     <?php if (!$ads): ?>
       <p class="hint">Brak adopcji.</p>
-      <form method="post" style="margin:0 0 20px;"
-            onsubmit="return confirm('Usunąć darczyńcę „<?= mada_esc($donor['full_name']) ?>”?\n\nNie ma przy nim żadnej adopcji ani wpłaty, więc nic nie przepadnie. Tego nie można cofnąć.');">
-        <?= mada_csrf_field() ?>
-        <input type="hidden" name="action" value="deldonor">
-        <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
-        <button type="submit" class="btn-danger btn-sm">Usuń tego darczyńcę</button>
-        <span class="hint">Przydatne po scaleniu duplikatu: gdy wszystkie adopcje przeniesiesz
-          na drugi wpis, ten zostaje pusty i można go skasować.</span>
-      </form>
+      <details class="danger-zone" style="margin:0 0 20px;">
+        <summary>Usuń tego darczyńcę z bazy</summary>
+        <p style="margin:10px 0 12px;color:var(--err);font-weight:600;">Uwaga: tej operacji NIE DA SIĘ COFNĄĆ.</p>
+        <p class="hint" style="margin:0 0 12px;">
+          Przydatne po scaleniu duplikatu: gdy wszystkie adopcje przeniesiesz na drugi wpis,
+          ten zostaje pusty i można go skasować. Przy tym wpisie nie ma żadnej adopcji ani wpłaty,
+          więc nic nie przepadnie - ale notatki i dane kontaktowe znikną razem z nim.
+        </p>
+        <form method="post" style="margin:0;"
+              onsubmit="var v=this.potwierdz.value.trim();
+                        if (v !== 'USUŃ') { alert('Aby usunąć, wpisz w polu: USUŃ'); return false; }
+                        return confirm('OSTATNIE OSTRZEŻENIE\n\nUsunąć darczyńcę „<?= mada_esc($donor['full_name']) ?>” z bazy?\n\nTej operacji nie da się cofnąć.');">
+          <?= mada_csrf_field() ?>
+          <input type="hidden" name="action" value="deldonor">
+          <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+          <label style="max-width:320px;margin:0 0 10px;">Aby potwierdzić, wpisz <b>USUŃ</b>
+            <input type="text" name="potwierdz" autocomplete="off" placeholder="USUŃ">
+          </label>
+          <button type="submit" class="btn-danger btn-sm">Usuń „<?= mada_esc($donor['full_name']) ?>” na zawsze</button>
+        </form>
+      </details>
     <?php else: ?>
     <table class="events">
       <thead><tr><th>Dziecko</th><th>Okres</th><th>Częst.</th><th>Kwota</th><th>Metoda</th><th>Status</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th>Akcje</th></tr></thead>

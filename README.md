@@ -450,6 +450,18 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe wcześniej (import z arkusza:
   Zielińscy, rodzice Radka, Kłodzko, Toruń) nigdy by się nie oznaczyły. Kolumna zostaje jako
   ślad audytowy „tu wykryliśmy kolizję przy zgłoszeniu".
+- **Archiwum podopiecznych**: przycisk „Przenieś do archiwum" / „Przywróć do programu" na karcie
+  dziecka (status `inactive`). Archiwalne dziecko znika z listy (jest pod „Pokaż archiwalne (N)",
+  wyszukiwarka obejmuje je zawsze), nie jest proponowane przy nowych adopcjach ani liczone jako
+  „bez darczyńcy" na dashboardzie - ale **cała historia, wpłaty i dossier zostają**. To domyślna
+  droga wycofania dziecka z programu. Status zmienia WYŁĄCZNIE ten przycisk; w formularzu edycji
+  jest tylko pole ukryte, bo bez niego każdy zapis archiwalnego dziecka wracałby je do programu.
+- **Usuwanie podopiecznego i darczyńcy** to furtka na POMYŁKI przy dodawaniu, nie sposób wycofania
+  z programu. `adopt_child_delete_if_unused()` i `adopt_donor_delete_if_empty()` odmawiają, gdy
+  wisi przy rekordzie jakakolwiek adopcja (a więc i jakakolwiek wpłata) - historii nie da się tędy
+  skasować. W interfejsie obie akcje siedzą w zwiniętej sekcji `.danger-zone` i wymagają
+  **przepisania numeru dziecka** / słowa `USUŃ`, a potem jeszcze potwierdzenia w oknie. Powód:
+  to jedyne nieodwracalne akcje w module, a leżą obok przycisków używanych codziennie.
 - **Przenoszenie adopcji między darczyńcami**: select „Darczyńca" w edycji adopcji przenosi ją
   **razem z wpłatami** (wiszą przy `adoption_id`, więc idą za nią same) i zapisuje ślad w audycie
   (`adoption.movedonor`). Tym naprawia się dwie sytuacje, których fundacja inaczej nie ruszy:
