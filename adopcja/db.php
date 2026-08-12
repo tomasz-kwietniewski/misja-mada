@@ -554,6 +554,27 @@ function adopt_donor_fill_missing(int $id, array $d): void {
     payu_db()->prepare('UPDATE adopt_donors SET ' . implode(', ', $set) . ' WHERE id = ?')->execute($args);
 }
 
+/**
+ * Wpisy do przeglądu pod kątem retencji (polityka prywatności § 4 pkt 2, od 12.08.2026):
+ * zgłoszenie, które NIE doprowadziło do objęcia dziecka wsparciem, usuwa się po roku.
+ * Kryterium celowo najostrożniejsze z możliwych: darczyńca, przy którym NIGDY nie było
+ * żadnej adopcji (a więc i żadnej wpłaty), starszy niż $months miesięcy. Wpis z choćby
+ * zakończoną adopcją to już historia programu - takiego nie ruszamy i panel go nie pokaże.
+ *
+ * NIE kasujemy automatycznie: usunięcie danych darczyńcy jest nieodwracalne, a decyzja
+ * należy do fundacji. Panel tylko wystawia listę do kliknięcia.
+ */
+function adopt_donors_retention_due(int $months = 12): array {
+    $st = payu_db()->prepare(
+        "SELECT d.* FROM adopt_donors d
+          WHERE NOT EXISTS (SELECT 1 FROM adopt_adoptions a WHERE a.donor_id = d.id)
+            AND d.created_at < DATE_SUB(NOW(), INTERVAL ? MONTH)
+          ORDER BY d.created_at"
+    );
+    $st->execute([$months]);
+    return $st->fetchAll();
+}
+
 /** Inni darczyńcy używający tego samego adresu e-mail (ostrzeżenie w panelu). */
 function adopt_donors_sharing_email(?string $email, int $exceptId): array {
     $email = trim((string)$email);
