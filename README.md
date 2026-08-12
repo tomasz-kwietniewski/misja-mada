@@ -457,9 +457,18 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   Osoba dopiero dodana, bez żadnej adopcji, NIE jest archiwalna automatycznie - inaczej znikałaby
   z listy, zanim ktokolwiek przypisze jej dziecko. Karta mówi wprost, **z którego** źródła wynika
   archiwum, bo przy automatycznym „Przywróć" nic nie zmieni (wpis wraca dopiero po „Wznów").
-  Archiwum to stan roboczy listy, **nie** furtka na trzymanie danych wbrew polityce prywatności
-  (§ 4: „przez okres niezbędny do realizacji celu", „do czasu cofnięcia zgody") - panel przypomina
-  o tym przy wpisie bez adopcji.
+  Archiwum to stan roboczy listy, **nie** furtka na trzymanie danych wbrew polityce prywatności -
+  panel przypomina o tym przy wpisie bez adopcji.
+- **Retencja danych - filtr „⏳ Do przeglądu RODO (N)" na liście darczyńców.** Polityka prywatności
+  § 4 pkt 2 (wersja 1.2, 12.08.2026) mówi wprost: zgłoszenie, z którego nie powstała żadna wpłata
+  ani trwająca adopcja, **usuwa się po roku**. Filtr pokazuje dokładnie te wpisy
+  (`adopt_donors_retention_due()`: zero adopcji KIEDYKOLWIEK + starsze niż 12 miesięcy) i celowo
+  **nie wycina archiwalnych** - wpis schowany ręcznie to najczęstszy kandydat do usunięcia.
+  **Nic nie kasuje się automatycznie**: usunięcie danych darczyńcy jest nieodwracalne, więc panel
+  tylko wystawia listę, a klika człowiek. Kryterium jest najostrożniejsze z możliwych - wpis
+  z choćby zakończoną adopcją to już historia programu i na listę nie trafia.
+  Zmieniając okres, zmieniać **równolegle** politykę prywatności i argument `$months` - rozjazd
+  między dokumentem a panelem jest gorszy niż brak jednego z nich.
 - **Archiwum podopiecznych**: przycisk „Przenieś do archiwum" / „Przywróć do programu" na karcie
   dziecka (status `inactive`). Archiwalne dziecko znika z listy (jest pod „Pokaż archiwalne (N)",
   wyszukiwarka obejmuje je zawsze), nie jest proponowane przy nowych adopcjach ani liczone jako
@@ -526,6 +535,12 @@ faktycznym strony oraz z umową zawartą z PayU (PR #39). Zasady, których pilnu
   i regulamin (plus daty aktualizacji i tłumaczenia EN/FR).
 - **Odbiorcy danych wymienieni z nazwy** (PayU, Google, MailerLite, hosting, banki);
   transfer poza EOG opisany przez zabezpieczenia (EU-US Data Privacy Framework / SCC).
+- **Okresy przechowywania są konkretne, a nie ogólnikowe** (§ 4 pkt 2, wersja 1.2 z 12.08.2026):
+  zgłoszenie do Adopcji Serca bez żadnej wpłaty i bez trwającej adopcji **usuwa się po roku**,
+  dane darowizn zostają na czas wymagany przepisami o rachunkowości (także po cofnięciu zgody),
+  newsletter - do rezygnacji, żądanie usunięcia - niezwłocznie. To nie jest deklaracja bez
+  pokrycia: panel ma filtr „⏳ Do przeglądu RODO", który wypisuje wpisy spełniające ten warunek
+  (patrz moduł Adopcja Serca). **Zmiana okresu w polityce wymaga zmiany progu w panelu i odwrotnie.**
 - **Badge „PayU" w modalach darowizn i adopcji jest linkiem do poland.payu.com - nie
   usuwać i nie zamieniać z powrotem na zwykły napis.** Umowa z PayU wymaga na stronie
   akceptanta znaku PayU połączonego z linkiem do strony PayU.

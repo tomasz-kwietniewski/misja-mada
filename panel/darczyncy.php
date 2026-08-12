@@ -11,9 +11,11 @@ $flash = ($_GET['msg'] ?? '') === 'donordel'
     ? '<div class="alert alert-ok">Pusty wpis darczyńcy został usunięty.</div>' : '';
 $q = trim((string)($_GET['q'] ?? ''));
 $showArchived = ($_GET['arch'] ?? '') === '1';
+$showRetention = ($_GET['retencja'] ?? '') === '1';
 $dbError = '';
 $donors = [];
 $archivedCnt = 0;
+$retention = [];
 $adoptionsByDonor = [];
 $paymentsByAdoption = [];
 
@@ -25,8 +27,18 @@ try {
        (po zakończeniu wszystkich adopcji) odsłania przycisk. Wyszukiwarka
        celowo przeszukuje WSZYSTKICH - szuka się konkretnej osoby, także tej,
        która przestała wpłacać. */
-    if (!$showArchived && $q === '') {
+    /* W trybie „do przeglądu RODO" NIE wycinamy archiwalnych: wpis bez adopcji można
+       było wcześniej schować ręcznie, a właśnie taki najczęściej podlega usunięciu -
+       filtrowanie go tutaj ukryłoby połowę listy do przejrzenia. */
+    if (!$showArchived && !$showRetention && $q === '') {
         $donors = array_values(array_filter($donors, fn($d) => (int)$d['is_archived'] === 0));
+    }
+    /* Wpisy przeterminowane wg polityki prywatności § 4 pkt 2 (rok bez adopcji i wpłat).
+       Liczymy zawsze - liczba jest w pasku nawet wtedy, gdy filtr jest wyłączony. */
+    $retention = adopt_donors_retention_due(12);
+    $retentionIds = array_flip(array_map(fn($d) => (int)$d['id'], $retention));
+    if ($showRetention) {
+        $donors = array_values(array_filter($donors, fn($d) => isset($retentionIds[(int)$d['id']])));
     }
     $all = adopt_adoption_list_all();
     foreach ($all as $a) $adoptionsByDonor[(int)$a['donor_id']][] = $a;
@@ -54,18 +66,40 @@ panel_header('Darczyńcy - Adopcja Serca');
              style="flex:1;max-width:340px;padding:8px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;">
       <button type="submit" class="btn-secondary btn-sm">Szukaj</button>
       <?php if ($q !== ''): ?><a href="darczyncy.php" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
-      <?php if ($q === '' && $archivedCnt > 0): ?>
-        <a href="darczyncy.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm" style="margin-left:auto;">
+      <?php if ($q === '' && count($retention) > 0): ?>
+        <a href="darczyncy.php<?= $showRetention ? '' : '?retencja=1' ?>" class="btn-ghost btn-sm"
+           style="margin-left:auto;<?= $showRetention ? '' : 'color:var(--err);' ?>"
+           title="Zgłoszenia starsze niż rok, z których nigdy nie powstała adopcja ani wpłata - polityka prywatności § 4 każe je usuwać">
+          <?= $showRetention ? 'Pokaż wszystkich' : '⏳ Do przeglądu RODO (' . count($retention) . ')' ?>
+        </a>
+      <?php endif; ?>
+      <?php if ($q === '' && !$showRetention && $archivedCnt > 0): ?>
+        <a href="darczyncy.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm"
+           style="<?= count($retention) > 0 ? '' : 'margin-left:auto;' ?>">
           <?= $showArchived ? 'Ukryj archiwalnych' : 'Pokaż archiwalnych (' . $archivedCnt . ')' ?>
         </a>
       <?php endif; ?>
     </form>
 
+    <?php if ($showRetention): ?>
+      <div class="alert alert-warn">
+        <b>Wpisy do przeglądu pod kątem ochrony danych.</b>
+        To zgłoszenia starsze niż rok, przy których <b>nigdy</b> nie powstała adopcja ani nie wpłynęła
+        żadna wpłata - czyli nic z nich nie wyszło. Polityka prywatności (§ 4 pkt 2) mówi, że takie
+        dane usuwamy po roku od zgłoszenia.
+        <br>Nic nie kasuje się samo: wejdź w osobę i użyj przycisku usuwania na dole jej karty.
+        Jeśli któryś kontakt jest wciąż żywy (np. umówiliście się na później), po prostu go zostaw -
+        wróci na tę listę przy następnym przeglądzie.
+      </div>
+    <?php endif; ?>
+
     <?php if (!$donors): ?>
-      <p class="hint"><?= $q !== '' ? 'Brak wyników dla „' . mada_esc($q) . '".' : 'Baza darczyńców jest pusta - zacznij od strony Import.' ?></p>
+      <p class="hint"><?= $q !== '' ? 'Brak wyników dla „' . mada_esc($q) . '".'
+        : ($showRetention ? 'Nic do przeglądu - żaden wpis nie kwalifikuje się do usunięcia.'
+                          : 'Baza darczyńców jest pusta - zacznij od strony Import.') ?></p>
     <?php else: ?>
-      <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny; wyszukiwarka obejmuje też archiwalnych)' : '' ?><?php
-        if ($q === '' && $archivedCnt > 0 && !$showArchived): ?>, ukrytych archiwalnych: <?= $archivedCnt ?><?php endif; ?></p>
+      <p class="hint" style="margin:0 0 12px;"><?= $showRetention ? 'Do przeglądu: ' : 'Łącznie: ' ?><?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny; wyszukiwarka obejmuje też archiwalnych)' : '' ?><?php
+        if ($q === '' && !$showRetention && $archivedCnt > 0 && !$showArchived): ?>, ukrytych archiwalnych: <?= $archivedCnt ?><?php endif; ?></p>
       <table class="events">
         <thead><tr>
           <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th></th>
