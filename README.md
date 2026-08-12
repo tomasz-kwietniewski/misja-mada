@@ -450,6 +450,16 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe wcześniej (import z arkusza:
   Zielińscy, rodzice Radka, Kłodzko, Toruń) nigdy by się nie oznaczyły. Kolumna zostaje jako
   ślad audytowy „tu wykryliśmy kolizję przy zgłoszeniu".
+- **Archiwum darczyńcy ma DWA źródła** i jedno nie zastępuje drugiego. **Automatyczne**: miał
+  adopcje, ale żadna już nie trwa (po „Zakończ") - dzieje się samo. **Ręczne** (`archived_at`,
+  przycisk na karcie): chowa wpis z listy, zachowując dane - dla kogoś, kto zgłosił się i wycofał,
+  zanim dostał dziecko; wcześniej taki wpis dało się tylko usunąć razem z danymi kontaktowymi.
+  Osoba dopiero dodana, bez żadnej adopcji, NIE jest archiwalna automatycznie - inaczej znikałaby
+  z listy, zanim ktokolwiek przypisze jej dziecko. Karta mówi wprost, **z którego** źródła wynika
+  archiwum, bo przy automatycznym „Przywróć" nic nie zmieni (wpis wraca dopiero po „Wznów").
+  Archiwum to stan roboczy listy, **nie** furtka na trzymanie danych wbrew polityce prywatności
+  (§ 4: „przez okres niezbędny do realizacji celu", „do czasu cofnięcia zgody") - panel przypomina
+  o tym przy wpisie bez adopcji.
 - **Archiwum podopiecznych**: przycisk „Przenieś do archiwum" / „Przywróć do programu" na karcie
   dziecka (status `inactive`). Archiwalne dziecko znika z listy (jest pod „Pokaż archiwalne (N)",
   wyszukiwarka obejmuje je zawsze), nie jest proponowane przy nowych adopcjach ani liczone jako

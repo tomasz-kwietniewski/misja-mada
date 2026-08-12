@@ -97,6 +97,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_redirect("darczynca.php?id=$id&msg=ended");
         }
 
+        /* Ręczne archiwum: chowa wpis z listy, ale ZACHOWUJE dane kontaktowe
+           i całą historię. Dla kogoś, kto zgłosił się i wycofał przed
+           przypisaniem dziecka - do tej pory taki wpis dało się tylko usunąć. */
+        if ($action === 'archive' || $action === 'unarchive') {
+            $dn = adopt_donor_get($id);
+            if (!$dn) mada_redirect('darczyncy.php');
+            adopt_donor_set_archived($id, $action === 'archive', mada_current_user());
+            mada_audit('donor.' . $action, 'donor', $id, ['nazwa' => $dn['full_name']]);
+            mada_redirect("darczynca.php?id=$id&msg=" . ($action === 'archive' ? 'archived' : 'unarchived'));
+        }
+
         /* Domknięcie scalania duplikatów: po przeniesieniu adopcji pusty wpis
            trzeba dać się usunąć, inaczej zostaje na liście i myli pracowników.
            Kasujemy WYŁĄCZNIE wpis bez żadnej adopcji (a więc i bez wpłat). */
@@ -138,6 +149,8 @@ function dk_flash() {
         'badpay'   => ['error', 'Nieprawidłowe dane (kwota, miesiące YYYY-MM albo data).'],
         'badadopt' => ['error', 'Nieprawidłowa adopcja.'],
         'notempty' => ['error', 'Nie usunięto: przy tym darczyńcy wciąż wisi adopcja. Najpierw przenieś ją do innego darczyńcy („Edytuj" przy adopcji).'],
+        'archived'   => ['ok', 'Darczyńca przeniesiony do archiwum - zniknie z listy, ale wszystkie jego dane i historia zostają. Można go przywrócić w każdej chwili.'],
+        'unarchived' => ['ok', 'Zdjęto ręczne archiwum.'],
     ];
     $m = $_GET['msg'] ?? '';
     if (!isset($codes[$m])) return '';
@@ -145,11 +158,12 @@ function dk_flash() {
     return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
 }
 
-$donor = null; $ads = []; $pays = []; $subs = []; $sharing = [];
+$donor = null; $ads = []; $pays = []; $subs = []; $sharing = []; $autoArch = false;
 try {
     adopt_db_ensure_schema();
     $donor = adopt_donor_get($id);
     if ($donor) {
+        $autoArch = adopt_donor_auto_archived($id);
         $sharing = adopt_donors_sharing_email($donor['email'] ?? null, $id);
         $ads = adopt_adoptions_by_donor($id);
         $pays = adopt_payments_by_adoptions(array_column($ads, 'id'));
@@ -171,10 +185,26 @@ $statusLabel = ['pending' => 'oczekująca', 'active' => 'aktywna', 'ended' => 'z
 panel_header('Darczyńca - Adopcja Serca');
 ?>
     <div class="bar">
-      <h2 style="margin:0;"><?= $donor ? mada_esc($donor['full_name']) : 'Darczyńca' ?></h2>
+      <h2 style="margin:0;"><?= $donor ? mada_esc($donor['full_name']) : 'Darczyńca' ?>
+        <?php if ($donor && (($donor['archived_at'] ?? null) !== null || $autoArch)): ?>
+          <span class="badge badge-arch">archiwum</span>
+        <?php endif; ?>
+      </h2>
       <span>
         <a href="darczyncy.php" class="btn-ghost btn-sm">← Wróć do listy darczyńców</a>
-        <?php if ($donor): ?><a href="darczynca-edit.php?id=<?= (int)$donor['id'] ?>" class="btn-secondary btn-sm">Edytuj dane</a>
+        <?php if ($donor): ?>
+        <form method="post" style="display:inline;"
+              onsubmit="return confirm(<?= ($donor['archived_at'] ?? null) === null
+                ? "'Przenieść darczyńcę do archiwum?\\n\\nZniknie z listy, ale wszystkie dane, adopcje i wpłaty zostaną. Można go przywrócić w każdej chwili.'"
+                : "'Zdjąć ręczne archiwum?'" ?>);">
+          <?= mada_csrf_field() ?>
+          <input type="hidden" name="action" value="<?= ($donor['archived_at'] ?? null) === null ? 'archive' : 'unarchive' ?>">
+          <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+          <button type="submit" class="btn-secondary btn-sm">
+            <?= ($donor['archived_at'] ?? null) === null ? '📦 Przenieś do archiwum' : '↩ Przywróć do programu' ?>
+          </button>
+        </form>
+        <a href="darczynca-edit.php?id=<?= (int)$donor['id'] ?>" class="btn-secondary btn-sm">Edytuj dane</a>
         <a href="adopcja-edit.php?donor=<?= (int)$donor['id'] ?>" class="btn-primary btn-sm">+ Nowa adopcja</a><?php endif; ?>
 
       </span>
@@ -186,6 +216,35 @@ panel_header('Darczyńca - Adopcja Serca');
 <?php elseif (!$donor): ?>
     <div class="alert alert-error">Nie znaleziono darczyńcy.</div>
 <?php else: ?>
+    <?php
+      /* Dlaczego wpis jest w archiwum - pracownik musi to wiedzieć, zanim kliknie
+         „Przywróć": przy archiwum AUTOMATYCZNYM zdjęcie ręcznej flagi niczego nie
+         zmieni, bo darczyńca i tak nie ma otwartej adopcji. */
+      $manArch = ($donor['archived_at'] ?? null) !== null;
+    ?>
+    <?php if ($manArch || $autoArch): ?>
+      <div class="alert alert-warn" style="background:var(--creamDk);border-color:var(--rule);color:#6b5a4a;">
+        <b>Ten wpis jest w archiwum</b> - nie pokazuje się na liście darczyńców
+        (jest pod „Pokaż archiwalnych"). Dane, adopcje i wpłaty są nietknięte.
+        <?php if ($manArch): ?>
+          <br>Powód: schowany ręcznie <?= mada_esc(date('d.m.Y', strtotime((string)$donor['archived_at']))) ?><?php
+            if ($donor['archived_by']) echo ' przez ' . mada_esc((string)$donor['archived_by']); ?>.
+          <?php if ($autoArch): ?> Uwaga: nawet po „Przywróć" zostanie w archiwum,
+            bo żadna jego adopcja już nie trwa - wróci na listę dopiero po „Wznów" przy adopcji.<?php endif; ?>
+        <?php else: ?>
+          <br>Powód: żadna z jego adopcji już nie trwa (wszystkie zakończone).
+          Wróci na listę sam po „Wznów" przy adopcji albo po dodaniu nowej.
+        <?php endif; ?>
+        <?php if ($manArch && !$ads): ?>
+          <br><b>Uwaga RODO:</b> archiwum tylko chowa wpis z listy - dane dalej są w bazie.
+          Polityka prywatności (§ 4) pozwala trzymać je „przez okres niezbędny do realizacji celu"
+          i „do czasu cofnięcia zgody", więc gdy ta osoba zrezygnuje albo poprosi o usunięcie
+          danych, wpis trzeba skasować, a nie zostawić w archiwum. Przy tym wpisie nie ma żadnej
+          adopcji, więc przycisk usuwania niżej zadziała.
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+
     <?php if ($sharing): ?>
       <div class="alert alert-warn">
         <b>Ten sam adres e-mail ma jeszcze <?= count($sharing) === 1 ? 'inny darczyńca' : count($sharing) . ' innych darczyńców' ?>:</b>
