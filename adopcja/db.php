@@ -756,6 +756,31 @@ function adopt_donor_delete_if_empty(int $id): bool {
     return true;
 }
 
+/** Przełącza dziecko między programem a archiwum (bez dotykania jego historii). */
+function adopt_child_set_status(int $id, string $status): void {
+    $st = payu_db()->prepare('UPDATE adopt_children SET status = ? WHERE id = ?');
+    $st->execute([$status === 'inactive' ? 'inactive' : 'active', $id]);
+}
+
+/**
+ * Usuwa dziecko - WYŁĄCZNIE gdy nigdy nie miało żadnej adopcji. To furtka na
+ * POMYŁKI przy dodawaniu (literówka w numerze, dubel), a nie sposób na wycofanie
+ * dziecka z programu - do tego służy archiwum, które zachowuje historię wpłat.
+ * Kasuje też zdjęcie z uploads/dzieci/. Zwraca false, gdy dziecko ma adopcje.
+ */
+function adopt_child_delete_if_unused(int $id): bool {
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM adopt_adoptions WHERE child_id = ?');
+    $st->execute([$id]);
+    if ((int)$st->fetchColumn() > 0) return false;
+    $child = adopt_child_get($id);
+    $pdo->prepare('DELETE FROM adopt_children WHERE id = ?')->execute([$id]);
+    if ($child && !empty($child['photo'])) {
+        @unlink(__DIR__ . '/../uploads/dzieci/' . basename((string)$child['photo']));
+    }
+    return true;
+}
+
 /** Darczyńcy do selecta „przenieś adopcję" - posortowani po nazwisku. */
 function adopt_donor_options(): array {
     $rows = payu_db()->query('SELECT id, full_name, email FROM adopt_donors')->fetchAll();
