@@ -174,6 +174,10 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         'house_no'     => 'VARCHAR(30)  NULL',
         'postcode'     => 'VARCHAR(12)  NULL',
         'city'         => 'VARCHAR(120) NULL',
+        // Ślad AUDYTOWY: „przy tym zgłoszeniu wykryliśmy kolizję adresu". Widoki NIE
+        // opierają się na tej kolumnie (liczą stan bazy na bieżąco - patrz
+        // adopt_donor_list i adopt_donors_sharing_email), bo rekordy sprzed
+        // wprowadzenia flagi nigdy by jej nie dostały.
         'shared_email' => 'TINYINT(1) NOT NULL DEFAULT 0',
     ]);
 
@@ -587,6 +591,12 @@ function adopt_donor_list(string $search = ''): array {
                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.number SEPARATOR '; ') AS children_names,
                    GROUP_CONCAT(DISTINCT c.number ORDER BY c.number SEPARATOR ', ') AS children_numbers,
                    GROUP_CONCAT(DISTINCT a.method) AS methods,
+                   /* Współdzielony e-mail liczony NA BIEŻĄCO, nie z kolumny `shared_email`:
+                      kolumna zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe
+                      wcześniej (import z arkusza - w bazie są 4) nigdy by się nie oznaczyły.
+                      Podzapytanie idzie po idx_email i zawsze mówi prawdę o stanie bazy. */
+                   (SELECT COUNT(*) FROM adopt_donors z
+                     WHERE z.email = d.email AND d.email IS NOT NULL AND d.email <> '') > 1 AS email_shared_now,
                    SUM(CASE WHEN a.child_id IS NOT NULL THEN 1 ELSE 0 END) AS with_child_cnt,
                    SUM(CASE WHEN a.child_id IS NOT NULL AND a.dossier_sent_at IS NOT NULL THEN 1 ELSE 0 END) AS dossier_sent_cnt
               FROM adopt_donors d

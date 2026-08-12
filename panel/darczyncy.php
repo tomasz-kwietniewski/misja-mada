@@ -84,7 +84,7 @@ panel_header('Darczyńcy - Adopcja Serca');
         ?>
           <tr class="row-link" data-href="darczynca.php?id=<?= (int)$d['id'] ?>">
             <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><?= (int)$d['is_archived'] === 1 ? ' <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">archiwum</span>' : '' ?><?php
-                if ((int)($d['shared_email'] ?? 0) === 1): ?> <span class="badge badge-arch" title="Ten adres e-mail ma w bazie więcej niż jeden darczyńca">wspólny e-mail</span><?php endif; ?><br>
+                if ((int)($d['email_shared_now'] ?? 0) === 1): ?> <span class="badge badge-arch" title="Ten adres e-mail ma w bazie więcej niż jeden darczyńca - sprawdź, czy adopcje wiszą przy właściwej osobie">wspólny e-mail</span><?php endif; ?><br>
                 <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?><?php
                   if (($d['phone'] ?? '') !== '') echo ' · ' . mada_esc($d['phone']);
                   if (($d['city'] ?? '') !== '') echo ' · ' . mada_esc($d['city']);
