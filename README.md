@@ -441,12 +441,15 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   ma kolumnę „Darczyńca" z linkiem i wyszukiwarkę po imieniu, numerze i darczyńcy.
 - **Ten sam e-mail, inny darczyńca** (`adopt_donor_for_signup` + `adopt_same_donor`): zgłoszenie
   dopina się do istniejącego darczyńcy tylko wtedy, gdy zgadza się e-mail **oraz** nazwa; przy
-  rozjeździe nazw powstaje **osobny** rekord, a wszystkie rekordy z tym adresem dostają flagę
-  `shared_email` - panel pokazuje wtedy ostrzeżenie na karcie i plakietkę „wspólny e-mail" na
-  liście. Powód: proboszcz („Parafia Kłodzko") zgłosił swoją mamę ze swojej skrzynki i dopinanie
-  po samym e-mailu schowało ją pod parafią. Kolejne zgłoszenie tej samej parafii nadal trafia do
-  jednego rekordu (dopasowanie nazwy przez `adopt_name_match`, więc znosi też literówki
-  i zmianę nazwiska po ślubie).
+  rozjeździe nazw powstaje **osobny** rekord. Powód: proboszcz („Parafia Kłodzko") zgłosił swoją
+  mamę ze swojej skrzynki i dopinanie po samym e-mailu schowało ją pod parafią. Kolejne zgłoszenie
+  tej samej parafii nadal trafia do jednego rekordu (dopasowanie nazwy przez `adopt_name_match`,
+  więc znosi też literówki i zmianę nazwiska po ślubie).
+  Panel ostrzega o współdzielonym adresie na karcie darczyńcy i plakietką „wspólny e-mail"
+  na liście. **Oba widoki liczą to na bieżąco z bazy, nie z kolumny `shared_email`** - kolumna
+  zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe wcześniej (import z arkusza:
+  Zielińscy, rodzice Radka, Kłodzko, Toruń) nigdy by się nie oznaczyły. Kolumna zostaje jako
+  ślad audytowy „tu wykryliśmy kolizję przy zgłoszeniu".
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Przypomnienia o zaległościach** (`adopcja/cron-przypomnienia.php` + `adopcja/mail-przypomnienie.php`,
