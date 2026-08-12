@@ -446,10 +446,19 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   tej samej parafii nadal trafia do jednego rekordu (dopasowanie nazwy przez `adopt_name_match`,
   więc znosi też literówki i zmianę nazwiska po ślubie).
   Panel ostrzega o współdzielonym adresie na karcie darczyńcy i plakietką „wspólny e-mail"
-  na liście. **Oba widoki liczą to na bieżąco z bazy, nie z kolumny `shared_email`** - kolumna
+  na liście, a naprawa jest w całości do przeklikania (patrz „Przenoszenie adopcji" niżej). **Oba widoki liczą to na bieżąco z bazy, nie z kolumny `shared_email`** - kolumna
   zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe wcześniej (import z arkusza:
   Zielińscy, rodzice Radka, Kłodzko, Toruń) nigdy by się nie oznaczyły. Kolumna zostaje jako
   ślad audytowy „tu wykryliśmy kolizję przy zgłoszeniu".
+- **Przenoszenie adopcji między darczyńcami**: select „Darczyńca" w edycji adopcji przenosi ją
+  **razem z wpłatami** (wiszą przy `adoption_id`, więc idą za nią same) i zapisuje ślad w audycie
+  (`adoption.movedonor`). Tym naprawia się dwie sytuacje, których fundacja inaczej nie ruszy:
+  zgłoszenie, które wpadło pod cudzy wpis przez wspólny e-mail, oraz **scalenie dwóch wpisów tej
+  samej osoby** (przenieś wszystkie adopcje na jeden wpis, drugi zostaje pusty). Pusty wpis usuwa
+  przycisk na jego karcie - `adopt_donor_delete_if_empty()` odmawia, gdy wisi przy nim jakakolwiek
+  adopcja, więc nie da się tą drogą skasować historii wpłat.
+  **Nie chować z powrotem `donor_id` w ukrytym polu** - przed 2026-08-12 tak właśnie było
+  i obie operacje wymagały wejścia do bazy.
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Przypomnienia o zaległościach** (`adopcja/cron-przypomnienia.php` + `adopcja/mail-przypomnienie.php`,
