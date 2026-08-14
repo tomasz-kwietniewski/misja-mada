@@ -59,20 +59,23 @@ try {
     $email = (string)$sg['email'];
     $dzieci = max(1, min(10, (int)($d['dzieci'] ?? 1)));
 
-    // ── Darczyńca: dopnij po e-mailu albo utwórz ─────────────────
-    $st = $pdo->prepare('SELECT id FROM adopt_donors WHERE email = ? LIMIT 1');
-    $st->execute([$email]);
-    $donorId = $st->fetchColumn();
-    if ($donorId === false) {
-        $donorId = adopt_donor_insert([
-            'full_name' => trim($imie . ' ' . $nazwisko),
-            'email'     => $email,
-            'phone'     => trim((string)($d['telefon'] ?? '')) ?: null,
-            'source'    => 'site',
-            'notes'     => 'Adres: ' . trim((string)($d['adres'] ?? '')),
-        ]);
-    }
-    $donorId = (int)$donorId;
+    /* ── Darczyńca: dopnij do istniejącego albo utwórz ────────────
+       Dopięcie wymaga zgodności e-maila ORAZ nazwy. Sam e-mail nie wystarcza:
+       proboszcz („Parafia Kłodzko") zgłosił na swój adres swoją mamę i jej
+       zgłoszenie schowało się pod parafią. Przy rozjeździe nazw powstaje
+       osobny darczyńca, a oba rekordy dostają znacznik `shared_email`. */
+    [$donorId, $donorIsNew, $sharedEmail] = adopt_donor_for_signup([
+        'full_name'  => trim($imie . ' ' . $nazwisko),
+        'first_name' => $imie,
+        'last_name'  => $nazwisko,
+        'email'      => $email,
+        'phone'      => (string)($d['telefon'] ?? ''),
+        'street'     => (string)($d['ulica'] ?? ''),
+        'house_no'   => (string)($d['nr_domu'] ?? ''),
+        'postcode'   => (string)($d['kod_pocztowy'] ?? ''),
+        'city'       => (string)($d['miejscowosc'] ?? ''),
+        'source'     => 'site',
+    ]);
 
     // ── Okres i częstotliwość z formularza ───────────────────────
     $duration = ($d['forma'] ?? '') === 'czasowa' ? 'fixed' : 'indefinite';
@@ -98,11 +101,19 @@ try {
 
     $up = $pdo->prepare("UPDATE adopt_signups SET status = 'confirmed', confirmed_at = NOW() WHERE id = ?");
     $up->execute([(int)$sg['id']]);
-    mada_audit('signup.confirm', 'donor', $donorId, ['signup' => (int)$sg['id'], 'adopcje' => $adoptionIds]);
+    mada_audit('signup.confirm', 'donor', $donorId, [
+        'signup' => (int)$sg['id'], 'adopcje' => $adoptionIds,
+        'donor_nowy' => $donorIsNew, 'email_wspoldzielony' => $sharedEmail,
+    ]);
 
-    // ── Mail powitalny (dane do przelewu) - treść 1:1 z Apps Script ──
-    $kwota = $dzieci * 70;
-    $tytul = 'Adopcja Serca Madagaskar - ' . $imie . ' ' . $nazwisko;
+    /* ── Mail powitalny (dane do przelewu) ────────────────────────
+       Kwota MUSI iść za wybraną częstotliwością: darczyńca deklarujący wpłatę
+       roczną dostawał wcześniej szablon na 70 zł zamiast 840 zł (zgłoszone
+       2026-08-11). Tytuł przelewu składa adopt_transfer_title - jedno źródło
+       prawdy dla wszystkich maili. */
+    $stawka = adopt_rate_for_frequency($freq);
+    $kwota  = adopt_amount_for_frequency($dzieci, $freq);
+    $tytul  = adopt_transfer_title(trim($imie . ' ' . $nazwisko));
     $okres = (string)($d['okres'] ?? '');
     $okresRow = ($okres !== '' && $duration === 'fixed')
         ? 'Okres zlecenia: <strong>' . mada_mail_esc($okres) . '</strong><br>' : '';
@@ -114,7 +125,8 @@ try {
       . '<strong style="color:#c99d66;">Dane do przelewu (zlecenie stałe)</strong><br>'
       . 'Odbiorca: <strong>Fundacja Misja MADA</strong><br>'
       . 'Konto PLN: <strong>70 1090 1056 0000 0001 5832 5871</strong><br>'
-      . 'Kwota: <strong>' . $kwota . ' zł miesięcznie</strong> (' . $dzieci . ' × 70 zł)<br>'
+      . 'Kwota: <strong>' . $kwota . ' zł ' . adopt_frequency_label($freq) . '</strong> ('
+      . $dzieci . ' × ' . $stawka . ' zł)<br>'
       . $okresRow
       . 'Tytuł przelewu: <strong>' . mada_mail_esc($tytul) . '</strong></div>'
       . '<p style="font-size:15px;line-height:1.65;margin:0 0 16px;">Szczegóły dotyczące konkretnego dziecka objętego Twoim '
@@ -123,12 +135,23 @@ try {
     mada_mail_html($email, 'Witaj w programie Adopcja Serca - Fundacja Misja MADA', $inner);
 
     // ── Powiadomienie fundacji ───────────────────────────────────
+    $adresTxt = adopt_address_compose([
+        'street' => $d['ulica'] ?? '', 'house_no' => $d['nr_domu'] ?? '',
+        'postcode' => $d['kod_pocztowy'] ?? '', 'city' => $d['miejscowosc'] ?? '',
+    ]) ?: trim((string)($d['adres'] ?? ''));
+    $sharedRow = $sharedEmail
+        ? '<p style="font-size:14px;line-height:1.6;background:#fbf3e2;border-left:3px solid #c8922e;'
+          . 'padding:10px 14px;margin:0 0 14px;">Uwaga: tego adresu e-mail używa już inny darczyńca w bazie. '
+          . ($donorIsNew ? 'Utworzyliśmy OSOBNY rekord' : 'Zgłoszenie dopięto do istniejącego rekordu')
+          . ' - sprawdź w panelu, czy to właściwa osoba.</p>'
+        : '';
     $fInner =
         '<h2 style="font-family:Georgia,serif;font-size:22px;color:#422918;margin:0 0 16px;">Nowe zweryfikowane zgłoszenie - Adopcja Serca</h2>'
+      . $sharedRow
       . '<p style="font-size:14px;line-height:1.7;margin:0;">'
       . 'Imię i nazwisko: <strong>' . mada_mail_esc($imie . ' ' . $nazwisko) . '</strong><br>'
       . 'E-mail: ' . mada_mail_esc($email) . '<br>Telefon: ' . mada_mail_esc((string)($d['telefon'] ?? '')) . '<br>'
-      . 'Adres: ' . mada_mail_esc((string)($d['adres'] ?? '')) . '<br>'
+      . 'Adres: ' . mada_mail_esc($adresTxt !== '' ? $adresTxt : 'nie podano') . '<br>'
       . 'Forma: ' . mada_mail_esc((string)($d['formaLabel'] ?? '')) . ($okres !== '' ? ' (' . mada_mail_esc($okres) . ')' : '') . '<br>'
       . 'Liczba dzieci: ' . $dzieci . '<br>Częstotliwość: ' . mada_mail_esc((string)($d['czestotliwosc'] ?? '')) . '<br>'
       . 'Newsletter: ' . (!empty($d['newsletter']) ? 'TAK' : '-') . '</p>'
@@ -143,7 +166,7 @@ try {
     mada_sheet_post([
         'type'           => 'adopcja-mirror',
         'imie'           => $imie, 'nazwisko' => $nazwisko, 'email' => $email,
-        'telefon'        => (string)($d['telefon'] ?? ''), 'adres' => (string)($d['adres'] ?? ''),
+        'telefon'        => (string)($d['telefon'] ?? ''), 'adres' => $adresTxt,
         'forma'          => (string)($d['formaLabel'] ?? ''), 'okres' => $okres,
         'czestotliwosc'  => (string)($d['czestotliwosc'] ?? ''), 'dzieci' => $dzieci,
         'zgoda_wizerunek'=> !empty($d['zgoda_wizerunek']) ? 'TAK' : '',

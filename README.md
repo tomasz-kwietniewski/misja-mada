@@ -201,8 +201,19 @@ tekst, więc wystarczy skopiować akapit.
 Skrypty i18n mają `?v=…` w URL, a `.htaccess` wymusza dla nich rewalidację
 (`no-cache, must-revalidate`). Reguła obejmuje **też renderery i formularze** - stary renderer
 z nowym słownikiem daje połowicznie przetłumaczoną stronę. Przy zmianie któregokolwiek
-z tych plików (oraz `site.css`) podbij `?v=` w podstronach - to jeden wspólny token dla całej
-witryny, obecnie `20260717`.
+z tych plików podbij `?v=` **na wszystkich podstronach naraz**.
+
+**Każdy plik `.js` i `.css` linkowany z podstron musi mieć `?v=`** - bez tego nie da się
+wymusić odświeżenia i zmiana jest niewidoczna dla każdego, kto ma cache. `site-nav.js`
+i `site-a11y.js` nie miały wersji do 08.2026 (nie zmieniały się od czerwca, więc problem
+nigdy nie wyszedł) - dopisane z wersją `20260611`, czyli datą ich ostatniej zmiany.
+
+Wersja **nie jest** jednym wspólnym tokenem dla całej witryny: każdy asset ma własną,
+odpowiadającą dacie jego ostatniej zmiany (`site.css` - `20260812`, słowniki i18n - `20260803`,
+`site-nav.js`/`site-a11y.js` - `20260611` itd.). Ważne jest to, żeby **ten sam plik miał tę samą
+wersję na wszystkich podstronach** - rozjazd (nowy HTML, stary JS) daje błędy nie do
+zdiagnozowania. Audyt spójności: porównaj wersje per plik przez `git show origin/main:<strona>`,
+nie na plikach z lokalnego drzewa - worktree potrafi stać na starszej gałęzi.
 
 ---
 
@@ -276,12 +287,26 @@ Apps Script; PHP woła go serwer-do-serwera z shared secret). E-mail fundacji: `
     Ustawienie `.value` cicho zepsułoby tłumaczenie tego pola.
 - **Adopcja Serca** (`assets/adopcja-form.js`) - jeden pełny formularz z selektorem liczby dzieci
   (kwota = dzieci x 70 zł), dwie ścieżki wsparcia:
+  - **Adres korespondencyjny jest DOBROWOLNY** i rozbity na cztery pola (ulica, nr domu/lokalu,
+    kod pocztowy, miejscowość) - fundacja drukuje z nich koperty, a jedno pole tekstowe dawało
+    adresy niekompletne i nieużywalne. Pola trafiają do osobnych kolumn `adopt_donors`; zbiorcze
+    `adres` (gotowa linia) zostaje w payloadzie dla arkusza i maili - **nie usuwać**, Apps Script
+    czyta właśnie je. Format kodu `00-000` jest sprawdzany **tylko w wersji polskiej** (front zna
+    język strony); backend przycina długości i niczego nie normalizuje, żeby nie zamienić
+    francuskiego „75001" na „75-001".
   - **Przelew** - double opt-in po stronie **PHP** (`adopcja/zgloszenie.php` -> mail „Potwierdź
     zgłoszenie" przez relay Gmail -> `adopcja/potwierdz.php`): po kliknięciu linku powstaje darczyńca
     i adopcja (status `pending`) w **MySQL modułu CMS**, darczyńca dostaje mail **powitalny** z danymi
-    do przelewu (kwota, tytuł „Adopcja Serca Madagaskar - Imię Nazwisko", okres zlecenia dla formy
-    czasowej), fundacja powiadomienie, a arkusz Google kopię wiersza (lustro, typ `adopcja-mirror`).
+    do przelewu, fundacja powiadomienie, a arkusz Google kopię wiersza (lustro, typ `adopcja-mirror`).
     Niepotwierdzone zgłoszenia wygasają po 7 dniach (cron).
+    - **Kwota w mailu powitalnym idzie za wybraną częstotliwością** (70 / 210 / 840 zł za dziecko -
+      `adopt_amount_for_frequency`). Do 08.2026 mail zawsze podawał stawkę miesięczną, więc darczyńca
+      deklarujący wpłatę roczną 840 zł dostawał szablon na 70 zł (zgłoszone przez darczyńcę).
+    - **Tytuł przelewu składa `adopt_transfer_title`** - jedno źródło prawdy dla wszystkich maili:
+      `Adopcja Serca - darowizna - Imię Nazwisko`, a po przypisaniu dziecka
+      `Adopcja Serca - darowizna - Imię Nazwisko - Kiady 23` (kilkoro dzieci po przecinku).
+      Fundacja księguje wpłaty po numerze dziecka, stąd drugi człon. Zmieniając format, zmieniać
+      **tylko tę funkcję** - inaczej mail powitalny i monit znów się rozjadą.
   - **Karta (cyklicznie)** - Secure Form + `payu/recurring-first.php` (jak darowizna cykliczna); komplet
     danych adopcyjnych trafia też do arkusza (metoda `Karta PayU`, subskrypcja `Aktywna`), sama
     subskrypcja do panelu.
@@ -425,8 +450,76 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   Skrót **„📧 Wyślij dossier"** przy adopcji na karcie darczyńcy wysyła ten sam mail bez wchodzenia
   w edycję (bez dopisku). Treść maila składa `adopcja/mail-dossier.php` - jedno źródło dla obu
   wejść, a każda wysyłka zostaje w dzienniku audytu (`adoption.childmail`).
-  Osobnej flagi „materiały wysłane" **nie prowadzimy** (kolumna wycofana 2026-08-03): arkusz
-  fundacji miał ją tylko dla grupy GR1, więc dla pozostałych grup pokazywała fałszywe „nie".
+  - **Ślad wysyłki jest widoczny w interfejsie i w bazie**: `adopt_adoptions.dossier_sent_at`
+    / `dossier_sent_by` / `dossier_sent_count` zapisuje `adopt_adoption_mark_dossier_sent()`
+    w chwili realnej wysyłki maila. Kolumna „Dossier" jest na karcie darczyńcy (data + kto),
+    na liście darczyńców (`wysłane` / `2/3` / `nie wysłano`) i na karcie dziecka; przycisk
+    zmienia się wtedy na „Wyślij ponownie" (ponowienie jest dozwolone, licznik rośnie).
+  - To **nie jest** wycofana flaga „materiały wysłane" z arkusza (kolumna `materials_sent`,
+    usunięta 2026-08-03). Tamta pochodziła z arkusza, gdzie fundacja prowadziła ją tylko dla
+    grupy GR1, więc dla GR2-GR5 pokazywała fałszywe „nie". Tę zapisuje wyłącznie panel przy
+    faktycznej wysyłce, więc „nie wysłano" znaczy naprawdę „nie wysłano".
+- **Komplet danych kontaktowych na wierzchu**: karta darczyńcy pokazuje e-mail (klikalny), telefon,
+  **adres korespondencyjny** (rozbity na pola), imię i nazwisko oraz źródło i datę dodania; edycja
+  („Edytuj dane") obejmuje wszystkie te pola, a eksport XLSX/CSV ma osobne kolumny
+  `Imię / Nazwisko / e-mail / Telefon / Ulica / Nr domu / Kod pocztowy / Miejscowość`.
+  Wcześniej adres ze zgłoszenia lądował w wolnym tekście `notes` („Adres: …") i był dla fundacji
+  praktycznie niewidoczny.
+- **Nawigacja powrotna**: karta darczyńcy ma „← Wróć do listy darczyńców", karta dziecka
+  „← Wróć do listy podopiecznych". Karta dziecka pokazuje na górze **przypisanego opiekuna**
+  (link, status, okres, kontakt, stan dossier) oraz poprzednich opiekunów; lista podopiecznych
+  ma kolumnę „Darczyńca" z linkiem i wyszukiwarkę po imieniu, numerze i darczyńcy.
+- **Ten sam e-mail, inny darczyńca** (`adopt_donor_for_signup` + `adopt_same_donor`): zgłoszenie
+  dopina się do istniejącego darczyńcy tylko wtedy, gdy zgadza się e-mail **oraz** nazwa; przy
+  rozjeździe nazw powstaje **osobny** rekord. Powód: proboszcz („Parafia Kłodzko") zgłosił swoją
+  mamę ze swojej skrzynki i dopinanie po samym e-mailu schowało ją pod parafią. Kolejne zgłoszenie
+  tej samej parafii nadal trafia do jednego rekordu (dopasowanie nazwy przez `adopt_name_match`,
+  więc znosi też literówki i zmianę nazwiska po ślubie).
+  Panel ostrzega o współdzielonym adresie na karcie darczyńcy i plakietką „wspólny e-mail"
+  na liście, a naprawa jest w całości do przeklikania (patrz „Przenoszenie adopcji" niżej). **Oba widoki liczą to na bieżąco z bazy, nie z kolumny `shared_email`** - kolumna
+  zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe wcześniej (import z arkusza:
+  Zielińscy, rodzice Radka, Kłodzko, Toruń) nigdy by się nie oznaczyły. Kolumna zostaje jako
+  ślad audytowy „tu wykryliśmy kolizję przy zgłoszeniu".
+- **Archiwum darczyńcy ma DWA źródła** i jedno nie zastępuje drugiego. **Automatyczne**: miał
+  adopcje, ale żadna już nie trwa (po „Zakończ") - dzieje się samo. **Ręczne** (`archived_at`,
+  przycisk na karcie): chowa wpis z listy, zachowując dane - dla kogoś, kto zgłosił się i wycofał,
+  zanim dostał dziecko; wcześniej taki wpis dało się tylko usunąć razem z danymi kontaktowymi.
+  Osoba dopiero dodana, bez żadnej adopcji, NIE jest archiwalna automatycznie - inaczej znikałaby
+  z listy, zanim ktokolwiek przypisze jej dziecko. Karta mówi wprost, **z którego** źródła wynika
+  archiwum, bo przy automatycznym „Przywróć" nic nie zmieni (wpis wraca dopiero po „Wznów").
+  Archiwum to stan roboczy listy, **nie** furtka na trzymanie danych wbrew polityce prywatności -
+  panel przypomina o tym przy wpisie bez adopcji.
+- **Retencja danych - filtr „⏳ Do przeglądu RODO (N)" na liście darczyńców.** Polityka prywatności
+  § 4 pkt 2 (wersja 1.2, 12.08.2026) mówi wprost: zgłoszenie, z którego nie powstała żadna wpłata
+  ani trwająca adopcja, **usuwa się po roku**. Filtr pokazuje dokładnie te wpisy
+  (`adopt_donors_retention_due()`: zero adopcji KIEDYKOLWIEK + starsze niż 12 miesięcy) i celowo
+  **nie wycina archiwalnych** - wpis schowany ręcznie to najczęstszy kandydat do usunięcia.
+  **Nic nie kasuje się automatycznie**: usunięcie danych darczyńcy jest nieodwracalne, więc panel
+  tylko wystawia listę, a klika człowiek. Kryterium jest najostrożniejsze z możliwych - wpis
+  z choćby zakończoną adopcją to już historia programu i na listę nie trafia.
+  Zmieniając okres, zmieniać **równolegle** politykę prywatności i argument `$months` - rozjazd
+  między dokumentem a panelem jest gorszy niż brak jednego z nich.
+- **Archiwum podopiecznych**: przycisk „Przenieś do archiwum" / „Przywróć do programu" na karcie
+  dziecka (status `inactive`). Archiwalne dziecko znika z listy (jest pod „Pokaż archiwalne (N)",
+  wyszukiwarka obejmuje je zawsze), nie jest proponowane przy nowych adopcjach ani liczone jako
+  „bez darczyńcy" na dashboardzie - ale **cała historia, wpłaty i dossier zostają**. To domyślna
+  droga wycofania dziecka z programu. Status zmienia WYŁĄCZNIE ten przycisk; w formularzu edycji
+  jest tylko pole ukryte, bo bez niego każdy zapis archiwalnego dziecka wracałby je do programu.
+- **Usuwanie podopiecznego i darczyńcy** to furtka na POMYŁKI przy dodawaniu, nie sposób wycofania
+  z programu. `adopt_child_delete_if_unused()` i `adopt_donor_delete_if_empty()` odmawiają, gdy
+  wisi przy rekordzie jakakolwiek adopcja (a więc i jakakolwiek wpłata) - historii nie da się tędy
+  skasować. W interfejsie obie akcje siedzą w zwiniętej sekcji `.danger-zone` i wymagają
+  **przepisania numeru dziecka** / słowa `USUŃ`, a potem jeszcze potwierdzenia w oknie. Powód:
+  to jedyne nieodwracalne akcje w module, a leżą obok przycisków używanych codziennie.
+- **Przenoszenie adopcji między darczyńcami**: select „Darczyńca" w edycji adopcji przenosi ją
+  **razem z wpłatami** (wiszą przy `adoption_id`, więc idą za nią same) i zapisuje ślad w audycie
+  (`adoption.movedonor`). Tym naprawia się dwie sytuacje, których fundacja inaczej nie ruszy:
+  zgłoszenie, które wpadło pod cudzy wpis przez wspólny e-mail, oraz **scalenie dwóch wpisów tej
+  samej osoby** (przenieś wszystkie adopcje na jeden wpis, drugi zostaje pusty). Pusty wpis usuwa
+  przycisk na jego karcie - `adopt_donor_delete_if_empty()` odmawia, gdy wisi przy nim jakakolwiek
+  adopcja, więc nie da się tą drogą skasować historii wpłat.
+  **Nie chować z powrotem `donor_id` w ukrytym polu** - przed 2026-08-12 tak właśnie było
+  i obie operacje wymagały wejścia do bazy.
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Przypomnienia o zaległościach** (`adopcja/cron-przypomnienia.php` + `adopcja/mail-przypomnienie.php`,
@@ -439,6 +532,8 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   ręcznego wyjaśnienia zamiast do wysyłki; darczyńcy bez adresu e-mail również.
   Zwroty w mailu są **bezosobowe** („Dzień dobry, X!") - formy typu „Szanowny Panie [imię]" psują
   się na małżeństwach i instytucjach, których w bazie jest sporo.
+  Tytuł przelewu w monicie składa **ta sama** funkcja co w mailu powitalnym
+  (`adopt_transfer_title`) - patrz „Formularze (kontakt, adopcja)".
   **Uruchamianie:** `php adopcja/cron-przypomnienia.php --dry` pokazuje listę bez wysyłki; bez
   `--dry` wysyła. **Od 2026-08-03 działa z crona codziennie o 6:30**
   (`30 6 * * *`, log: `data/cron-przypomnienia.log`) - pierwsza wysyłka objęła 4 osoby.
@@ -470,6 +565,12 @@ faktycznym strony oraz z umową zawartą z PayU (PR #39). Zasady, których pilnu
   i regulamin (plus daty aktualizacji i tłumaczenia EN/FR).
 - **Odbiorcy danych wymienieni z nazwy** (PayU, Google, MailerLite, hosting, banki);
   transfer poza EOG opisany przez zabezpieczenia (EU-US Data Privacy Framework / SCC).
+- **Okresy przechowywania są konkretne, a nie ogólnikowe** (§ 4 pkt 2, wersja 1.2 z 12.08.2026):
+  zgłoszenie do Adopcji Serca bez żadnej wpłaty i bez trwającej adopcji **usuwa się po roku**,
+  dane darowizn zostają na czas wymagany przepisami o rachunkowości (także po cofnięciu zgody),
+  newsletter - do rezygnacji, żądanie usunięcia - niezwłocznie. To nie jest deklaracja bez
+  pokrycia: panel ma filtr „⏳ Do przeglądu RODO", który wypisuje wpisy spełniające ten warunek
+  (patrz moduł Adopcja Serca). **Zmiana okresu w polityce wymaga zmiany progu w panelu i odwrotnie.**
 - **Badge „PayU" w modalach darowizn i adopcji jest linkiem do poland.payu.com - nie
   usuwać i nie zamieniać z powrotem na zwykły napis.** Umowa z PayU wymaga na stronie
   akceptanta znaku PayU połączonego z linkiem do strony PayU.

@@ -44,6 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $before = adopt_adoption_get($id);
             if (!$before) mada_redirect('darczyncy.php');
             adopt_adoption_update($id, $d);
+            // Przeniesienie do innego darczyńcy zostawia wyraźny ślad w audycie -
+            // to operacja na cudzej historii wpłat, więc musi być odtwarzalna.
+            if ((int)$before['donor_id'] !== $donorId) {
+                mada_audit('adoption.movedonor', 'adoption', $id,
+                    ['z' => (int)$before['donor_id'], 'do' => $donorId, 'dziecko' => $before['child_name']]);
+            }
             // Zgłoszenie ze strony (pending) dostało dziecko -> adopcja staje się aktywna.
             if ($before['status'] === 'pending' && $childId !== null) {
                 payu_db()->prepare("UPDATE adopt_adoptions SET status = 'active' WHERE id = ?")->execute([$id]);
@@ -66,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dn = adopt_donor_get($donorId);
             $ch = adopt_child_get($childId);
             if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, trim((string)($_POST['personal_note'] ?? '')))) {
+                adopt_adoption_mark_dossier_sent($id, mada_current_user());
                 mada_audit('adoption.childmail', 'adoption', $id, ['dziecko' => $ch['name'], 'email' => $dn['email']]);
                 mada_redirect("darczynca.php?id=$donorId&msg=mailok");
             }
@@ -77,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$adoption = null; $donor = null; $children = []; $subCands = [];
+$adoption = null; $donor = null; $children = []; $subCands = []; $donorOpts = [];
 try {
     adopt_db_ensure_schema();
     if ($id > 0) {
@@ -87,6 +94,7 @@ try {
     $donor = $donorId > 0 ? adopt_donor_get($donorId) : null;
     $children = adopt_child_list();
     $subCands = adopt_subscription_candidates($adoption['subscription_id'] ?? null);
+    $donorOpts = adopt_donor_options();
 } catch (Throwable $e) {
     $dbError = $dbError ?: $e->getMessage();
 }
@@ -113,7 +121,21 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
     <form method="post" class="form" style="max-width:620px;">
       <?= mada_csrf_field() ?>
       <?php if ($id): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
-      <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+
+      <label>Darczyńca
+        <select name="donor_id" required>
+          <?php foreach ($donorOpts as $o): ?>
+            <option value="<?= (int)$o['id'] ?>" <?= (int)$o['id'] === (int)$donor['id'] ? 'selected' : '' ?>>
+              <?php /* Nawiasy okrągłe, nie ostre: „<mail@…>" przeglądarka zjada jako tag. */ ?>
+              <?= mada_esc($o['full_name']) ?><?= $o['email'] ? ' (' . mada_esc($o['email']) . ')' : '' ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+        <span class="hint">Zmiana tutaj <b>przenosi całą adopcję razem z jej wpłatami</b> do innego
+          darczyńcy. Tak naprawia się dwie sytuacje: zgłoszenie, które wpadło pod cudzy wpis przez
+          wspólny adres e-mail, oraz scalenie dwóch wpisów tej samej osoby (przenieś adopcje na jeden,
+          drugi zostanie pusty i da się go usunąć z jego karty). Przeniesienie zapisuje się w audycie.</span>
+      </label>
 
       <label>Dziecko
         <select name="child_id">
@@ -185,7 +207,8 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
         </label>
         <p class="hint" style="margin:6px 0 0;">Mail pójdzie na <?= mada_esc($donor['email']) ?> w szablonie fundacji: zdjęcie, imię i nazwisko,
            data urodzenia, rodzice, opis sytuacji (dane z <a href="dzieci.php">Podopieczni -> Edytuj</a>) + Twój dopisek.
-           Wysłanie odhacza „materiały wysłane". Bez zaznaczenia nic się nie wysyła.</p>
+           Data wysyłki zostaje odnotowana przy adopcji (kolumna „Dossier" na karcie darczyńcy).
+           Bez zaznaczenia nic się nie wysyła.</p>
       </div>
       <?php endif; ?>
 

@@ -184,6 +184,66 @@ if (class_exists('ZipArchive')) {
     fwrite(STDERR, "  (i) brak rozszerzenia zip - testy budowy XLSX pominięte\n");
 }
 
+/* ── Adres korespondencyjny (pola rozbite, wszystkie dobrowolne) ──
+   Fundacja drukuje z tego koperty, więc puste człony mają znikać, a nie
+   zostawiać osierocone przecinki i podwójne spacje. */
+eq(adopt_postcode_normalize('00001'),   '00-001', 'postcode: 5 cyfr -> 00-001');
+eq(adopt_postcode_normalize('87 100'),  '87-100', 'postcode: spacja -> dywiz');
+eq(adopt_postcode_normalize('87-100'),  '87-100', 'postcode: już poprawny');
+eq(adopt_postcode_normalize('SW1A 1AA'), 'SW1A 1AA', 'postcode: obcy format zostaje bez zmian');
+ok(adopt_postcode_valid(''),        'postcode_valid: pusty jest OK (pole dobrowolne)');
+ok(adopt_postcode_valid('87-100'),  'postcode_valid: 87-100');
+ok(!adopt_postcode_valid('8710'),   'postcode_valid: odrzuca 4 cyfry');
+
+$adr = ['street' => 'Szosa Chełmińska', 'house_no' => '271A', 'postcode' => '87-100', 'city' => 'Toruń'];
+eq(adopt_address_lines($adr), ['Szosa Chełmińska 271A', '87-100 Toruń'], 'address_lines: dwie linie koperty');
+eq(adopt_address_compose($adr), 'Szosa Chełmińska 271A, 87-100 Toruń', 'address_compose: jedna linia');
+eq(adopt_address_compose(['city' => 'Toruń']), 'Toruń', 'address_compose: sama miejscowość');
+eq(adopt_address_compose(['street' => 'Kwiatowa']), 'Kwiatowa', 'address_compose: sama ulica bez numeru');
+eq(adopt_address_compose([]), '', 'address_compose: brak danych -> pusty łańcuch');
+eq(adopt_address_compose(['street' => null, 'house_no' => null, 'postcode' => null, 'city' => null]), '',
+   'address_compose: same NULL-e -> pusty łańcuch');
+
+/* ── Kwota wg częstotliwości ──────────────────────────────────────
+   Realny błąd (2026-08-11): darczyńca zaznaczył wpłatę roczną 840 zł,
+   a mail powitalny podał szablon na 70 zł miesięcznie. */
+eq(adopt_amount_for_frequency(1, 'monthly'),   70,   'kwota: 1 dziecko miesięcznie');
+eq(adopt_amount_for_frequency(1, 'quarterly'), 210,  'kwota: 1 dziecko kwartalnie');
+eq(adopt_amount_for_frequency(1, 'yearly'),    840,  'kwota: 1 dziecko rocznie (błąd z 2026-08-11)');
+eq(adopt_amount_for_frequency(2, 'yearly'),    1680, 'kwota: 2 dzieci rocznie');
+eq(adopt_amount_for_frequency(3, 'quarterly'), 630,  'kwota: 3 dzieci kwartalnie');
+eq(adopt_amount_for_frequency(0, 'monthly'),   70,   'kwota: zero dzieci liczone jak jedno');
+eq(adopt_amount_for_frequency(1, 'bzdura'),    70,   'kwota: nieznana częstotliwość -> miesięcznie');
+eq(adopt_frequency_label('yearly'), 'rocznie', 'etykieta okresu: rocznie');
+
+/* ── Tytuł przelewu (jeden wzór w całej komunikacji) ───────────── */
+eq(adopt_transfer_title('Elżbieta Odachowska'),
+   'Adopcja Serca - darowizna - Elżbieta Odachowska',
+   'tytuł: bez przypisanego dziecka - sam darczyńca');
+eq(adopt_transfer_title('Elżbieta Odachowska', [['name' => 'Kiady', 'number' => 23]]),
+   'Adopcja Serca - darowizna - Elżbieta Odachowska - Kiady 23',
+   'tytuł: darczyńca + dziecko');
+eq(adopt_transfer_title('Parafia Kłodzko', [['name' => 'Kiady', 'number' => 23], ['name' => 'Soa', 'number' => 41]]),
+   'Adopcja Serca - darowizna - Parafia Kłodzko - Kiady 23, Soa 41',
+   'tytuł: kilkoro dzieci po przecinku');
+eq(adopt_transfer_title('Jan Kowalski', [['name' => '', 'number' => 5]]),
+   'Adopcja Serca - darowizna - Jan Kowalski',
+   'tytuł: dziecko bez imienia pomijane');
+
+/* ── Ten sam e-mail, inny darczyńca (przypadek Parafii Kłodzko) ─── */
+ok(!adopt_same_donor('Parafia Kłodzko', 'Elżbieta Odachowska'),
+   'same_donor: proboszcz zgłasza mamę -> OSOBNY darczyńca');
+ok(adopt_same_donor('Parafia Kłodzko', 'Parafia Kłodzko'),
+   'same_donor: kolejne zgłoszenie tej samej parafii -> ten sam rekord');
+ok(adopt_same_donor('Anna Topolska', 'Anna Krzemińska'),
+   'same_donor: zmiana nazwiska po ślubie -> ten sam rekord');
+ok(adopt_same_donor('Jan Kowalski', 'J. Kowalski'),
+   'same_donor: skrócone imię -> ten sam rekord');
+ok(adopt_same_donor('Jan Kowalski', ''),
+   'same_donor: brak nazwy w zgłoszeniu -> zachowanie jak dotąd (dopina)');
+ok(!adopt_same_donor('Ewa i Michał Tobiasz', 'Zbigniew Leksiński'),
+   'same_donor: zupełnie inne osoby -> osobne rekordy');
+
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty modułu Adopcja Serca: {$T['pass']} OK";
 if ($T['fail'] > 0) { echo ", {$T['fail']} BŁĄD\n"; exit(1); }

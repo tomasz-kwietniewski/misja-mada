@@ -279,6 +279,18 @@ function adopt_name_match(string $a, string $b): string {
 }
 
 /**
+ * Czy zgłoszenie z TYM SAMYM e-mailem dotyczy tego samego darczyńcy?
+ * Regułę wymusił realny przypadek: proboszcz („Parafia Kłodzko") zgłosił swoją
+ * mamę (Elżbieta Odachowska) na swój adres e-mail, a dopinanie po samym mailu
+ * schowało ją pod parafią. Zgodność nazwy (exact/fuzzy) -> ten sam darczyńca;
+ * brak zgodności -> osobny rekord z tym samym adresem (kolumna shared_email).
+ */
+function adopt_same_donor(string $existingName, string $signupName): bool {
+    if (trim($signupName) === '' || trim($existingName) === '') return true;   // brak danych -> jak dotąd
+    return adopt_name_match($existingName, $signupName) !== 'none';
+}
+
+/**
  * Klucz sortowania po NAZWISKU: ostatni znaczący token nazwy + reszta.
  * "Ola i Tomasz Kwietniewscy" -> "kwietniewscy ola tomasz",
  * "Ks. Artur Aleksiejuk" -> "aleksiejuk artur", "Parafia Kłodzko" -> "klodzko parafia".
@@ -296,6 +308,85 @@ function adopt_sort_by_surname(array $rows, string $field = 'full_name'): array 
         strcmp(adopt_surname_key((string)($a[$field] ?? '')), adopt_surname_key((string)($b[$field] ?? '')))
         ?: strcmp((string)($a[$field] ?? ''), (string)($b[$field] ?? '')));
     return $rows;
+}
+
+/* ── Adres korespondencyjny (pola rozbite) ─────────────────────── */
+
+/** '00000' / '00 000' -> '00-000'; wejście nierozpoznane zwracane bez zmian. */
+function adopt_postcode_normalize(string $raw): string {
+    $t = trim($raw);
+    if (preg_match('/^(\d{2})[\s-]?(\d{3})$/', $t, $m)) return $m[1] . '-' . $m[2];
+    return $t;
+}
+
+/** Czy kod pocztowy jest w polskim formacie 00-000 (pusty = OK, bo pole dobrowolne). */
+function adopt_postcode_valid(string $raw): bool {
+    $t = trim($raw);
+    return $t === '' || (bool)preg_match('/^\d{2}-\d{3}$/', adopt_postcode_normalize($t));
+}
+
+/**
+ * Adres jako linie do koperty: ['ul. Kwiatowa 12/3', '00-001 Warszawa'].
+ * Puste człony pomijane - adres jest dobrowolny i bywa niekompletny.
+ * Klucze: street, house_no, postcode, city (dowolne mogą być puste/NULL).
+ */
+function adopt_address_lines(array $d): array {
+    $street = trim((string)($d['street'] ?? ''));
+    $house  = trim((string)($d['house_no'] ?? ''));
+    $post   = trim((string)($d['postcode'] ?? ''));
+    $city   = trim((string)($d['city'] ?? ''));
+    $lines = [];
+    $l1 = trim($street . ' ' . $house);
+    if ($l1 !== '') $lines[] = $l1;
+    $l2 = trim($post . ' ' . $city);
+    if ($l2 !== '') $lines[] = $l2;
+    return $lines;
+}
+
+/** Adres w jednej linii ('ul. Kwiatowa 12/3, 00-001 Warszawa'); '' gdy brak danych. */
+function adopt_address_compose(array $d): string {
+    return implode(', ', adopt_address_lines($d));
+}
+
+/* ── Kwoty i tytuł przelewu (jedno źródło prawdy dla maili) ─────── */
+
+/** Stawka bazowa za JEDNO dziecko w złotych dla danej częstotliwości. */
+function adopt_rate_for_frequency(string $frequency): int {
+    return ['monthly' => 70, 'quarterly' => 210, 'yearly' => 840][$frequency] ?? 70;
+}
+
+/** Etykieta okresu do maila: 'miesięcznie' / 'kwartalnie' / 'rocznie'. */
+function adopt_frequency_label(string $frequency): string {
+    return ['monthly' => 'miesięcznie', 'quarterly' => 'kwartalnie', 'yearly' => 'rocznie'][$frequency] ?? 'miesięcznie';
+}
+
+/**
+ * Kwota jednej wpłaty w złotych: liczba dzieci × stawka za okres.
+ * Darczyńca deklarujący wpłatę ROCZNĄ za jedno dziecko ma dostać 840 zł,
+ * nie 70 zł (błąd zgłoszony przez darczyńcę 2026-08-11).
+ */
+function adopt_amount_for_frequency(int $children, string $frequency): int {
+    return max(1, $children) * adopt_rate_for_frequency($frequency);
+}
+
+/**
+ * Tytuł przelewu - JEDEN wzór w całej komunikacji (decyzja 2026-08-11):
+ *   „Adopcja Serca - darowizna - Imię Nazwisko"
+ *   „Adopcja Serca - darowizna - Imię Nazwisko - Kiady 23, Soa 41"
+ * Człon z dziećmi dochodzi dopiero, gdy dzieci są przypisane (fundacja księguje
+ * wpłaty po numerze dziecka). Bez nawiasów - część banków wycina znaki specjalne.
+ * $children: [['name' => 'Kiady', 'number' => 23], ...]
+ */
+function adopt_transfer_title(string $donorName, array $children = []): string {
+    $t = 'Adopcja Serca - darowizna - ' . trim($donorName);
+    $parts = [];
+    foreach ($children as $c) {
+        $name = trim((string)($c['name'] ?? ''));
+        if ($name === '') continue;
+        $no = (int)($c['number'] ?? 0);
+        $parts[] = $no > 0 ? $name . ' ' . $no : $name;
+    }
+    return $parts ? $t . ' - ' . implode(', ', $parts) : $t;
 }
 
 /* ── Pomocnicze dla panelu ─────────────────────────────────────── */

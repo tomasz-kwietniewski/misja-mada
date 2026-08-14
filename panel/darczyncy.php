@@ -7,11 +7,15 @@ mada_require_login();
 require_once __DIR__ . '/../adopcja/db.php';
 require_once __DIR__ . '/../adopcja/lib.php';
 
+$flash = ($_GET['msg'] ?? '') === 'donordel'
+    ? '<div class="alert alert-ok">Pusty wpis darczyńcy został usunięty.</div>' : '';
 $q = trim((string)($_GET['q'] ?? ''));
 $showArchived = ($_GET['arch'] ?? '') === '1';
+$showRetention = ($_GET['retencja'] ?? '') === '1';
 $dbError = '';
 $donors = [];
 $archivedCnt = 0;
+$retention = [];
 $adoptionsByDonor = [];
 $paymentsByAdoption = [];
 
@@ -23,8 +27,18 @@ try {
        (po zakończeniu wszystkich adopcji) odsłania przycisk. Wyszukiwarka
        celowo przeszukuje WSZYSTKICH - szuka się konkretnej osoby, także tej,
        która przestała wpłacać. */
-    if (!$showArchived && $q === '') {
+    /* W trybie „do przeglądu RODO" NIE wycinamy archiwalnych: wpis bez adopcji można
+       było wcześniej schować ręcznie, a właśnie taki najczęściej podlega usunięciu -
+       filtrowanie go tutaj ukryłoby połowę listy do przejrzenia. */
+    if (!$showArchived && !$showRetention && $q === '') {
         $donors = array_values(array_filter($donors, fn($d) => (int)$d['is_archived'] === 0));
+    }
+    /* Wpisy przeterminowane wg polityki prywatności § 4 pkt 2 (rok bez adopcji i wpłat).
+       Liczymy zawsze - liczba jest w pasku nawet wtedy, gdy filtr jest wyłączony. */
+    $retention = adopt_donors_retention_due(12);
+    $retentionIds = array_flip(array_map(fn($d) => (int)$d['id'], $retention));
+    if ($showRetention) {
+        $donors = array_values(array_filter($donors, fn($d) => isset($retentionIds[(int)$d['id']])));
     }
     $all = adopt_adoption_list_all();
     foreach ($all as $a) $adoptionsByDonor[(int)$a['donor_id']][] = $a;
@@ -42,6 +56,7 @@ panel_header('Darczyńcy - Adopcja Serca');
       <h2 style="margin:0;">Darczyńcy Adopcji Serca</h2>
       <a href="darczynca-edit.php" class="btn-primary btn-sm">+ Nowy darczyńca</a>
     </div>
+    <?= $flash ?>
 
 <?php if ($dbError !== ''): ?>
     <div class="alert alert-error">Baza danych jest niedostępna (sprawdź <code>payu/secret/db-config.php</code>): <?= mada_esc($dbError) ?></div>
@@ -51,21 +66,43 @@ panel_header('Darczyńcy - Adopcja Serca');
              style="flex:1;max-width:340px;padding:8px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;">
       <button type="submit" class="btn-secondary btn-sm">Szukaj</button>
       <?php if ($q !== ''): ?><a href="darczyncy.php" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
-      <?php if ($q === '' && $archivedCnt > 0): ?>
-        <a href="darczyncy.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm" style="margin-left:auto;">
+      <?php if ($q === '' && count($retention) > 0): ?>
+        <a href="darczyncy.php<?= $showRetention ? '' : '?retencja=1' ?>" class="btn-ghost btn-sm"
+           style="margin-left:auto;<?= $showRetention ? '' : 'color:var(--err);' ?>"
+           title="Zgłoszenia starsze niż rok, z których nigdy nie powstała adopcja ani wpłata - polityka prywatności § 4 każe je usuwać">
+          <?= $showRetention ? 'Pokaż wszystkich' : '⏳ Do przeglądu RODO (' . count($retention) . ')' ?>
+        </a>
+      <?php endif; ?>
+      <?php if ($q === '' && !$showRetention && $archivedCnt > 0): ?>
+        <a href="darczyncy.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm"
+           style="<?= count($retention) > 0 ? '' : 'margin-left:auto;' ?>">
           <?= $showArchived ? 'Ukryj archiwalnych' : 'Pokaż archiwalnych (' . $archivedCnt . ')' ?>
         </a>
       <?php endif; ?>
     </form>
 
+    <?php if ($showRetention): ?>
+      <div class="alert alert-warn">
+        <b>Wpisy do przeglądu pod kątem ochrony danych.</b>
+        To zgłoszenia starsze niż rok, przy których <b>nigdy</b> nie powstała adopcja ani nie wpłynęła
+        żadna wpłata - czyli nic z nich nie wyszło. Polityka prywatności (§ 4 pkt 2) mówi, że takie
+        dane usuwamy po roku od zgłoszenia.
+        <br>Nic nie kasuje się samo: wejdź w osobę i użyj przycisku usuwania na dole jej karty.
+        Jeśli któryś kontakt jest wciąż żywy (np. umówiliście się na później), po prostu go zostaw -
+        wróci na tę listę przy następnym przeglądzie.
+      </div>
+    <?php endif; ?>
+
     <?php if (!$donors): ?>
-      <p class="hint"><?= $q !== '' ? 'Brak wyników dla „' . mada_esc($q) . '".' : 'Baza darczyńców jest pusta - zacznij od strony Import.' ?></p>
+      <p class="hint"><?= $q !== '' ? 'Brak wyników dla „' . mada_esc($q) . '".'
+        : ($showRetention ? 'Nic do przeglądu - żaden wpis nie kwalifikuje się do usunięcia.'
+                          : 'Baza darczyńców jest pusta - zacznij od strony Import.') ?></p>
     <?php else: ?>
-      <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny; wyszukiwarka obejmuje też archiwalnych)' : '' ?><?php
-        if ($q === '' && $archivedCnt > 0 && !$showArchived): ?>, ukrytych archiwalnych: <?= $archivedCnt ?><?php endif; ?></p>
+      <p class="hint" style="margin:0 0 12px;"><?= $showRetention ? 'Do przeglądu: ' : 'Łącznie: ' ?><?= count($donors) ?><?= $q !== '' ? ' (filtr aktywny; wyszukiwarka obejmuje też archiwalnych)' : '' ?><?php
+        if ($q === '' && !$showRetention && $archivedCnt > 0 && !$showArchived): ?>, ukrytych archiwalnych: <?= $archivedCnt ?><?php endif; ?></p>
       <table class="events">
         <thead><tr>
-          <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th></th>
+          <th>Darczyńca</th><th>Dzieci</th><th>Metoda</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th></th>
         </tr></thead>
         <tbody>
         <?php foreach ($donors as $d):
@@ -83,8 +120,12 @@ panel_header('Darczyńcy - Adopcja Serca');
             $methods = array_unique(array_map(fn($a) => $methodLabel[$a['method']] ?? $a['method'], $active));
         ?>
           <tr class="row-link" data-href="darczynca.php?id=<?= (int)$d['id'] ?>">
-            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><?= (int)$d['is_archived'] === 1 ? ' <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">archiwum</span>' : '' ?><br>
-                <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?></span></td>
+            <td><a href="darczynca.php?id=<?= (int)$d['id'] ?>"><?= mada_esc($d['full_name']) ?></a><?= (int)$d['is_archived'] === 1 ? ' <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">archiwum</span>' : '' ?><?php
+                if ((int)($d['email_shared_now'] ?? 0) === 1): ?> <span class="badge badge-arch" title="Ten adres e-mail ma w bazie więcej niż jeden darczyńca - sprawdź, czy adopcje wiszą przy właściwej osobie">wspólny e-mail</span><?php endif; ?><br>
+                <span class="hint"><?= mada_esc($d['email'] ?: '-') ?><?= $d['emails_extra'] ? '; ' . mada_esc($d['emails_extra']) : '' ?><?php
+                  if (($d['phone'] ?? '') !== '') echo ' · ' . mada_esc($d['phone']);
+                  if (($d['city'] ?? '') !== '') echo ' · ' . mada_esc($d['city']);
+                ?></span></td>
             <td><?php if ($d['children_names']): ?>
                   <?= mada_esc($d['children_names']) ?> <span class="hint">(nr <?= mada_esc($d['children_numbers']) ?>)</span>
                 <?php else: ?><span class="hint">-</span><?php endif; ?></td>
@@ -95,9 +136,22 @@ panel_header('Darczyńcy - Adopcja Serca');
                 <?php elseif ($active): ?>
                   <span class="badge" style="background:#e9f5ee;color:var(--ok);border-color:#b8dcc6;">OK</span>
                 <?php else: ?><span class="hint">-</span><?php endif; ?></td>
+            <?php
+              /* Dossier = mail z przedstawieniem dziecka. Liczymy tylko adopcje,
+                 które mają już przypisane dziecko - bez dziecka nie ma czego wysyłać. */
+              $withChild = (int)($d['with_child_cnt'] ?? 0);
+              $dsSent    = (int)($d['dossier_sent_cnt'] ?? 0);
+            ?>
+            <td><?php if ($withChild === 0): ?><span class="hint">-</span>
+                <?php elseif ($dsSent >= $withChild): ?>
+                  <span class="badge badge-ok">wysłane<?= $withChild > 1 ? ' (' . $dsSent . '/' . $withChild . ')' : '' ?></span>
+                <?php elseif ($dsSent > 0): ?>
+                  <span class="badge badge-err"><?= $dsSent ?>/<?= $withChild ?></span>
+                <?php else: ?>
+                  <span class="badge badge-err">nie wysłano</span>
+                <?php endif; ?></td>
             <td style="white-space:nowrap;">
-              <a class="btn-secondary btn-sm" href="darczynca.php?id=<?= (int)$d['id'] ?>">Karta</a>
-              <a class="btn-ghost btn-sm" href="darczynca-edit.php?id=<?= (int)$d['id'] ?>">Edytuj</a>
+              <a class="btn-secondary btn-sm" href="darczynca-edit.php?id=<?= (int)$d['id'] ?>">Edytuj</a>
             </td>
           </tr>
         <?php endforeach; ?>

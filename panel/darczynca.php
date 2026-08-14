@@ -78,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dn = adopt_donor_get($id);
             $ch = adopt_child_get((int)$ad['child_id']);
             if ($dn && $ch && adopt_mail_child_dossier($dn, $ch, '')) {
+                adopt_adoption_mark_dossier_sent($adoptionId, mada_current_user());
                 mada_audit('adoption.childmail', 'adoption', $adoptionId,
                     ['dziecko' => $ch['name'], 'email' => $dn['email'], 'skrot' => true]);
                 mada_redirect("darczynca.php?id=$id&msg=mailok");
@@ -94,6 +95,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adopt_adoption_end($adoptionId, $endM);
             mada_audit('adoption.end', 'adoption', $adoptionId, ['end_month' => $endM]);
             mada_redirect("darczynca.php?id=$id&msg=ended");
+        }
+
+        /* Ręczne archiwum: chowa wpis z listy, ale ZACHOWUJE dane kontaktowe
+           i całą historię. Dla kogoś, kto zgłosił się i wycofał przed
+           przypisaniem dziecka - do tej pory taki wpis dało się tylko usunąć. */
+        if ($action === 'archive' || $action === 'unarchive') {
+            $dn = adopt_donor_get($id);
+            if (!$dn) mada_redirect('darczyncy.php');
+            adopt_donor_set_archived($id, $action === 'archive', mada_current_user());
+            mada_audit('donor.' . $action, 'donor', $id, ['nazwa' => $dn['full_name']]);
+            mada_redirect("darczynca.php?id=$id&msg=" . ($action === 'archive' ? 'archived' : 'unarchived'));
+        }
+
+        /* Domknięcie scalania duplikatów: po przeniesieniu adopcji pusty wpis
+           trzeba dać się usunąć, inaczej zostaje na liście i myli pracowników.
+           Kasujemy WYŁĄCZNIE wpis bez żadnej adopcji (a więc i bez wpłat). */
+        if ($action === 'deldonor') {
+            $dn = adopt_donor_get($id);
+            if (!$dn) mada_redirect('darczyncy.php');
+            if (adopt_donor_delete_if_empty($id)) {
+                mada_audit('donor.delete', 'donor', $id, ['nazwa' => $dn['full_name'], 'email' => $dn['email']]);
+                mada_redirect('darczyncy.php?msg=donordel');
+            }
+            mada_redirect("darczynca.php?id=$id&msg=notempty");
         }
 
         if ($action === 'resume') {
@@ -115,7 +140,7 @@ function dk_flash() {
     $codes = [
         'payok'    => ['ok',    'Wpłata została odnotowana.'],
         'noteok'   => ['ok',    'Notatki zostały zapisane.'],
-        'mailok'   => ['ok',    'Mail z przedstawieniem dziecka został wysłany do darczyńcy (odhaczono „materiały wysłane").'],
+        'mailok'   => ['ok',    'Mail z przedstawieniem dziecka (dossier) został wysłany - data wysyłki jest odnotowana przy adopcji.'],
         'mailfail' => ['error', 'Mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki). Zmiany w adopcji zostały zapisane.'],
         'paydel'   => ['ok',    'Wpłata została usunięta.'],
         'ended'    => ['ok',    'Adopcja została zakończona (miesiące po końcu nie liczą się jako zaległość).'],
@@ -123,6 +148,9 @@ function dk_flash() {
         'saved'    => ['ok',    'Zapisano zmiany.'],
         'badpay'   => ['error', 'Nieprawidłowe dane (kwota, miesiące YYYY-MM albo data).'],
         'badadopt' => ['error', 'Nieprawidłowa adopcja.'],
+        'notempty' => ['error', 'Nie usunięto: przy tym darczyńcy wciąż wisi adopcja. Najpierw przenieś ją do innego darczyńcy („Edytuj" przy adopcji).'],
+        'archived'   => ['ok', 'Darczyńca przeniesiony do archiwum - zniknie z listy, ale wszystkie jego dane i historia zostają. Można go przywrócić w każdej chwili.'],
+        'unarchived' => ['ok', 'Zdjęto ręczne archiwum.'],
     ];
     $m = $_GET['msg'] ?? '';
     if (!isset($codes[$m])) return '';
@@ -130,11 +158,13 @@ function dk_flash() {
     return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
 }
 
-$donor = null; $ads = []; $pays = []; $subs = [];
+$donor = null; $ads = []; $pays = []; $subs = []; $sharing = []; $autoArch = false;
 try {
     adopt_db_ensure_schema();
     $donor = adopt_donor_get($id);
     if ($donor) {
+        $autoArch = adopt_donor_auto_archived($id);
+        $sharing = adopt_donors_sharing_email($donor['email'] ?? null, $id);
         $ads = adopt_adoptions_by_donor($id);
         $pays = adopt_payments_by_adoptions(array_column($ads, 'id'));
         foreach ($ads as $a) {
@@ -155,9 +185,26 @@ $statusLabel = ['pending' => 'oczekująca', 'active' => 'aktywna', 'ended' => 'z
 panel_header('Darczyńca - Adopcja Serca');
 ?>
     <div class="bar">
-      <h2 style="margin:0;"><?= $donor ? mada_esc($donor['full_name']) : 'Darczyńca' ?></h2>
+      <h2 style="margin:0;"><?= $donor ? mada_esc($donor['full_name']) : 'Darczyńca' ?>
+        <?php if ($donor && (($donor['archived_at'] ?? null) !== null || $autoArch)): ?>
+          <span class="badge badge-arch">archiwum</span>
+        <?php endif; ?>
+      </h2>
       <span>
-        <?php if ($donor): ?><a href="darczynca-edit.php?id=<?= (int)$donor['id'] ?>" class="btn-secondary btn-sm">Edytuj dane</a>
+        <a href="darczyncy.php" class="btn-ghost btn-sm">← Wróć do listy darczyńców</a>
+        <?php if ($donor): ?>
+        <form method="post" style="display:inline;"
+              onsubmit="return confirm(<?= ($donor['archived_at'] ?? null) === null
+                ? "'Przenieść darczyńcę do archiwum?\\n\\nZniknie z listy, ale wszystkie dane, adopcje i wpłaty zostaną. Można go przywrócić w każdej chwili.'"
+                : "'Zdjąć ręczne archiwum?'" ?>);">
+          <?= mada_csrf_field() ?>
+          <input type="hidden" name="action" value="<?= ($donor['archived_at'] ?? null) === null ? 'archive' : 'unarchive' ?>">
+          <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+          <button type="submit" class="btn-secondary btn-sm">
+            <?= ($donor['archived_at'] ?? null) === null ? '📦 Przenieś do archiwum' : '↩ Przywróć do programu' ?>
+          </button>
+        </form>
+        <a href="darczynca-edit.php?id=<?= (int)$donor['id'] ?>" class="btn-secondary btn-sm">Edytuj dane</a>
         <a href="adopcja-edit.php?donor=<?= (int)$donor['id'] ?>" class="btn-primary btn-sm">+ Nowa adopcja</a><?php endif; ?>
 
       </span>
@@ -169,11 +216,76 @@ panel_header('Darczyńca - Adopcja Serca');
 <?php elseif (!$donor): ?>
     <div class="alert alert-error">Nie znaleziono darczyńcy.</div>
 <?php else: ?>
-    <p class="hint" style="margin:0 0 14px;">
-      E-mail: <b><?= mada_esc($donor['email'] ?: '-') ?></b><?= $donor['emails_extra'] ? ' (dodatkowe: ' . mada_esc($donor['emails_extra']) . ')' : '' ?>
-      · Telefon: <?= mada_esc($donor['phone'] ?: '-') ?>
-      · Źródło: <?= mada_esc($donor['source']) ?>
-    </p>
+    <?php
+      /* Dlaczego wpis jest w archiwum - pracownik musi to wiedzieć, zanim kliknie
+         „Przywróć": przy archiwum AUTOMATYCZNYM zdjęcie ręcznej flagi niczego nie
+         zmieni, bo darczyńca i tak nie ma otwartej adopcji. */
+      $manArch = ($donor['archived_at'] ?? null) !== null;
+    ?>
+    <?php if ($manArch || $autoArch): ?>
+      <div class="alert alert-warn" style="background:var(--creamDk);border-color:var(--rule);color:#6b5a4a;">
+        <b>Ten wpis jest w archiwum</b> - nie pokazuje się na liście darczyńców
+        (jest pod „Pokaż archiwalnych"). Dane, adopcje i wpłaty są nietknięte.
+        <?php if ($manArch): ?>
+          <br>Powód: schowany ręcznie <?= mada_esc(date('d.m.Y', strtotime((string)$donor['archived_at']))) ?><?php
+            if ($donor['archived_by']) echo ' przez ' . mada_esc((string)$donor['archived_by']); ?>.
+          <?php if ($autoArch): ?> Uwaga: nawet po „Przywróć" zostanie w archiwum,
+            bo żadna jego adopcja już nie trwa - wróci na listę dopiero po „Wznów" przy adopcji.<?php endif; ?>
+        <?php else: ?>
+          <br>Powód: żadna z jego adopcji już nie trwa (wszystkie zakończone).
+          Wróci na listę sam po „Wznów" przy adopcji albo po dodaniu nowej.
+        <?php endif; ?>
+        <?php if ($manArch && !$ads): ?>
+          <br><b>Uwaga RODO:</b> archiwum tylko chowa wpis z listy - dane dalej są w bazie.
+          Polityka prywatności (§ 4) pozwala trzymać je „przez okres niezbędny do realizacji celu"
+          i „do czasu cofnięcia zgody", więc gdy ta osoba zrezygnuje albo poprosi o usunięcie
+          danych, wpis trzeba skasować, a nie zostawić w archiwum. Przy tym wpisie nie ma żadnej
+          adopcji, więc przycisk usuwania niżej zadziała.
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($sharing): ?>
+      <div class="alert alert-warn">
+        <b>Ten sam adres e-mail ma jeszcze <?= count($sharing) === 1 ? 'inny darczyńca' : count($sharing) . ' innych darczyńców' ?>:</b>
+        <?php foreach ($sharing as $i => $s): ?><?= $i ? ', ' : ' ' ?><a href="darczynca.php?id=<?= (int)$s['id'] ?>"><?= mada_esc($s['full_name']) ?></a><?php endforeach; ?>.
+        Zdarza się, że jedna osoba zgłasza kogoś ze swojej skrzynki (np. proboszcz zgłaszający mamę) -
+        sprawdź, czy adopcje wiszą przy właściwej osobie.
+        <br>Jeśli nie: załóż jej wpis („+ Nowy darczyńca"), a potem w „Edytuj" przy adopcji zmień pole
+        <b>Darczyńca</b> - adopcja przeniesie się razem z wpłatami. Gdy oba wpisy to jednak ta sama
+        osoba, przenieś wszystkie adopcje na jeden, a pusty usuń z jego karty.
+      </div>
+    <?php endif; ?>
+
+    <?php
+      $adres = adopt_address_compose($donor);
+      $imieNazwisko = trim(((string)($donor['first_name'] ?? '')) . ' ' . ((string)($donor['last_name'] ?? '')));
+    ?>
+    <div class="donor-card">
+      <div><span class="dc-label">E-mail</span>
+        <?php if (($donor['email'] ?? '') !== ''): ?>
+          <a href="mailto:<?= mada_esc($donor['email']) ?>"><?= mada_esc($donor['email']) ?></a>
+        <?php else: ?><span class="hint">nie podano</span><?php endif; ?>
+        <?= $donor['emails_extra'] ? '<br><span class="hint">dodatkowe: ' . mada_esc($donor['emails_extra']) . '</span>' : '' ?>
+      </div>
+      <div><span class="dc-label">Telefon</span>
+        <?php if (($donor['phone'] ?? '') !== ''): ?>
+          <a href="tel:<?= mada_esc(preg_replace('/[^\d+]/', '', (string)$donor['phone'])) ?>"><?= mada_esc($donor['phone']) ?></a>
+        <?php else: ?><span class="hint">nie podano</span><?php endif; ?>
+      </div>
+      <div><span class="dc-label">Adres korespondencyjny</span>
+        <?php if ($adres !== ''): ?>
+          <?= implode('<br>', array_map('mada_esc', adopt_address_lines($donor))) ?>
+        <?php else: ?><span class="hint">nie podano</span><?php endif; ?>
+      </div>
+      <div><span class="dc-label">Imię i nazwisko</span>
+        <?= $imieNazwisko !== '' ? mada_esc($imieNazwisko) : '<span class="hint">tylko nazwa wyświetlana</span>' ?>
+      </div>
+      <div><span class="dc-label">Źródło</span>
+        <?= mada_esc(['site' => 'zgłoszenie ze strony', 'import' => 'import z arkusza', 'manual' => 'wpis ręczny'][$donor['source']] ?? $donor['source']) ?>
+        <br><span class="hint">dodany <?= mada_esc(date('d.m.Y', strtotime((string)$donor['created_at']))) ?></span>
+      </div>
+    </div>
 
     <details class="donor-notes" <?= $donor['notes'] ? 'open' : '' ?> style="margin:0 0 20px;">
       <summary style="cursor:pointer;font-weight:600;color:var(--brown);">📝 Notatki fundacji<?= $donor['notes'] ? '' : ' <span class="hint">(brak - kliknij, aby dodać)</span>' ?></summary>
@@ -188,9 +300,32 @@ panel_header('Darczyńca - Adopcja Serca');
     </details>
 
     <h3>Adopcje</h3>
-    <?php if (!$ads): ?><p class="hint">Brak adopcji.</p><?php else: ?>
+    <?php if (!$ads): ?>
+      <p class="hint">Brak adopcji.</p>
+      <details class="danger-zone" style="margin:0 0 20px;">
+        <summary>Usuń tego darczyńcę z bazy</summary>
+        <p style="margin:10px 0 12px;color:var(--err);font-weight:600;">Uwaga: tej operacji NIE DA SIĘ COFNĄĆ.</p>
+        <p class="hint" style="margin:0 0 12px;">
+          Przydatne po scaleniu duplikatu: gdy wszystkie adopcje przeniesiesz na drugi wpis,
+          ten zostaje pusty i można go skasować. Przy tym wpisie nie ma żadnej adopcji ani wpłaty,
+          więc nic nie przepadnie - ale notatki i dane kontaktowe znikną razem z nim.
+        </p>
+        <form method="post" style="margin:0;"
+              onsubmit="var v=this.potwierdz.value.trim();
+                        if (v !== 'USUŃ') { alert('Aby usunąć, wpisz w polu: USUŃ'); return false; }
+                        return confirm('OSTATNIE OSTRZEŻENIE\n\nUsunąć darczyńcę „<?= mada_esc($donor['full_name']) ?>” z bazy?\n\nTej operacji nie da się cofnąć.');">
+          <?= mada_csrf_field() ?>
+          <input type="hidden" name="action" value="deldonor">
+          <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
+          <label style="max-width:320px;margin:0 0 10px;">Aby potwierdzić, wpisz <b>USUŃ</b>
+            <input type="text" name="potwierdz" autocomplete="off" placeholder="USUŃ">
+          </label>
+          <button type="submit" class="btn-danger btn-sm">Usuń „<?= mada_esc($donor['full_name']) ?>” na zawsze</button>
+        </form>
+      </details>
+    <?php else: ?>
     <table class="events">
-      <thead><tr><th>Dziecko</th><th>Okres</th><th>Częst.</th><th>Kwota</th><th>Metoda</th><th>Status</th><th>Opłacone do</th><th>Zaległość</th><th>Akcje</th></tr></thead>
+      <thead><tr><th>Dziecko</th><th>Okres</th><th>Częst.</th><th>Kwota</th><th>Metoda</th><th>Status</th><th>Opłacone do</th><th>Zaległość</th><th>Dossier</th><th>Akcje</th></tr></thead>
       <tbody>
       <?php foreach ($ads as $a):
           $p = $pays[(int)$a['id']] ?? [];
@@ -210,18 +345,32 @@ panel_header('Darczyńca - Adopcja Serca');
           <td><?php if ($miss): ?><span class="badge badge-err"><?= count($miss) ?> mies.</span>
               <?php elseif ($isOpen && $a['start_month'] !== null): ?><span class="badge badge-ok">OK</span>
               <?php else: ?><span class="hint">-</span><?php endif; ?></td>
+          <?php
+            /* „Dossier" = czy do darczyńcy poszedł mail z przedstawieniem TEGO dziecka.
+               Zapisywane w chwili realnej wysyłki, więc „nie wysłano" jest wiarygodne. */
+            $dsAt = $a['dossier_sent_at'] ?? null;
+            $dsCnt = (int)($a['dossier_sent_count'] ?? 0);
+          ?>
+          <td><?php if ($a['child_id'] === null): ?><span class="hint">-</span>
+              <?php elseif ($dsAt !== null): ?>
+                <span class="badge badge-ok">wysłane</span><br>
+                <span class="hint"><?= mada_esc(date('d.m.Y', strtotime((string)$dsAt))) ?><?php
+                  if ($a['dossier_sent_by']) echo ', ' . mada_esc((string)$a['dossier_sent_by']);
+                  if ($dsCnt > 1) echo ' (×' . $dsCnt . ')';
+                ?></span>
+              <?php else: ?><span class="badge badge-err">nie wysłano</span><?php endif; ?></td>
           <td style="white-space:nowrap;">
             <a class="btn-secondary btn-sm" href="adopcja-edit.php?id=<?= (int)$a['id'] ?>">Edytuj</a>
             <?php if ($a['child_id'] !== null && ($donor['email'] ?? '') !== ''): ?>
               <form method="post" style="display:inline;"
-                    onsubmit="return confirm('Wysłać do <?= mada_esc($donor['email']) ?> mail z przedstawieniem dziecka <?= mada_esc($a['child_name'] ?? '') ?>?\n\nOsobisty dopisek dodasz przez „Edytuj”.');">
+                    onsubmit="return confirm('<?= $dsAt !== null ? 'Dossier tego dziecka zostało już wysłane. Wysłać PONOWNIE' : 'Wysłać' ?> do <?= mada_esc($donor['email']) ?> mail z przedstawieniem dziecka <?= mada_esc($a['child_name'] ?? '') ?>?\n\nOsobisty dopisek dodasz przez „Edytuj”.');">
                 <?= mada_csrf_field() ?>
                 <input type="hidden" name="action" value="senddossier">
                 <input type="hidden" name="donor_id" value="<?= (int)$donor['id'] ?>">
                 <input type="hidden" name="adoption_id" value="<?= (int)$a['id'] ?>">
                 <button type="submit" class="btn-secondary btn-sm"
-                        title="Wyślij darczyńcy dossier dziecka">
-                  📧 Wyślij dossier
+                        title="<?= $dsAt !== null ? 'Wyślij dossier jeszcze raz' : 'Wyślij darczyńcy dossier dziecka' ?>">
+                  📧 <?= $dsAt !== null ? 'Wyślij ponownie' : 'Wyślij dossier' ?>
                 </button>
               </form>
             <?php endif; ?>

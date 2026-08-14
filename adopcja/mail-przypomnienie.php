@@ -55,7 +55,7 @@ function adopt_mail_arrears_reminder(array $donor, array $items, bool $copyToFou
         // Do tytułu przelewu: samo imię i numer, bez nawiasów - część banków
         // wycina znaki specjalne, a fundacja księguje wpłaty po numerze dziecka.
         if (trim((string)($it['child_name'] ?? '')) !== '') {
-            $doTytulu[] = $it['child_name'] . ' ' . (int)$it['child_number'];
+            $doTytulu[] = ['name' => $it['child_name'], 'number' => (int)$it['child_number']];
         }
         $bloki .= '<p style="font-size:14.5px;line-height:1.7;margin:0 0 10px;">'
                 . '<strong>' . mada_mail_esc($nazwa) . '</strong><br>'
@@ -64,10 +64,12 @@ function adopt_mail_arrears_reminder(array $donor, array $items, bool $copyToFou
     }
     if (!$bloki) return false;
 
-    /* Format tytułu ustalony przez fundację 2026-08-03: „Adopcja Serca - darowizna -
-       imię i numer dziecka". Gdy adopcja czeka jeszcze na przypisanie dziecka, w tytule
-       zostaje nazwa darczyńcy - inaczej przelew byłby nie do zidentyfikowania. */
-    $tytulPrzelewu = 'Adopcja Serca - darowizna - ' . ($doTytulu ? implode(', ', $doTytulu) : $imie);
+    /* Jeden wzór tytułu w całej komunikacji (decyzja 2026-08-11): darczyńca zawsze,
+       dziecko dopiero gdy przypisane. Wcześniej monit miał SAM „imię i numer dziecka"
+       (ustalenie z 2026-08-03), a mail powitalny sam darczyńcę - przez co ta sama
+       osoba dostawała od fundacji dwa różne tytuły. Fundacja księguje po numerze
+       dziecka, więc numer zostaje - dochodzi tylko człon z darczyńcą. */
+    $tytulPrzelewu = adopt_transfer_title($imie, $doTytulu);
     $inner =
         '<h2 style="font-family:Georgia,serif;font-size:24px;color:#422918;margin:0 0 16px;">Przypomnienie o wpłacie</h2>'
       . '<p style="font-size:15px;line-height:1.65;margin:0 0 14px;">Dzień dobry, ' . mada_mail_esc($imie) . '!</p>'

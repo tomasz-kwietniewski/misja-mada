@@ -152,6 +152,41 @@ function adopt_db_migrate(?PDO $pdo = null): void {
        ją tylko dla GR1, więc dla pozostałych grup dawała fałszywe „nie". */
     adopt_db_drop_columns($pdo, 'adopt_adoptions', ['materials_sent']);
 
+    /* Ślad wysyłki dossier (2026-08-11). Nie ma nic wspólnego z wycofanym
+       `materials_sent` z arkusza: tę kolumnę zapisuje WYŁĄCZNIE panel w chwili
+       realnej wysyłki maila, więc „nie wysłano" zawsze znaczy „naprawdę nie
+       wysłano". Licznik zostaje, bo dossier wolno ponowić. */
+    adopt_db_add_columns($pdo, 'adopt_adoptions', [
+        'dossier_sent_at'    => 'DATETIME NULL',
+        'dossier_sent_by'    => 'VARCHAR(64) NULL',
+        'dossier_sent_count' => 'SMALLINT UNSIGNED NOT NULL DEFAULT 0',
+    ]);
+
+    /* Dane kontaktowe darczyńcy rozbite na pola (2026-08-11): fundacja drukuje
+       z nich adresy korespondencyjne, a dotąd adres lądował w wolnym tekście
+       `notes` („Adres: …") i nie było go widać w panelu ani w eksporcie.
+       Imię i nazwisko osobno TYLKO dla osób - `full_name` zostaje nazwą
+       wyświetlaną, bo w bazie są instytucje („Parafia Kłodzko") i małżeństwa. */
+    adopt_db_add_columns($pdo, 'adopt_donors', [
+        'first_name'   => 'VARCHAR(100) NULL',
+        'last_name'    => 'VARCHAR(100) NULL',
+        'street'       => 'VARCHAR(160) NULL',
+        'house_no'     => 'VARCHAR(30)  NULL',
+        'postcode'     => 'VARCHAR(12)  NULL',
+        'city'         => 'VARCHAR(120) NULL',
+        // Ślad AUDYTOWY: „przy tym zgłoszeniu wykryliśmy kolizję adresu". Widoki NIE
+        // opierają się na tej kolumnie (liczą stan bazy na bieżąco - patrz
+        // adopt_donor_list i adopt_donors_sharing_email), bo rekordy sprzed
+        // wprowadzenia flagi nigdy by jej nie dostały.
+        'shared_email' => 'TINYINT(1) NOT NULL DEFAULT 0',
+        // Ręczne archiwum darczyńcy (2026-08-12). Dochodzi DO reguły automatycznej
+        // („miał adopcje, żadna już nie trwa"), a nie zamiast niej: pozwala schować
+        // z listy kogoś, kto zgłosił się i wycofał przed przypisaniem dziecka -
+        // wcześniej taki wpis dało się tylko usunąć razem z danymi kontaktowymi.
+        'archived_at'  => 'DATETIME NULL',
+        'archived_by'  => 'VARCHAR(64) NULL',
+    ]);
+
     /* Zgłoszenia z formularza przelewowego (double opt-in po stronie PHP). */
     $pdo->exec(
         "CREATE TABLE IF NOT EXISTS adopt_signups (
@@ -453,7 +488,8 @@ function adopt_child_by_number(int $number): ?array {
 /** Lista dzieci z aktualnym darczyńcą (adopcje pending/active). */
 function adopt_child_list(): array {
     $sql = "SELECT c.*,
-                   GROUP_CONCAT(DISTINCT d.full_name ORDER BY d.full_name SEPARATOR '; ') AS donors
+                   GROUP_CONCAT(DISTINCT d.full_name ORDER BY d.full_name SEPARATOR '; ') AS donors,
+                   GROUP_CONCAT(DISTINCT d.id) AS donor_ids
               FROM adopt_children c
               LEFT JOIN adopt_adoptions a
                      ON a.child_id = c.id AND a.status IN ('pending','active')
@@ -463,25 +499,136 @@ function adopt_child_list(): array {
     return payu_db()->query($sql)->fetchAll();
 }
 
+/**
+ * Adopcje danego dziecka wraz z darczyńcą - do bloku „opiekun" na karcie dziecka.
+ * Zwraca też zakończone okresy (historia opieki nad dzieckiem bywa potrzebna),
+ * posortowane od najnowszych.
+ */
+function adopt_adoptions_by_child(int $childId): array {
+    $st = payu_db()->prepare(
+        "SELECT a.*, d.full_name AS donor_name, d.email AS donor_email, d.phone AS donor_phone
+           FROM adopt_adoptions a
+           JOIN adopt_donors d ON d.id = a.donor_id
+          WHERE a.child_id = ?
+          ORDER BY FIELD(a.status,'active','pending','ended','cancelled'), a.id DESC"
+    );
+    $st->execute([$childId]);
+    return $st->fetchAll();
+}
+
 /* ─────────────────────────────────────────────────────────────────
    CRUD - darczyńcy
   ───────────────────────────────────────────────────────────────── */
 
+/** '' -> null (kolumny opcjonalne trzymamy jako NULL, nie pusty łańcuch). */
+function adopt_nn($v): ?string {
+    $s = trim((string)($v ?? ''));
+    return $s === '' ? null : $s;
+}
+
 function adopt_donor_insert(array $d): int {
     $pdo = payu_db();
     $st = $pdo->prepare(
-        'INSERT INTO adopt_donors (full_name, email, emails_extra, phone, source, notes)
-         VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO adopt_donors (full_name, first_name, last_name, email, emails_extra, phone,
+             street, house_no, postcode, city, source, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $st->execute([
         $d['full_name'],
-        $d['email'] ?? null,
-        $d['emails_extra'] ?? null,
-        $d['phone'] ?? null,
+        adopt_nn($d['first_name'] ?? null),
+        adopt_nn($d['last_name'] ?? null),
+        adopt_nn($d['email'] ?? null),
+        adopt_nn($d['emails_extra'] ?? null),
+        adopt_nn($d['phone'] ?? null),
+        adopt_nn($d['street'] ?? null),
+        adopt_nn($d['house_no'] ?? null),
+        adopt_nn($d['postcode'] ?? null),
+        adopt_nn($d['city'] ?? null),
         $d['source'] ?? 'manual',
-        $d['notes'] ?? null,
+        adopt_nn($d['notes'] ?? null),
     ]);
     return (int)$pdo->lastInsertId();
+}
+
+/**
+ * Darczyńca do zgłoszenia z formularza: dopina do istniejącego rekordu tylko
+ * wtedy, gdy zgadza się e-mail ORAZ nazwa (adopt_same_donor). Ten sam e-mail
+ * przy innej osobie tworzy OSOBNEGO darczyńcę - oba rekordy dostają wtedy
+ * znacznik `shared_email`, żeby panel mógł ostrzec pracownika.
+ * Zwraca [id darczyńcy, czy nowy, czy e-mail jest współdzielony].
+ */
+function adopt_donor_for_signup(array $d): array {
+    $pdo = payu_db();
+    $email = trim((string)($d['email'] ?? ''));
+    $fullName = trim((string)$d['full_name']);
+    $sameEmail = [];
+    if ($email !== '') {
+        $st = $pdo->prepare('SELECT id, full_name FROM adopt_donors WHERE email = ? ORDER BY id');
+        $st->execute([$email]);
+        $sameEmail = $st->fetchAll();
+    }
+    foreach ($sameEmail as $row) {
+        if (adopt_same_donor((string)$row['full_name'], $fullName)) {
+            // Uzupełnia dane, których wcześniej nie było (nie nadpisuje wypełnionych).
+            adopt_donor_fill_missing((int)$row['id'], $d);
+            return [(int)$row['id'], false, count($sameEmail) > 1];
+        }
+    }
+    $newId = adopt_donor_insert($d);
+    if ($sameEmail) {
+        $ids = array_merge(array_map(fn($r) => (int)$r['id'], $sameEmail), [$newId]);
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $pdo->prepare("UPDATE adopt_donors SET shared_email = 1 WHERE id IN ($ph)")->execute($ids);
+        mada_audit('donor.sharedemail', 'donor', $newId, ['email' => $email, 'z' => $ids]);
+    }
+    return [$newId, true, (bool)$sameEmail];
+}
+
+/** Uzupełnia PUSTE pola darczyńcy danymi ze zgłoszenia (nigdy nie nadpisuje). */
+function adopt_donor_fill_missing(int $id, array $d): void {
+    $cols = ['first_name', 'last_name', 'phone', 'street', 'house_no', 'postcode', 'city'];
+    $set = []; $args = [];
+    foreach ($cols as $c) {
+        $v = adopt_nn($d[$c] ?? null);
+        if ($v === null) continue;
+        $set[] = "`$c` = COALESCE(NULLIF(`$c`, ''), ?)";
+        $args[] = $v;
+    }
+    if (!$set) return;
+    $args[] = $id;
+    payu_db()->prepare('UPDATE adopt_donors SET ' . implode(', ', $set) . ' WHERE id = ?')->execute($args);
+}
+
+/**
+ * Wpisy do przeglądu pod kątem retencji (polityka prywatności § 4 pkt 2, od 12.08.2026):
+ * zgłoszenie, które NIE doprowadziło do objęcia dziecka wsparciem, usuwa się po roku.
+ * Kryterium celowo najostrożniejsze z możliwych: darczyńca, przy którym NIGDY nie było
+ * żadnej adopcji (a więc i żadnej wpłaty), starszy niż $months miesięcy. Wpis z choćby
+ * zakończoną adopcją to już historia programu - takiego nie ruszamy i panel go nie pokaże.
+ *
+ * NIE kasujemy automatycznie: usunięcie danych darczyńcy jest nieodwracalne, a decyzja
+ * należy do fundacji. Panel tylko wystawia listę do kliknięcia.
+ */
+function adopt_donors_retention_due(int $months = 12): array {
+    $st = payu_db()->prepare(
+        "SELECT d.* FROM adopt_donors d
+          WHERE NOT EXISTS (SELECT 1 FROM adopt_adoptions a WHERE a.donor_id = d.id)
+            AND d.created_at < DATE_SUB(NOW(), INTERVAL ? MONTH)
+          ORDER BY d.created_at"
+    );
+    $st->execute([$months]);
+    return $st->fetchAll();
+}
+
+/** Inni darczyńcy używający tego samego adresu e-mail (ostrzeżenie w panelu). */
+function adopt_donors_sharing_email(?string $email, int $exceptId): array {
+    $email = trim((string)$email);
+    if ($email === '') return [];
+    $st = payu_db()->prepare(
+        'SELECT id, full_name FROM adopt_donors WHERE email = ? AND id <> ? ORDER BY full_name'
+    );
+    $st->execute([$email, $exceptId]);
+    return $st->fetchAll();
 }
 
 function adopt_donor_get(int $id): ?array {
@@ -496,23 +643,39 @@ function adopt_donor_list(string $search = ''): array {
     $where = '';
     $args = [];
     if ($search !== '') {
-        $where = 'WHERE d.full_name LIKE ? OR d.email LIKE ? OR d.emails_extra LIKE ?';
+        /* Szuka po nazwisku (osobna kolumna i nazwa wyświetlana), e-mailach,
+           telefonie i miejscowości - pracownik zwykle ma pod ręką jedno z nich. */
+        $where = 'WHERE d.full_name LIKE ? OR d.last_name LIKE ? OR d.first_name LIKE ?
+                     OR d.email LIKE ? OR d.emails_extra LIKE ? OR d.phone LIKE ? OR d.city LIKE ?';
         $like = '%' . $search . '%';
-        $args = [$like, $like, $like];
+        $args = array_fill(0, 7, $like);
     }
-    /* is_archived: darczyńca, który MIAŁ adopcje, ale żadna nie jest już
-       aktywna ani oczekująca (czyli po „Zakończ"). Osoba dopiero dodana,
-       jeszcze bez żadnej adopcji, NIE jest archiwalna - musi być widoczna,
-       żeby dało się jej przypisać dziecko. */
+    /* Archiwum darczyńcy ma DWA źródła i jedno nie zastępuje drugiego:
+       - automatyczne: MIAŁ adopcje, ale żadna nie jest już aktywna ani oczekująca
+         (czyli po „Zakończ") - dzieje się samo, bez klikania,
+       - ręczne (`archived_at`): pracownik chowa wpis z listy, np. gdy ktoś zgłosił
+         się i wycofał, zanim dostał dziecko.
+       Osoba dopiero dodana, jeszcze bez żadnej adopcji, NIE jest archiwalna
+       automatycznie - musi być widoczna, żeby dało się jej przypisać dziecko. */
     $sql = "SELECT d.*,
                    COUNT(a.id) AS adoptions_cnt,
                    (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) AS adoptions_total,
-                   CASE WHEN COUNT(a.id) = 0
-                         AND (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) > 0
+                   CASE WHEN d.archived_at IS NOT NULL THEN 1 ELSE 0 END AS is_archived_manual,
+                   CASE WHEN d.archived_at IS NOT NULL
+                          OR (COUNT(a.id) = 0
+                              AND (SELECT COUNT(*) FROM adopt_adoptions x WHERE x.donor_id = d.id) > 0)
                         THEN 1 ELSE 0 END AS is_archived,
                    GROUP_CONCAT(DISTINCT c.name ORDER BY c.number SEPARATOR '; ') AS children_names,
                    GROUP_CONCAT(DISTINCT c.number ORDER BY c.number SEPARATOR ', ') AS children_numbers,
-                   GROUP_CONCAT(DISTINCT a.method) AS methods
+                   GROUP_CONCAT(DISTINCT a.method) AS methods,
+                   /* Współdzielony e-mail liczony NA BIEŻĄCO, nie z kolumny `shared_email`:
+                      kolumna zapala się dopiero przy nowym zgłoszeniu, więc pary powstałe
+                      wcześniej (import z arkusza - w bazie są 4) nigdy by się nie oznaczyły.
+                      Podzapytanie idzie po idx_email i zawsze mówi prawdę o stanie bazy. */
+                   (SELECT COUNT(*) FROM adopt_donors z
+                     WHERE z.email = d.email AND d.email IS NOT NULL AND d.email <> '') > 1 AS email_shared_now,
+                   SUM(CASE WHEN a.child_id IS NOT NULL THEN 1 ELSE 0 END) AS with_child_cnt,
+                   SUM(CASE WHEN a.child_id IS NOT NULL AND a.dossier_sent_at IS NOT NULL THEN 1 ELSE 0 END) AS dossier_sent_cnt
               FROM adopt_donors d
               LEFT JOIN adopt_adoptions a
                      ON a.donor_id = d.id AND a.status IN ('pending','active')
@@ -633,16 +796,111 @@ function adopt_payments_by_adoptions(array $adoptionIds): array {
 
 function adopt_donor_update(int $id, array $d): void {
     $st = payu_db()->prepare(
-        'UPDATE adopt_donors SET full_name = ?, email = ?, emails_extra = ?, phone = ?, notes = ? WHERE id = ?'
+        'UPDATE adopt_donors
+            SET full_name = ?, first_name = ?, last_name = ?, email = ?, emails_extra = ?, phone = ?,
+                street = ?, house_no = ?, postcode = ?, city = ?, notes = ?
+          WHERE id = ?'
     );
     $st->execute([
         $d['full_name'],
-        $d['email'] !== '' ? $d['email'] : null,
-        $d['emails_extra'] !== '' ? $d['emails_extra'] : null,
-        $d['phone'] !== '' ? $d['phone'] : null,
-        $d['notes'] !== '' ? $d['notes'] : null,
+        adopt_nn($d['first_name'] ?? null),
+        adopt_nn($d['last_name'] ?? null),
+        adopt_nn($d['email'] ?? null),
+        adopt_nn($d['emails_extra'] ?? null),
+        adopt_nn($d['phone'] ?? null),
+        adopt_nn($d['street'] ?? null),
+        adopt_nn($d['house_no'] ?? null),
+        adopt_nn($d['postcode'] ?? null),
+        adopt_nn($d['city'] ?? null),
+        adopt_nn($d['notes'] ?? null),
         $id,
     ]);
+}
+
+/**
+ * Usuwa darczyńcę - WYŁĄCZNIE gdy nie ma żadnej adopcji (a więc i żadnej wpłaty,
+ * bo te wiszą przy adopcji). Domyka scalanie duplikatów: adopcje przenosi się
+ * do właściwego wpisu, pusty wpis znika z listy. Zwraca false, gdy coś przy nim
+ * jeszcze wisi - wtedy nic nie kasujemy.
+ */
+function adopt_donor_delete_if_empty(int $id): bool {
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM adopt_adoptions WHERE donor_id = ?');
+    $st->execute([$id]);
+    if ((int)$st->fetchColumn() > 0) return false;
+    $pdo->prepare('DELETE FROM adopt_reminders WHERE donor_id = ?')->execute([$id]);
+    $pdo->prepare('DELETE FROM adopt_donors WHERE id = ?')->execute([$id]);
+    return true;
+}
+
+/**
+ * Ręczne archiwum darczyńcy (bez dotykania jego historii i adopcji).
+ * Zdjęcie flagi nie zawsze wyciąga wpis z archiwum - darczyńca z samymi
+ * zakończonymi adopcjami zostaje archiwalny automatycznie i tak ma być.
+ */
+function adopt_donor_set_archived(int $id, bool $archived, ?string $user): void {
+    $st = payu_db()->prepare('UPDATE adopt_donors SET archived_at = ?, archived_by = ? WHERE id = ?');
+    $st->execute([
+        $archived ? date('Y-m-d H:i:s') : null,
+        $archived && $user !== null ? mb_substr($user, 0, 64) : null,
+        $id,
+    ]);
+}
+
+/**
+ * Czy darczyńca jest archiwalny AUTOMATYCZNIE (miał adopcje, żadna już nie trwa).
+ * Karta używa tego, żeby uczciwie powiedzieć, dlaczego wpis jest w archiwum -
+ * inaczej „Przywróć" wyglądałoby na przycisk, który nic nie robi.
+ */
+function adopt_donor_auto_archived(int $id): bool {
+    $st = payu_db()->prepare(
+        "SELECT COUNT(*) total, SUM(status IN ('pending','active')) otwarte
+           FROM adopt_adoptions WHERE donor_id = ?"
+    );
+    $st->execute([$id]);
+    $r = $st->fetch();
+    return (int)$r['total'] > 0 && (int)$r['otwarte'] === 0;
+}
+
+/** Przełącza dziecko między programem a archiwum (bez dotykania jego historii). */
+function adopt_child_set_status(int $id, string $status): void {
+    $st = payu_db()->prepare('UPDATE adopt_children SET status = ? WHERE id = ?');
+    $st->execute([$status === 'inactive' ? 'inactive' : 'active', $id]);
+}
+
+/**
+ * Usuwa dziecko - WYŁĄCZNIE gdy nigdy nie miało żadnej adopcji. To furtka na
+ * POMYŁKI przy dodawaniu (literówka w numerze, dubel), a nie sposób na wycofanie
+ * dziecka z programu - do tego służy archiwum, które zachowuje historię wpłat.
+ * Kasuje też zdjęcie z uploads/dzieci/. Zwraca false, gdy dziecko ma adopcje.
+ */
+function adopt_child_delete_if_unused(int $id): bool {
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM adopt_adoptions WHERE child_id = ?');
+    $st->execute([$id]);
+    if ((int)$st->fetchColumn() > 0) return false;
+    $child = adopt_child_get($id);
+    $pdo->prepare('DELETE FROM adopt_children WHERE id = ?')->execute([$id]);
+    if ($child && !empty($child['photo'])) {
+        @unlink(__DIR__ . '/../uploads/dzieci/' . basename((string)$child['photo']));
+    }
+    return true;
+}
+
+/** Darczyńcy do selecta „przenieś adopcję" - posortowani po nazwisku. */
+function adopt_donor_options(): array {
+    $rows = payu_db()->query('SELECT id, full_name, email FROM adopt_donors')->fetchAll();
+    return adopt_sort_by_surname($rows);
+}
+
+/** Odnotowuje realną wysyłkę dossier dziecka (data, kto, licznik ponowień). */
+function adopt_adoption_mark_dossier_sent(int $adoptionId, ?string $user): void {
+    $st = payu_db()->prepare(
+        'UPDATE adopt_adoptions
+            SET dossier_sent_at = NOW(), dossier_sent_by = ?, dossier_sent_count = dossier_sent_count + 1
+          WHERE id = ?'
+    );
+    $st->execute([$user !== null ? mb_substr($user, 0, 64) : null, $adoptionId]);
 }
 
 function adopt_adoption_get(int $id): ?array {
@@ -659,13 +917,18 @@ function adopt_adoption_get(int $id): ?array {
 }
 
 function adopt_adoption_update(int $id, array $d): void {
+    /* donor_id jest edytowalne: bez tego nie dało się PRZENIEŚĆ adopcji do innego
+       darczyńcy, a to jedyna droga naprawy dwóch realnych sytuacji - zgłoszenia,
+       które wpadło pod cudzy rekord przez wspólny e-mail, i scalenia dwóch wpisów
+       tej samej osoby. Wpłaty wiszą przy adopcji, więc idą razem z nią. */
     $st = payu_db()->prepare(
         'UPDATE adopt_adoptions
-            SET child_id = ?, subscription_id = ?, duration = ?, start_month = ?, end_month = ?,
+            SET donor_id = ?, child_id = ?, subscription_id = ?, duration = ?, start_month = ?, end_month = ?,
                 frequency = ?, amount_grosze = ?, method = ?, notes = ?
           WHERE id = ?'
     );
     $st->execute([
+        $d['donor_id'],
         $d['child_id'] ?? null,
         $d['subscription_id'] ?? null,
         $d['duration'],
@@ -757,22 +1020,18 @@ function adopt_ensure_from_card(array $sub, array $ad): void {
               . trim((string)($ad['nazwisko'] ?? $sub['last_name'] ?? '')));
     if ($fullName === '') return;
 
-    $donorId = null;
-    if ($email !== '') {
-        $st = $pdo->prepare('SELECT id FROM adopt_donors WHERE email = ? LIMIT 1');
-        $st->execute([$email]);
-        $found = $st->fetchColumn();
-        if ($found !== false) $donorId = (int)$found;
-    }
-    if ($donorId === null) {
-        $donorId = adopt_donor_insert([
-            'full_name' => $fullName,
-            'email'     => $email !== '' ? $email : null,
-            'phone'     => trim((string)($ad['telefon'] ?? '')) ?: null,
-            'source'    => 'site',
-            'notes'     => ($adres = trim((string)($ad['adres'] ?? ''))) !== '' ? 'Adres: ' . $adres : null,
-        ]);
-    }
+    [$donorId] = adopt_donor_for_signup([
+        'full_name'  => $fullName,
+        'first_name' => (string)($ad['imie'] ?? $sub['first_name'] ?? ''),
+        'last_name'  => (string)($ad['nazwisko'] ?? $sub['last_name'] ?? ''),
+        'email'      => $email,
+        'phone'      => (string)($ad['telefon'] ?? ''),
+        'street'     => (string)($ad['ulica'] ?? ''),
+        'house_no'   => (string)($ad['nr_domu'] ?? ''),
+        'postcode'   => (string)($ad['kod_pocztowy'] ?? ''),
+        'city'       => (string)($ad['miejscowosc'] ?? ''),
+        'source'     => 'site',
+    ]);
 
     // okres z formularza ("czasowa" ma zakres w polu okres, np. "2026-09 - 2027-08")
     $duration = ($ad['forma'] ?? '') === 'czasowa' || stripos((string)($ad['forma'] ?? ''), 'czasow') !== false

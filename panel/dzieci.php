@@ -5,6 +5,7 @@
 require_once __DIR__ . '/layout.php';
 mada_require_login();
 require_once __DIR__ . '/../adopcja/db.php';
+require_once __DIR__ . '/../adopcja/lib.php';
 
 $dbError = '';
 
@@ -62,6 +63,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_audit($isAdd ? 'child.add' : 'child.edit', 'child', $cid, array_diff_key($d, ['description' => 1]));
             mada_redirect('dzieci.php?msg=' . ($isAdd ? 'added' : 'saved'));
         }
+
+        /* Archiwum podopiecznych: dziecko poza programem znika z listy wyboru przy
+           nowych adopcjach i z licznika „bez darczyńcy", ale CAŁA jego historia
+           (adopcje, wpłaty, dossier) zostaje nietknięta. Przywrócenie to ten sam
+           przycisk w drugą stronę - nic po drodze nie ginie. */
+        if ($action === 'archive' || $action === 'restore') {
+            $cid = (int)($_POST['child_id'] ?? 0);
+            $ch = $cid > 0 ? adopt_child_get($cid) : null;
+            if (!$ch) mada_redirect('dzieci.php?msg=invalid');
+            adopt_child_set_status($cid, $action === 'archive' ? 'inactive' : 'active');
+            mada_audit('child.' . $action, 'child', $cid, ['nr' => (int)$ch['number'], 'imie' => $ch['name']]);
+            mada_redirect('dzieci.php?edit=' . $cid . '&msg=' . ($action === 'archive' ? 'archived' : 'restored') . '#formularz');
+        }
+
+        /* Usuwanie tylko dla POMYŁEK przy dodawaniu - dziecko, które nigdy nie
+           miało adopcji. Wycofanie z programu robi się archiwum, nie kasowaniem. */
+        if ($action === 'delete') {
+            $cid = (int)($_POST['child_id'] ?? 0);
+            $ch = $cid > 0 ? adopt_child_get($cid) : null;
+            if (!$ch) mada_redirect('dzieci.php?msg=invalid');
+            if (adopt_child_delete_if_unused($cid)) {
+                mada_audit('child.delete', 'child', $cid, ['nr' => (int)$ch['number'], 'imie' => $ch['name']]);
+                mada_redirect('dzieci.php?msg=deleted');
+            }
+            mada_redirect('dzieci.php?edit=' . $cid . '&msg=hasadopt#formularz');
+        }
     } catch (Throwable $e) {
         $dbError = $e->getMessage();
     }
@@ -69,8 +96,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 function dz_flash() {
     $codes = [
-        'added'   => ['ok', 'Dziecko zostało dodane.'],
-        'saved'   => ['ok', 'Zapisano.'],
+        'added'    => ['ok', 'Dziecko zostało dodane.'],
+        'saved'    => ['ok', 'Zapisano.'],
+        'archived' => ['ok', 'Dziecko przeniesione do archiwum - nie będzie proponowane przy nowych adopcjach. Historia i wpłaty zostają, można je przywrócić w każdej chwili.'],
+        'restored' => ['ok', 'Dziecko wróciło do programu.'],
+        'deleted'  => ['ok', 'Dziecko zostało usunięte (nie miało żadnej adopcji).'],
+        'hasadopt' => ['error', 'Nie usunięto: to dziecko ma adopcje, a razem z nimi historię wpłat. Zamiast kasować, przenieś je do archiwum.'],
         'invalid' => ['error', 'Podaj numer (liczba > 0) i imię; data urodzenia w formacie RRRR-MM-DD.'],
         'taken'   => ['error', 'Ten numer jest już zajęty.'],
         'photobig'  => ['error', 'Zdjęcie jest za duże (maks. 6 MB).'],
@@ -85,11 +116,40 @@ function dz_flash() {
 
 $children = [];
 $editChild = null;
+$editAdoptions = [];
 $showAdd = isset($_GET['dodaj']);
+$q = trim((string)($_GET['q'] ?? ''));
+$showArchived = ($_GET['arch'] ?? '') === '1';
+$totalChildren = 0;
+$archivedCnt = 0;
 try {
     adopt_db_ensure_schema();
     $children = adopt_child_list();
-    if (isset($_GET['edit'])) $editChild = adopt_child_get((int)$_GET['edit']);
+    $totalChildren = count($children);
+    $archivedCnt = count(array_filter($children, fn($c) => $c['status'] !== 'active'));
+    /* Archiwalne dzieci są domyślnie schowane - tak samo jak archiwalni darczyńcy.
+       Wyszukiwarka celowo obejmuje WSZYSTKIE: szuka się konkretnego dziecka,
+       także tego, które wyszło z programu. */
+    if (!$showArchived && $q === '') {
+        $children = array_values(array_filter($children, fn($c) => $c['status'] === 'active'));
+    }
+    if ($q !== '') {
+        /* Szukanie po imieniu dziecka, numerze, pełnym imieniu z dossier
+           i po darczyńcy - fundacja pyta „u kogo jest Kiady" równie często
+           jak „które dziecko ma numer 23". */
+        $needle = mb_strtolower($q, 'UTF-8');
+        $children = array_values(array_filter($children, function ($c) use ($needle) {
+            $hay = mb_strtolower(implode(' ', [
+                (string)$c['name'], (string)$c['number'], (string)($c['dossier_name'] ?? ''),
+                (string)($c['donors'] ?? ''), (string)($c['notes'] ?? ''),
+            ]), 'UTF-8');
+            return mb_strpos($hay, $needle) !== false;
+        }));
+    }
+    if (isset($_GET['edit'])) {
+        $editChild = adopt_child_get((int)$_GET['edit']);
+        if ($editChild) $editAdoptions = adopt_adoptions_by_child((int)$editChild['id']);
+    }
 } catch (Throwable $e) {
     $dbError = $dbError ?: $e->getMessage();
 }
@@ -103,8 +163,62 @@ panel_header('Podopieczni - Adopcja Serca');
     <?= dz_flash() ?>
 
     <?php if ($editChild !== null): ?>
+    <?php
+      $statusLabel = ['pending' => 'oczekująca', 'active' => 'aktywna', 'ended' => 'zakończona', 'cancelled' => 'anulowana'];
+      $openAd = array_values(array_filter($editAdoptions, fn($a) => in_array($a['status'], ['pending', 'active'], true)));
+    ?>
+    <div class="donor-card">
+      <div style="grid-column:1/-1;">
+        <span class="dc-label">Darczyńca / opiekun</span>
+        <?php if (!$openAd): ?>
+          <span class="badge badge-err">brak przypisanego darczyńcy</span>
+          <span class="hint">- dziecko czeka na opiekuna. Przypisanie robi się z karty darczyńcy („+ Nowa adopcja") albo w Zgłoszeniach.</span>
+        <?php else: foreach ($openAd as $a): ?>
+          <div style="margin-bottom:6px;">
+            <a href="darczynca.php?id=<?= (int)$a['donor_id'] ?>"><b><?= mada_esc($a['donor_name']) ?></b></a>
+            <span class="badge <?= $a['status'] === 'active' ? 'badge-ok' : 'badge-arch' ?>"><?= mada_esc($statusLabel[$a['status']] ?? $a['status']) ?></span>
+            <span class="hint">· od <?= mada_esc(adopt_month_label($a['start_month'])) ?><?php
+              if ($a['end_month'] !== null) echo ' do ' . mada_esc(adopt_month_label($a['end_month']));
+              if (($a['donor_email'] ?? '') !== '') echo ' · ' . mada_esc($a['donor_email']);
+              if (($a['donor_phone'] ?? '') !== '') echo ' · ' . mada_esc($a['donor_phone']);
+            ?></span>
+            <span class="badge <?= $a['dossier_sent_at'] !== null ? 'badge-ok' : 'badge-err' ?>">dossier: <?php
+              echo $a['dossier_sent_at'] !== null
+                ? 'wysłane ' . mada_esc(date('d.m.Y', strtotime((string)$a['dossier_sent_at'])))
+                : 'nie wysłano'; ?></span>
+          </div>
+        <?php endforeach; endif; ?>
+        <?php $closed = array_filter($editAdoptions, fn($a) => !in_array($a['status'], ['pending', 'active'], true)); ?>
+        <?php if ($closed): ?>
+          <p class="hint" style="margin:6px 0 0;">Wcześniejsi opiekunowie: <?php
+            echo implode(', ', array_map(fn($a) => mada_esc($a['donor_name']) . ' (do ' . mada_esc(adopt_month_label($a['end_month'])) . ')', $closed));
+          ?></p>
+        <?php endif; ?>
+      </div>
+    </div>
+
     <div class="spraw-panel" style="display:block;" id="formularz">
-      <h3 style="margin:0 0 10px;">Edycja: nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?></h3>
+      <div class="bar" style="margin-bottom:12px;">
+        <h3 style="margin:0;">Edycja: nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?>
+          <?php if ($editChild['status'] !== 'active'): ?>
+            <span class="badge badge-arch">w archiwum</span>
+          <?php endif; ?>
+        </h3>
+        <span>
+          <form method="post" style="display:inline;"
+                onsubmit="return confirm(<?= $editChild['status'] === 'active'
+                  ? "'Przenieść dziecko do archiwum?\\n\\nZniknie z listy i nie będzie proponowane przy nowych adopcjach. Historia, wpłaty i dossier zostają - można je przywrócić w każdej chwili.'"
+                  : "'Przywrócić dziecko do programu?'" ?>);">
+            <?= mada_csrf_field() ?>
+            <input type="hidden" name="action" value="<?= $editChild['status'] === 'active' ? 'archive' : 'restore' ?>">
+            <input type="hidden" name="child_id" value="<?= (int)$editChild['id'] ?>">
+            <button type="submit" class="btn-secondary btn-sm">
+              <?= $editChild['status'] === 'active' ? '📦 Przenieś do archiwum' : '↩ Przywróć do programu' ?>
+            </button>
+          </form>
+          <a href="dzieci.php" class="btn-ghost btn-sm">← Wróć do listy podopiecznych</a>
+        </span>
+      </div>
       <form method="post" enctype="multipart/form-data" class="form" style="margin:0;">
         <?= mada_csrf_field() ?>
         <input type="hidden" name="action" value="edit">
@@ -112,12 +226,10 @@ panel_header('Podopieczni - Adopcja Serca');
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
           <label>Numer *<input type="number" name="number" min="1" required value="<?= (int)$editChild['number'] ?>" style="width:90px;"></label>
           <label>Imię (krótkie) *<input type="text" name="name" required value="<?= mada_esc($editChild['name']) ?>"></label>
-          <label>Status
-            <select name="status">
-              <option value="active" <?= $editChild['status'] === 'active' ? 'selected' : '' ?>>aktywne</option>
-              <option value="inactive" <?= $editChild['status'] === 'inactive' ? 'selected' : '' ?>>nieaktywne</option>
-            </select>
-          </label>
+          <?php /* Status zmienia WYŁĄCZNIE przycisk archiwum u góry - jedna droga zamiast dwóch.
+                   To pole musi tu być, bo zapis formularza i tak ustawia status: bez niego
+                   każdy zapis archiwalnego dziecka po cichu wracałby je do programu. */ ?>
+          <input type="hidden" name="status" value="<?= mada_esc($editChild['status']) ?>">
           <label style="flex:1;min-width:180px;">Uwagi (robocze, nie idą do darczyńcy)<input type="text" name="notes" value="<?= mada_esc($editChild['notes'] ?? '') ?>"></label>
         </div>
 
@@ -148,7 +260,51 @@ panel_header('Podopieczni - Adopcja Serca');
           <a href="dzieci.php" class="btn-ghost btn-sm">Anuluj</a>
         </div>
       </form>
-      <p class="hint" style="margin:8px 0 0;">Zmiana numeru jest bezpieczna - adopcje i wpłaty są powiązane z dzieckiem, nie z numerem. Status „nieaktywne" = dziecko poza programem. Dossier trafia do maila „przedstawienie dziecka" wysyłanego przy przypisaniu darczyńcy.</p>
+      <p class="hint" style="margin:8px 0 0;">Zmiana numeru jest bezpieczna - adopcje i wpłaty są powiązane z dzieckiem, nie z numerem. Dossier trafia do maila „przedstawienie dziecka" wysyłanego przy przypisaniu darczyńcy.</p>
+
+      <?php
+        /* Usuwanie jest schowane i wymaga przepisania numeru dziecka. Powód: to
+           jedyna nieodwracalna akcja w tym module, a leży obok przycisków, których
+           używa się codziennie. Wycofanie dziecka z programu robi się archiwum. */
+        $adoptCnt = count($editAdoptions);
+      ?>
+      <details class="danger-zone" style="margin:18px 0 0;">
+        <summary>Usuń dziecko z bazy</summary>
+        <?php if ($adoptCnt > 0): ?>
+          <p class="hint" style="margin:10px 0 0;">
+            <b>Tego dziecka nie można usunąć.</b> Ma <?= $adoptCnt ?>
+            <?= $adoptCnt === 1 ? 'adopcję' : 'adopcje/adopcji' ?>, a razem z nimi historię wpłat -
+            usunięcie skasowałoby ją bezpowrotnie i rozjechałoby sprawozdania.
+            Jeśli dziecko wychodzi z programu, użyj <b>„Przenieś do archiwum"</b> u góry:
+            zniknie z list, a wszystko zostanie na swoim miejscu.
+          </p>
+        <?php else: ?>
+          <p style="margin:10px 0 12px;color:var(--err);font-weight:600;">
+            Uwaga: tej operacji NIE DA SIĘ COFNĄĆ.
+          </p>
+          <p class="hint" style="margin:0 0 12px;">
+            Usuwaj tylko wpisy dodane <b>przez pomyłkę</b> (dubel, literówka w numerze).
+            Dziecko, które faktycznie było w programie, przenosi się do <b>archiwum</b> -
+            wtedy nic nie ginie i można je przywrócić. To dziecko nie ma żadnej adopcji,
+            więc usunięcie jest technicznie możliwe. Zdjęcie z serwera też zostanie skasowane.
+          </p>
+          <form method="post" style="margin:0;"
+                onsubmit="var v=this.potwierdz.value.trim();
+                          if (v !== '<?= (int)$editChild['number'] ?>') {
+                            alert('Aby usunąć, wpisz numer dziecka: <?= (int)$editChild['number'] ?>');
+                            return false;
+                          }
+                          return confirm('OSTATNIE OSTRZEŻENIE\n\nUsunąć nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?> z bazy?\n\nTej operacji nie da się cofnąć.');">
+            <?= mada_csrf_field() ?>
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="child_id" value="<?= (int)$editChild['id'] ?>">
+            <label style="max-width:320px;margin:0 0 10px;">Aby potwierdzić, przepisz numer dziecka (<b><?= (int)$editChild['number'] ?></b>)
+              <input type="text" name="potwierdz" autocomplete="off" inputmode="numeric" placeholder="numer dziecka">
+            </label>
+            <button type="submit" class="btn-danger btn-sm">Usuń nr <?= (int)$editChild['number'] ?> - <?= mada_esc($editChild['name']) ?> na zawsze</button>
+          </form>
+        <?php endif; ?>
+      </details>
     </div>
     <?php elseif ($showAdd): ?>
     <div class="spraw-panel" style="display:block;" id="formularz">
@@ -191,13 +347,32 @@ panel_header('Podopieczni - Adopcja Serca');
 
 <?php if ($dbError !== ''): ?>
     <div class="alert alert-error">Baza danych jest niedostępna (sprawdź <code>payu/secret/db-config.php</code>): <?= mada_esc($dbError) ?></div>
-<?php elseif (!$children): ?>
+<?php elseif ($totalChildren === 0): ?>
     <p class="hint">Baza podopiecznych jest pusta - dodaj pierwsze dziecko przyciskiem „+ Dodaj dziecko".</p>
 <?php else: ?>
+    <form method="get" style="margin:0 0 16px;display:flex;gap:10px;">
+      <input type="search" name="q" value="<?= mada_esc($q) ?>" placeholder="Szukaj: imię, numer, darczyńca"
+             style="flex:1;max-width:340px;padding:8px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;">
+      <button type="submit" class="btn-secondary btn-sm">Szukaj</button>
+      <?php if ($q !== ''): ?><a href="dzieci.php" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
+      <?php if ($q === '' && $archivedCnt > 0): ?>
+        <a href="dzieci.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm" style="margin-left:auto;">
+          <?= $showArchived ? 'Ukryj archiwalne' : 'Pokaż archiwalne (' . $archivedCnt . ')' ?>
+        </a>
+      <?php endif; ?>
+    </form>
+
+    <?php if (!$children): ?>
+      <p class="hint">Brak wyników dla „<?= mada_esc($q) ?>".</p>
+    <?php else: ?>
     <?php
       $withDonor = count(array_filter($children, fn($c) => $c['donors'] !== null));
     ?>
-    <p class="hint" style="margin:0 0 12px;">Łącznie: <?= count($children) ?>,
+    <p class="hint" style="margin:0 0 12px;"><?php
+      if ($q !== ''): ?>Znaleziono: <?= count($children) ?> z <?= $totalChildren ?> (wyszukiwarka obejmuje też archiwalne)<?php
+      else: ?>W programie: <?= $totalChildren - $archivedCnt ?><?php
+        if ($archivedCnt > 0) echo ', w archiwum: ' . $archivedCnt . ($showArchived ? ' (pokazane)' : ' (ukryte)');
+      endif; ?>,
        z darczyńcą: <?= $withDonor ?>, bez darczyńcy: <?= count($children) - $withDonor ?>.</p>
     <table class="events">
       <thead><tr>
@@ -208,8 +383,12 @@ panel_header('Podopieczni - Adopcja Serca');
         <tr class="row-link" data-href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz">
           <td><b><?= (int)$c['number'] ?></b></td>
           <td><a href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz"><?= mada_esc($c['name']) ?></a><?= !empty($c['description']) || !empty($c['photo']) ? ' <span title="dossier uzupełnione">📋</span>' : '' ?></td>
-          <td><?= $c['status'] === 'active' ? 'aktywne' : '<span class="hint">nieaktywne</span>' ?></td>
-          <td><?php if ($c['donors'] !== null): ?><?= mada_esc($c['donors']) ?>
+          <td><?= $c['status'] === 'active' ? 'w programie' : '<span class="badge badge-arch">archiwum</span>' ?></td>
+          <td><?php if ($c['donors'] !== null):
+                $dids = array_values(array_filter(explode(',', (string)($c['donor_ids'] ?? '')))); ?>
+                <?php if (count($dids) === 1): ?>
+                  <a href="darczynca.php?id=<?= (int)$dids[0] ?>"><?= mada_esc($c['donors']) ?></a>
+                <?php else: ?><?= mada_esc($c['donors']) ?><?php endif; ?>
               <?php else: ?><span class="badge" style="background:#fbeeec;color:var(--err);border-color:#e6b9b1;">brak</span><?php endif; ?></td>
           <td class="hint"><?= mada_esc($c['notes'] ?? '') ?></td>
           <td><a class="btn-secondary btn-sm" href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz">Edytuj</a></td>
@@ -217,6 +396,7 @@ panel_header('Podopieczni - Adopcja Serca');
       <?php endforeach; ?>
       </tbody>
     </table>
+    <?php endif; ?>
 <?php endif; ?>
 <?php
 panel_footer();
