@@ -199,8 +199,19 @@ tekst, więc wystarczy skopiować akapit.
 Skrypty i18n mają `?v=…` w URL, a `.htaccess` wymusza dla nich rewalidację
 (`no-cache, must-revalidate`). Reguła obejmuje **też renderery i formularze** - stary renderer
 z nowym słownikiem daje połowicznie przetłumaczoną stronę. Przy zmianie któregokolwiek
-z tych plików (oraz `site.css`) podbij `?v=` w podstronach - to jeden wspólny token dla całej
-witryny, obecnie `20260717`.
+z tych plików podbij `?v=` **na wszystkich podstronach naraz**.
+
+**Każdy plik `.js` i `.css` linkowany z podstron musi mieć `?v=`** - bez tego nie da się
+wymusić odświeżenia i zmiana jest niewidoczna dla każdego, kto ma cache. `site-nav.js`
+i `site-a11y.js` nie miały wersji do 08.2026 (nie zmieniały się od czerwca, więc problem
+nigdy nie wyszedł) - dopisane z wersją `20260611`, czyli datą ich ostatniej zmiany.
+
+Wersja **nie jest** jednym wspólnym tokenem dla całej witryny: każdy asset ma własną,
+odpowiadającą dacie jego ostatniej zmiany (`site.css` - `20260812`, słowniki i18n - `20260803`,
+`site-nav.js`/`site-a11y.js` - `20260611` itd.). Ważne jest to, żeby **ten sam plik miał tę samą
+wersję na wszystkich podstronach** - rozjazd (nowy HTML, stary JS) daje błędy nie do
+zdiagnozowania. Audyt spójności: porównaj wersje per plik przez `git show origin/main:<strona>`,
+nie na plikach z lokalnego drzewa - worktree potrafi stać na starszej gałęzi.
 
 ---
 
