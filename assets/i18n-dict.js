@@ -971,9 +971,12 @@ window.MADA_I18N = {
   // ─── Audyt dokumentow prawnych (lipiec 2026): odbiorcy danych, cookies zgodne ze stanem faktycznym, adres PayU, wymagania techniczne ───
   "Aktualizacja: 17 lipca 2026 r.": "Last updated: 17 July 2026",
   "Aktualizacja: 12 sierpnia 2026 r.": "Last updated: 12 August 2026",
+  "Aktualizacja: 14 sierpnia 2026 r.": "Last updated: 14 August 2026",
   "Wersja 1.2": "Version 1.2",
+  "Wersja 1.3": "Version 1.3",
   "Wersja 1.1": "Version 1.1",
   "dane związane z obsługą płatności cyklicznych: identyfikator subskrypcji, token karty płatniczej oraz maskowany (niepełny) numer karty - Fundacja nie przechowuje pełnych danych karty płatniczej,": "data related to handling recurring payments: the subscription identifier, the payment card token and the masked (partial) card number - the Foundation does not store full payment card data,",
+  "numer rachunku bankowego, z którego wpłynęła darowizna - zapisywany wyłącznie po to, by przypisać wpłatę do właściwego darczyńcy, i usuwany razem z jego danymi,": "the bank account number a donation was made from - stored solely in order to match the payment to the right donor, and deleted together with that donor's data,",
   "dane techniczne zapisywane w logach serwera lub przekazywane operatorowi płatności, takie jak: adres IP, typ urządzenia, system operacyjny i typ przeglądarki.": "technical data recorded in server logs or passed to the payment operator, such as: IP address, device type, operating system and browser type.",
   "obsługa zgłoszeń do programu „Adopcja Serca\" (art. 6 ust. 1 lit. b RODO),": "handling sign-ups for the \"Heart Adoption\" programme (Art. 6(1)(b) GDPR),",
   "wysyłka newslettera - na podstawie zgody (art. 6 ust. 1 lit. a RODO).": "sending the newsletter - based on consent (Art. 6(1)(a) GDPR).",

@@ -967,9 +967,12 @@ window.MADA_I18N_FR = {
   // ─── Audyt dokumentow prawnych (lipiec 2026): odbiorcy danych, cookies zgodne ze stanem faktycznym, adres PayU, wymagania techniczne ───
   "Aktualizacja: 17 lipca 2026 r.": "Mise à jour : 17 juillet 2026",
   "Aktualizacja: 12 sierpnia 2026 r.": "Mise à jour : 12 août 2026",
+  "Aktualizacja: 14 sierpnia 2026 r.": "Mise à jour : 14 août 2026",
   "Wersja 1.2": "Version 1.2",
+  "Wersja 1.3": "Version 1.3",
   "Wersja 1.1": "Version 1.1",
   "dane związane z obsługą płatności cyklicznych: identyfikator subskrypcji, token karty płatniczej oraz maskowany (niepełny) numer karty - Fundacja nie przechowuje pełnych danych karty płatniczej,": "les données liées à la gestion des paiements récurrents : l'identifiant de l'abonnement, le token de la carte de paiement et le numéro de carte masqué (partiel) - la Fondation ne conserve pas les données complètes de la carte de paiement,",
+  "numer rachunku bankowego, z którego wpłynęła darowizna - zapisywany wyłącznie po to, by przypisać wpłatę do właściwego darczyńcy, i usuwany razem z jego danymi,": "le numéro du compte bancaire depuis lequel le don a été effectué - enregistré uniquement afin de rattacher le versement au bon donateur, et supprimé en même temps que ses données,",
   "dane techniczne zapisywane w logach serwera lub przekazywane operatorowi płatności, takie jak: adres IP, typ urządzenia, system operacyjny i typ przeglądarki.": "les données techniques enregistrées dans les journaux du serveur ou transmises à l'opérateur de paiement, telles que : l'adresse IP, le type d'appareil, le système d'exploitation et le type de navigateur.",
   "obsługa zgłoszeń do programu „Adopcja Serca\" (art. 6 ust. 1 lit. b RODO),": "gestion des inscriptions au programme « Adoption de Cœur » (art. 6, par. 1, point b du RGPD),",
   "wysyłka newslettera - na podstawie zgody (art. 6 ust. 1 lit. a RODO).": "envoi de la newsletter - sur la base du consentement (art. 6, par. 1, point a du RGPD).",

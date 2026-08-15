@@ -87,6 +87,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 ├── adopcja/                moduł Adopcja Serca - backend (PHP + MySQL)
 │   ├── db.php               schemat (adopt_*/fin_flows/panel_*) + CRUD + audyt + auto-rejestracja z karty
 │   ├── lib.php              czysta logika: pokrycie wpłat, zaległości, parser okresów, sort po nazwisku
+│   ├── bank.php             czysta logika wyciągu: parser CSV/XLSX + dopasowanie operacji do adopcji
 │   ├── zgloszenie.php       formularz przelewowy ze strony (double opt-in, KROK 1)
 │   ├── potwierdz.php        potwierdzenie e-maila (KROK 2: darczyńca + adopcje pending, maile, lustro)
 │   ├── xlsx.php             minimalny writer XLSX (eksport-backup, bez Composera)
@@ -104,6 +105,7 @@ oraz scalone Pull Requesty (zakładka *Pull requests* -> filtr *Merged*).
 │   ├── subskrypcje.php     podgląd subskrypcji + ręczne anulowanie i wznawianie
 │   ├── adopcje.php, darczyncy.php, darczynca.php, darczynca-edit.php,
 │   │   dzieci.php, adopcja-edit.php, wplaty.php, zgloszenia.php   moduł Adopcja Serca (UI)
+│   ├── import-bank.php     Finanse: wyciąg z banku -> poczekalnia -> wpłata albo przepływ
 │   ├── finanse.php         rejestr przepływów misyjnych (fin_flows)
 │   └── eksport.php         wyjście awaryjne: XLSX/CSV w układzie arkuszy fundacji
 │
@@ -419,6 +421,28 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   fontu i pasek pojawiał się dopiero po odświeżeniu). Nagłówek miesięcy i kolumna nazwisk trzymają
   się krawędzi okna. Pod filtrami **legenda kolorów**: zielone = opłacone, czerwone `+70` = zaległe
   (klik zapisuje wpłatę), białe = przyszły miesiąc trwającej adopcji, beżowe = poza okresem adopcji.
+- **Import z wyciągu bankowego** (`panel/import-bank.php` + `adopcja/bank.php`). Ekran mieszka
+  w module **Finanse** (pod-menu „Import z banku") - źródłem jest konto fundacji, a operacje
+  rozchodzą się i do przepływów, i do wpłat Adopcji. Pracownik wgrywa eksport historii z bankowości
+  (Erste Bank Polska, dawny Santander - Historia -> zakres dat -> CSV; obsługiwane też TXT i XLSX),
+  a operacje trafiają do **poczekalni** (`adopt_bank_ops`), nie od razu do księgi. Każda dostaje
+  propozycję: wpłata Adopcji Serca (adopcja + okres) albo wiersz w Finansach (kategoria) - zapisuje
+  ją dopiero kliknięcie. Parser **nie zakłada układu kolumn**: najpierw próbuje rozpoznać je po
+  nagłówkach, sam wykrywa separator i kodowanie (CP1250 przez `iconv` - mbstring nie ma tej strony
+  kodowej). **Realny eksport Erste nazw kolumn w ogóle nie ma** (przecinek, UTF-8, w pierwszej
+  linii metryka rachunku), więc jest dla niego druga ścieżka - układ pozycyjny `BANK_ERSTE_HEADER`.
+  Z metryki bierze się też **waluta** (rachunek walutowy podaje ją raz, nie przy operacji - bez
+  tego 240 GBP weszłoby jako 240 zł) oraz **kontrola importu**: `bank_check_meta` porównuje liczbę
+  operacji i sumę kwot z saldami z pliku i pokazuje wynik po wgraniu, bo ucięty eksport wygląda
+  identycznie jak spokojny tydzień. **Zbiorcza wypłata z bramki PayU nigdy nie jest wpłatą
+  darczyńcy** - te wpłaty panel ma już z notyfikacji (`payu/notify.php`), więc idzie do Finansów
+  jako przepływ (`bank_is_gateway_settlement`). Wgrany plik **nie zostaje na serwerze**. Dopasowanie idzie
+  po kolei: zapamiętany rachunek darczyńcy (`adopt_donor_accounts`, potwierdzany checkboxem przy
+  zapisie), numer i imię dziecka z tytułu przelewu (fundacyjny wzór „Adopcja Serca - darowizna -
+  Kiady 23"), nazwa nadawcy (`adopt_name_match`), a kwota podzielona przez stawkę adopcji daje
+  liczbę miesięcy liczoną od pierwszego nieopłaconego. Czego nie da się wskazać jednoznacznie,
+  zostaje do ręcznej decyzji. **Ponowne wgranie tego samego okresu niczego nie dubluje** - każda
+  operacja ma odcisk (`op_hash` z daty, kwoty, tytułu, nadawcy i rachunku).
 - **Raty kartowe**: `payu/notify.php` przy `COMPLETED` dopisuje wpłatę do powiązanych adopcji
   (idempotentnie, kwota dzielona między dzieci); powiązanie subskrypcji w edycji adopcji robi
   **backfill** historycznych rat. Opłacona adopcja kartowa **sama zakłada darczyńcę i adopcje
