@@ -98,6 +98,50 @@ eq(count($ops2), 1, 'utf8: jedna operacja');
 eq($ops2[0]['op_hash'], $ops1[0]['op_hash'], 'utf8: ten sam odcisk co z CP1250 (dedup działa mimo formatu)');
 @unlink($p2);
 
+/* ── Realny układ Erste: plik BEZ nazw kolumn ───────────────────
+   Odwzorowanie eksportu z 14-08-2026 (przecinek, UTF-8, LF, metryka
+   rachunku w pierwszej linii, salda liczone od najstarszej operacji).
+   Nazwiska i numery kont są zmyślone - prawdziwy wyciąg nie ma prawa
+   trafić do repozytorium. */
+$erste = "2026-08-14,05-08-2026,'70 1090 1056 0000 0001 5832 5871,FUNDACJA MISJA MADA,PLN,\"90,00\",\"640,00\",4,\n"
+       . "14-08-2026,14-08-2026,ADOPCJA SERCA - Kiady 23,JAN KOWALSKI UL. KWIATOWA 1 00-001 WARSZAWA ELIXIR 14-08-2026,12 1090 1056 0000 0001 1111 2222,\"360,00\",\"640,00\",1,\n"
+       . "13-08-2026,13-08-2026,\"Adopcja serca czerwiec, lipiec\",ANNA NOWAK UL. POLNA 2 00-002 WARSZAWA ELIXIR 13-08-2026,31 1090 1072 0000 0001 0988 0871,\"120,00\",\"280,00\",2,\n"
+       . "12-08-2026,12-08-2026,/OPF/X///// Wypłata z PayU(439320843 Sklep-misjamada.pl),PayU S.A. ul. Grunwaldzka 186 Poznań ELIXIR 12-08-2026,57 1240 1040 1111 0010 5698 4900,\"75,00\",\"160,00\",3,\n"
+       . "11-08-2026,11-08-2026,Opłata za użytkownika Mini Firma,CENTRUM USŁUG ROZLICZENIOWYCH,48 1090 0004 0000 0011 8415 0001,\"-5,00\",\"85,00\",4,\n";
+$p3 = tmpfile_with($erste);
+[$h3, $r3, $meta3] = bank_read_table($p3);
+$ops3 = bank_rows_to_ops($h3, $r3, $meta3);
+eq(count($ops3), 4, 'erste: cztery operacje mimo braku wiersza nagłówka');
+eq($meta3['currency'] ?? '', 'PLN', 'erste: waluta z metryki rachunku');
+eq($meta3['account'] ?? '', '70109010560000000158325871', 'erste: numer rachunku mimo apostrofu z Excela');
+eq($meta3['count'] ?? 0, 4, 'erste: zapowiedziana liczba operacji');
+eq($meta3['date_from'] ?? '', '2026-08-05', 'erste: początek zakresu z metryki');
+eq(bank_check_meta($meta3, $ops3), [], 'erste: liczba operacji i suma zgodne z saldami');
+
+eq($ops3[0]['op_date'], '2026-08-14', 'erste: data operacji');
+eq($ops3[0]['amount_grosze'], 36000, 'erste: kwota w cudzysłowie z przecinkiem');
+eq($ops3[0]['account_key'], '12109010560000000111112222', 'erste: rachunek nadawcy');
+eq($ops3[1]['title'], 'Adopcja serca czerwiec, lipiec', 'erste: przecinek wewnątrz tytułu nie rozbija wiersza');
+eq($ops3[3]['amount_grosze'], -500, 'erste: opłata jako wydatek');
+ok(str_contains($ops3[0]['party'], 'JAN KOWALSKI'), 'erste: nadawca z adresem w jednym polu');
+
+// Metryka to jedyny sposób, żeby wykryć ucięty plik - bez niej brak operacji
+// wygląda tak samo jak spokojny tydzień.
+$ops3short = array_slice($ops3, 0, 3);
+eq(count(bank_check_meta($meta3, $ops3short)), 2, 'erste: brakujący wiersz łapany na liczbie i na saldzie');
+
+// Rachunek walutowy: waluty NIE MA przy operacji, jest tylko w metryce.
+$erstGbp = "2026-08-14,10-08-2026,'34 1090 1056 0000 0001 6645 4246,Fundacja Misja Mada,GBP,\"0,00\",\"240,00\",1,\n"
+         . "10-08-2026,10-08-2026,REF: PET113341222 Adopcja Serca - darowizna Michael nr 134,ADAM TESTOWY,GB82 BUKB 2096 6003 7696 74,\"240,00\",\"240,00\",1,\n";
+$p4 = tmpfile_with($erstGbp);
+[$h4, $r4, $meta4] = bank_read_table($p4);
+$ops4 = bank_rows_to_ops($h4, $r4, $meta4);
+eq(count($ops4), 1, 'erste GBP: jedna operacja');
+eq($ops4[0]['currency'], 'GBP', 'erste GBP: waluta z metryki, nie domyślne PLN');
+eq($ops4[0]['amount_grosze'], 24000, 'erste GBP: kwota w funtach');
+eq($ops4[0]['account_key'], 'GB82BUKB20966003769674', 'erste GBP: IBAN zagraniczny jako klucz rachunku');
+@unlink($p3); @unlink($p4);
+
 // ── Wskazówki z tytułu przelewu ────────────────────────────────
 $h = bank_title_hints('Adopcja Serca - darowizna - Kiady 23');
 eq($h['numbers'], [23], 'tytuł: numer dziecka');
@@ -173,6 +217,33 @@ $m6 = bank_match_op($opDziwna, $ctx);
 eq($m6['adoption_id'], 100,      'dopasowanie: adopcja mimo nietypowej kwoty');
 eq($m6['months'], null,          'dopasowanie: 150 zł przy stawce 60 zł - brak podziału');
 eq($m6['confidence'], 'suggest', 'dopasowanie: nietypowa kwota wymaga potwierdzenia');
+
+/* Zbiorcza wypłata z bramki: te wpłaty panel ma już z notyfikacji PayU
+   (payu/notify.php -> adopt_payment_from_charge), więc zapisanie jej jako
+   darowizny policzyłoby je drugi raz. Ma iść do Finansów jako przepływ. */
+ok(bank_is_gateway_settlement($ops3[2]), 'payu: rozpoznana wypłata z bramki');
+$m7 = bank_match_op($ops3[2], $ctx);
+eq($m7['kind'], 'flow',       'payu: nigdy jako wpłata darczyńcy');
+eq($m7['confidence'], 'none', 'payu: bez propozycji adopcji');
+eq($m7['category'], 'inne',   'payu: przepływ własnych pieniędzy, nie nowa darowizna');
+eq($m7['donor_id'], null,     'payu: nie przypisujemy darczyńcy');
+
+// Prowizja pobrana przez bramkę to już zwykły koszt, nie rozliczenie.
+$opProwizja = ['op_date' => '2026-08-12', 'amount_grosze' => -1230, 'currency' => 'PLN',
+               'title' => 'Prowizja PayU', 'party' => 'PayU S.A.', 'account' => '', 'account_key' => ''];
+ok(!bank_is_gateway_settlement($opProwizja), 'payu: obciążenie to nie rozliczenie');
+eq(bank_guess_category($opProwizja), 'koszt_administracyjny', 'payu: prowizja jako koszt administracyjny');
+
+/* Kierunek zmienia znaczenie słowa „adopcja”: wpływ = darowizna na Adopcję
+   Serca, wydatek = przelew do misji na Madagaskarze. */
+$opWplataAdopcja = ['op_date' => '2026-08-10', 'amount_grosze' => 24000, 'currency' => 'GBP',
+                    'title' => 'Adopcja Serca - darowizna Michael nr 134', 'party' => 'Adam Testowy',
+                    'account' => '', 'account_key' => ''];
+eq(bank_guess_category($opWplataAdopcja), 'adopcja', 'kategoria: wpłata na Adopcję Serca to wpływ, nie wypłata');
+$opWyplataMisja = ['op_date' => '2026-08-10', 'amount_grosze' => -500000, 'currency' => 'PLN',
+                   'title' => 'Adopcja Serca - przekazanie środków', 'party' => 'Siostry Madagaskar',
+                   'account' => '', 'account_key' => ''];
+eq(bank_guess_category($opWyplataMisja), 'wyplata_adopcja', 'kategoria: przelew do misji to wypłata');
 
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty parsera wyciągu bankowego: {$T['pass']} OK";

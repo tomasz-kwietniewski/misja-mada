@@ -5,10 +5,14 @@
 
    Źródło: eksport historii z bankowości Erste Bank Polska (dawny
    Santander; rachunki fundacji mają numer rozliczeniowy 1090).
-   Bank daje CSV ze średnikiem w Windows-1250, ale UKŁAD KOLUMN
-   POTRAFI SIĘ ZMIENIĆ przy zmianie systemu - dlatego parser nie
-   zakłada kolejności, tylko rozpoznaje kolumny po nagłówkach
+   UKŁAD KOLUMN POTRAFI SIĘ ZMIENIĆ przy zmianie systemu - dlatego
+   parser najpierw próbuje rozpoznać kolumny po nagłówkach
    (bank_map_columns) i sam wykrywa separator oraz kodowanie.
+
+   Realny eksport (sprawdzony na wyciągu z 14-08-2026) NIE MA jednak
+   wiersza z nazwami kolumn - jest przecinkowy, w UTF-8, a w pierwszej
+   linii stoi metryka rachunku. Na taki plik jest druga ścieżka:
+   bank_split_erste (układ pozycyjny + waluta z metryki).
 
    Zasada jak przy migracji z arkuszy: PARSER NIE ZGADUJE. Zwraca
    propozycję z poziomem pewności, a decyzję zatwierdza pracownik.
@@ -31,6 +35,107 @@ const BANK_HEADER_MAP = [
     'currency' => ['waluta'],
     'balance'  => ['saldo'],
 ];
+
+/* ── Układ Erste: plik bez nazw kolumn ─────────────────────────────
+   Eksport z bankowości wygląda tak (CSV, przecinek, UTF-8, końce LF):
+
+     2026-08-14,05-08-2026,'70 1090 ...,FUNDACJA MISJA MADA,PLN,"871,37","7167,56",47,
+     14-08-2026,14-08-2026,ADOPCJA SERCA,JAN KOWALSKI ... ELIXIR 14-08-2026,45 1140 ...,"70,00","7167,56",1,
+
+   Pierwsza linia to METRYKA RACHUNKU: data wydruku, początek zakresu,
+   numer rachunku (apostrof to zabezpieczenie przed Excelem), nazwa
+   posiadacza, waluta, saldo początkowe, saldo końcowe, liczba operacji.
+   Dalej idą od razu dane - żadnych nazw kolumn, więc mapowanie po
+   nagłówkach nie ma czego złapać.
+
+   Metryka jest przy tym prezentem: liczba operacji i oba salda pozwalają
+   sprawdzić, czy import objął cały plik (bank_check_meta). */
+const BANK_ERSTE_HEADER = ['data ksiegowania', 'data operacji', 'tytul', 'nadawca',
+                           'numer rachunku', 'kwota', 'saldo', 'lp'];
+
+/**
+ * Wiersz metryki rachunku -> opis rachunku, albo null gdy to nie metryka.
+ * Rozpoznanie po dwóch rzeczach naraz: w kolumnie 3 stoi numer rachunku,
+ * a w 5 sam kod waluty - w wierszu operacji jest tam tytuł i rachunek
+ * kontrahenta, więc pomyłka nie grozi.
+ */
+function bank_erste_meta(array $r): ?array {
+    if (count($r) < 8) return null;
+    if (!preg_match('/^[A-Z]{3}$/', strtoupper(trim($r[4])))) return null;
+    $account = bank_account_key($r[2]);
+    if ($account === '') return null;
+    $from = bank_parse_amount($r[5]);
+    $to   = bank_parse_amount($r[6]);
+    if ($from === null || $to === null || !preg_match('/^\d+$/', trim($r[7]))) return null;
+    return [
+        'account'      => $account,
+        'holder'       => trim($r[3]),
+        'currency'     => strtoupper(trim($r[4])),
+        'balance_from' => $from,
+        'balance_to'   => $to,
+        'count'        => (int)trim($r[7]),
+        'date_from'    => bank_parse_date($r[1]),
+        'printed_at'   => bank_parse_date($r[0]),
+    ];
+}
+
+/** Czy wiersz wygląda na operację w układzie Erste (dwie daty, kwota, saldo, lp). */
+function bank_erste_is_op(array $r): bool {
+    if (count($r) < 8) return false;
+    return bank_parse_date($r[0]) !== null
+        && bank_parse_date($r[1]) !== null
+        && bank_parse_amount($r[5]) !== null
+        && bank_parse_amount($r[6]) !== null
+        && preg_match('/^\d+$/', trim($r[7])) === 1;
+}
+
+/**
+ * Ostatnia deska ratunku, gdy w pliku nie ma nazw kolumn: bierzemy układ
+ * pozycyjny Erste i podstawiamy syntetyczny nagłówek, żeby dalsza część
+ * parsera działała bez zmian. Metryka rachunku wraca osobno.
+ *
+ * Uwaga na kolejność dat: w eksporcie księgowanie i operacja są dotąd
+ * zawsze równe; gdyby się rozjechały, mapa nagłówków bierze „data operacji".
+ */
+function bank_split_erste(array $rows): array {
+    $meta = [];
+    $ops  = [];
+    foreach ($rows as $r) {
+        $m = bank_erste_meta($r);
+        if ($m !== null) {
+            if (!$meta) $meta = $m;
+            else        $meta['multi'] = true;   // sklejone wyciągi z dwóch rachunków
+            continue;
+        }
+        if (bank_erste_is_op($r)) $ops[] = $r;
+    }
+    return $ops ? [BANK_ERSTE_HEADER, $ops, $meta] : [[], [], []];
+}
+
+/**
+ * Kontrola po parsowaniu: czy wczytaliśmy tyle, ile obiecuje metryka pliku.
+ * Zwraca listę komunikatów dla pracownika - pusta znaczy „zgadza się co do
+ * grosza". To jedyny moment, w którym da się wyłapać ucięty plik.
+ */
+function bank_check_meta(array $meta, array $ops): array {
+    if (!$meta) return [];
+    $money = fn(int $gr) => number_format($gr / 100, 2, ',', ' ') . ' ' . ($meta['currency'] ?? 'PLN');
+    $out = [];
+    if (isset($meta['count']) && $meta['count'] !== count($ops)) {
+        $out[] = 'plik zapowiada ' . (int)$meta['count'] . ' operacji, wczytano ' . count($ops);
+    }
+    if (isset($meta['balance_from'], $meta['balance_to'])) {
+        $suma    = array_sum(array_column($ops, 'amount_grosze'));
+        $roznica = $meta['balance_to'] - $meta['balance_from'];
+        if ($suma !== $roznica) {
+            $out[] = 'suma operacji ' . $money($suma) . ' nie zgadza się ze zmianą salda ' . $money($roznica);
+        }
+    }
+    if (!empty($meta['multi'])) {
+        $out[] = 'plik zawiera więcej niż jeden rachunek - waluta może być różna dla części operacji';
+    }
+    return $out;
+}
 
 /** Nagłówek -> postać porównywalna (małe litery, bez ogonków i interpunkcji). */
 function bank_header_key(string $h): string {
@@ -98,9 +203,10 @@ function bank_detect_separator(string $headerLine): string {
 }
 
 /**
- * Czyta plik wyciągu do postaci [nagłówki, wiersze].
+ * Czyta plik wyciągu do postaci [nagłówki, wiersze, metryka rachunku].
  * Obsługuje CSV/TXT (autodetekcja) i XLSX (pierwsza zakładka).
- * Pomija wiersze śmieciowe sprzed nagłówka (banki lubią nagłówek raportu).
+ * Pomija wiersze śmieciowe sprzed nagłówka (banki lubią nagłówek raportu),
+ * a gdy nazw kolumn nie ma wcale - wchodzi układ pozycyjny Erste.
  */
 function bank_read_table(string $path): array {
     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
@@ -171,16 +277,18 @@ function bank_read_xlsx(string $path): array {
 /**
  * Wydziela wiersz nagłówka: pierwszy, w którym rozpoznajemy datę i kwotę.
  * Wszystko powyżej to nagłówek raportu (nazwa rachunku, zakres dat itd.).
+ * Brak takiego wiersza nie kończy sprawy - plik idzie wtedy ścieżką Erste.
  */
 function bank_split_header(array $rows): array {
     foreach ($rows as $i => $r) {
         if (count($r) < 3) continue;
+        if (bank_erste_meta($r) !== null) continue;   // metryka rachunku to nie nagłówek
         $map = bank_map_columns($r);
         if (isset($map['date'], $map['amount'])) {
-            return [$r, array_values(array_slice($rows, $i + 1))];
+            return [$r, array_values(array_slice($rows, $i + 1)), []];
         }
     }
-    return [[], []];
+    return bank_split_erste($rows);
 }
 
 /* ── Wartości ──────────────────────────────────────────────────── */
@@ -239,11 +347,17 @@ function bank_parse_amount(string $raw): ?int {
     return $neg ? -abs($gr) : $gr;
 }
 
-/** Numer rachunku do porównań: same cyfry (bez spacji i prefiksu kraju). */
+/**
+ * Numer rachunku do porównań: polski NRB bez spacji i bez prefiksu „PL",
+ * a dla zagranicznych - IBAN w całości (darczyńcy z Wielkiej Brytanii
+ * przysyłają przelewy z kont typu GB82 BUKB ..., które nie są NRB).
+ */
 function bank_account_key(string $raw): string {
-    $s = preg_replace('/[^0-9A-Za-z]/', '', $raw);
-    $s = preg_replace('/^PL/i', '', (string)$s);
-    return preg_match('/^\d{16,26}$/', (string)$s) ? $s : '';
+    $s = strtoupper((string)preg_replace('/[^0-9A-Za-z]/', '', $raw));
+    if (preg_match('/^\d{16,26}$/', $s)) return $s;                       // NRB
+    if (preg_match('/^PL(\d{16,26})$/', $s, $m)) return $m[1];            // polski IBAN -> NRB
+    if (preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/', $s)) return $s;     // IBAN zagraniczny
+    return '';
 }
 
 /**
@@ -263,8 +377,12 @@ function bank_op_hash(array $op): string {
  * Surowe wiersze -> lista operacji [op_date, amount_grosze, currency, title,
  * party, account, account_key, op_hash, raw]. Wiersze bez daty albo bez kwoty
  * są pomijane (stopki, sumy, puste linie).
+ *
+ * $meta to metryka rachunku z bank_read_table. Jest tu potrzebna dla waluty:
+ * eksport Erste podaje ją RAZ, w metryce, a nie przy każdej operacji - bez
+ * tego wpłata 240 GBP na rachunek walutowy weszłaby jako 240 zł.
  */
-function bank_rows_to_ops(array $headers, array $rows): array {
+function bank_rows_to_ops(array $headers, array $rows, array $meta = []): array {
     $map = bank_map_columns($headers);
     if (!isset($map['date'], $map['amount'])) return [];
     $get = function (array $r, ?int $i): string {
@@ -279,7 +397,8 @@ function bank_rows_to_ops(array $headers, array $rows): array {
         $op = [
             'op_date'       => $date,
             'amount_grosze' => $amount,
-            'currency'      => strtoupper($get($r, $map['currency'] ?? null)) ?: 'PLN',
+            'currency'      => strtoupper($get($r, $map['currency'] ?? null))
+                               ?: (string)($meta['currency'] ?? 'PLN'),
             'title'         => $get($r, $map['title'] ?? null),
             'party'         => $get($r, $map['party'] ?? null),
             'account'       => $acc,
@@ -293,6 +412,26 @@ function bank_rows_to_ops(array $headers, array $rows): array {
 }
 
 /* ── Dopasowanie do Adopcji Serca ──────────────────────────────── */
+
+/**
+ * Czy to przelew rozliczeniowy z bramki płatniczej na konto fundacji.
+ *
+ * Bramka wypłaca zbiorczo (u nas: „Wypłata z PayU(... Sklep-misjamada.pl)"),
+ * więc jedna taka pozycja kryje wiele wpłat wielu osób - i to wpłat, które
+ * panel ZNA JUŻ Z NOTYFIKACJI (payu/notify.php -> adopt_payment_from_charge).
+ * Zaksięgowanie jej jako darowizny zdublowałoby te wpłaty, a rozbijanie
+ * ręcznie na darczyńców zdublowałoby je drugi raz. Do Finansów, bez pytania.
+ *
+ * Dotyczy wpływów; obciążenie od bramki (prowizja) to zwykły koszt.
+ */
+function bank_is_gateway_settlement(array $op): bool {
+    if (($op['amount_grosze'] ?? 0) <= 0) return false;
+    $s = adopt_name_normalize(($op['party'] ?? '') . ' ' . ($op['title'] ?? ''));
+    foreach (['payu', 'przelewy24', 'tpay', 'dotpay', 'stripe', 'paypal'] as $gw) {
+        if (str_contains($s, $gw)) return true;
+    }
+    return false;
+}
 
 /**
  * Wyławia z tytułu przelewu wskazówkę o dziecku. Fundacja prosi o tytuł
@@ -343,6 +482,15 @@ function bank_match_op(array $op, array $ctx): array {
         return array_merge($none, [
             'category' => bank_guess_category($op),
             'reason'   => 'wydatek - do rejestru przepływów',
+        ]);
+    }
+
+    // Zbiorcza wypłata z bramki - patrz bank_is_gateway_settlement.
+    if (bank_is_gateway_settlement($op)) {
+        return array_merge($none, [
+            'category' => 'inne',
+            'reason'   => 'rozliczenie bramki płatniczej - te wpłaty są już w panelu, '
+                        . 'tu tylko przepływ pieniędzy na konto',
         ]);
     }
 
@@ -454,15 +602,26 @@ function bank_match_op(array $op, array $ctx): array {
  * listy rozwijanej na ekranie importu (kategorie jak w fin_flows).
  */
 function bank_guess_category(array $op): string {
+    // Wpływ z bramki to przesunięcie własnych pieniędzy, nie nowa darowizna
+    // - kategoria „inne", żeby nie policzyć tych wpłat drugi raz w sumach.
+    if (bank_is_gateway_settlement($op)) return 'inne';
     $s = adopt_name_normalize(($op['party'] ?? '') . ' ' . ($op['title'] ?? ''));
-    $rules = [
+
+    /* Reguły osobno dla wpływów i wydatków, bo te same słowa znaczą co innego
+       po każdej ze stron: „Adopcja Serca" we wpływie to darowizna darczyńcy,
+       a w wydatku - pieniądze wysłane do misji. Wspólna lista wrzucała wpłatę
+       240 GBP z tytułem „Adopcja Serca" do wypłat na Madagaskar. */
+    $rules = ($op['amount_grosze'] ?? 0) < 0 ? [
         'wyplata_adopcja'       => ['siostry', 'sisters', 'madagaskar', 'mada mission', 'misja mada', 'adopcja'],
         'wyplata_jedzenie'      => ['jedzenie', 'food', 'posilki', 'wyzywienie'],
         'wyplata_studnia'       => ['studnia', 'well', 'woda'],
         'koszt_administracyjny' => ['oplata', 'prowizja', 'abonament', 'ksiegowosc', 'hosting', 'domena',
                                     'przelew wychodzacy oplata', 'payu'],
         'wymiana_walut'         => ['przewalutowanie', 'wymiana walut', 'kantor', 'fx'],
+    ] : [
+        'adopcja'               => ['adopcja', 'adoption', 'adopce'],
         'zbiorka'               => ['zbiorka', 'parafia', 'kolekta'],
+        'wymiana_walut'         => ['przewalutowanie', 'wymiana walut', 'kantor'],
         'darowizna'             => ['darowizna', 'donation', 'cel statutowy'],
     ];
     foreach ($rules as $cat => $words) {

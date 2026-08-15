@@ -39,13 +39,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tmp = $f['tmp_name'] . '.' . $ext;
             if (!@move_uploaded_file($f['tmp_name'], $tmp)) mada_redirect('import-bank.php?msg=readerr');
             try {
-                [$headers, $rows] = bank_read_table($tmp);
-                $ops = $headers ? bank_rows_to_ops($headers, $rows) : [];
+                [$headers, $rows, $meta] = bank_read_table($tmp);
+                $ops = $headers ? bank_rows_to_ops($headers, $rows, $meta) : [];
             } finally {
                 @unlink($tmp);
             }
 
             if (!$ops) mada_redirect('import-bank.php?msg=empty');
+
+            // Metryka pliku mówi, ile operacji ma być i o ile zmieniło się saldo.
+            // Jeśli się nie zgadza, pracownik musi to zobaczyć ZANIM zatwierdzi
+            // wpłaty - ucięty plik wygląda dokładnie jak spokojny, krótki tydzień.
+            $_SESSION['bank_import_meta'] = ['meta' => $meta, 'ops' => count($ops),
+                                             'warn' => bank_check_meta($meta, $ops)];
             $res = bank_ops_insert_many($ops, $user);
             mada_audit('bank.import', 'bank', null,
                 ['plik' => (string)$f['name'], 'operacji' => count($ops)] + $res);
@@ -144,8 +150,9 @@ function imp_flash() {
         'big'      => ['error', 'Plik jest za duży (maks. ' . IMPORT_BANK_MAX_MB . ' MB).'],
         'type'     => ['error', 'Nieobsługiwany format. Wgraj CSV, TXT albo XLSX z bankowości.'],
         'readerr'  => ['error', 'Nie udało się odczytać pliku.'],
-        'empty'    => ['error', 'W pliku nie znaleziono operacji. Sprawdź, czy eksport zawiera '
-                              . 'kolumny z datą i kwotą (w Erste/Santander: Historia -> CSV, separator średnik).'],
+        'empty'    => ['error', 'W pliku nie znaleziono operacji. Wgraj plik prosto z bankowości '
+                              . '(w Erste: Historia -> zakres dat -> pobierz CSV), bez otwierania '
+                              . 'i zapisywania go po drodze w Excelu.'],
         'bad'      => ['error', 'Nieprawidłowe dane operacji.'],
     ];
     $m = $_GET['msg'] ?? '';
@@ -155,7 +162,29 @@ function imp_flash() {
         $txt = 'Wczytano ' . (int)($_GET['n'] ?? 0) . ' nowych operacji'
              . ((int)($_GET['d'] ?? 0) > 0 ? ', pominięto ' . (int)$_GET['d'] . ' już wczytanych wcześniej' : '') . '.';
     }
-    return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
+    return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>'
+         . imp_meta_flash();
+}
+
+/**
+ * Rozliczenie wgranego pliku z jego własną metryką: który rachunek, jaka
+ * waluta, czy liczba operacji i suma zgadzają się z saldami. Pokazujemy raz,
+ * zaraz po wgraniu - potem znika, żeby nie wisiało nad kolejnymi decyzjami.
+ */
+function imp_meta_flash(): string {
+    $s = $_SESSION['bank_import_meta'] ?? null;
+    unset($_SESSION['bank_import_meta']);
+    if (!is_array($s) || !is_array($s['meta'] ?? null) || !$s['meta']) return '';
+    $m = $s['meta'];
+    $opis = 'Rachunek ' . mada_esc((string)($m['holder'] ?? '')) . ' (' . mada_esc((string)($m['currency'] ?? 'PLN')) . ')'
+          . (isset($m['date_from']) && $m['date_from'] ? ', wyciąg od ' . mada_esc($m['date_from']) : '')
+          . ': plik zapowiada ' . (int)($m['count'] ?? 0) . ' operacji, rozpoznano ' . (int)$s['ops'] . '.';
+    if (!empty($s['warn'])) {
+        return '<div class="alert alert-error"><strong>Plik nie zgadza się ze swoją metryką.</strong><br>'
+             . $opis . '<br>' . mada_esc(implode('; ', $s['warn']))
+             . '<br>Zanim zatwierdzisz wpłaty, sprawdź, czy eksport objął cały zakres dat.</div>';
+    }
+    return '<div class="alert alert-ok">' . $opis . ' Suma operacji zgadza się ze zmianą salda.</div>';
 }
 
 /** Kwota w groszach -> "1 234,56 zł" (albo z kodem waluty). */
@@ -201,7 +230,8 @@ panel_header('Import z banku - Finanse');
     <div class="spraw-panel" style="display:block;">
       <h3 style="margin:0 0 6px;">Wgraj wyciąg</h3>
       <p style="margin:0 0 10px;">Bankowość Erste (dawny Santander): <b>Historia</b> -> ustaw zakres dat ->
-         <b>CSV</b> -> separator <b>średnik</b>. Plik nie zostaje na serwerze - czytamy z niego operacje
+         pobierz <b>CSV</b> i wgraj tutaj bez otwierania go w Excelu. Każdy rachunek pobiera się osobno
+         (walutowy też - walutę bierzemy z pliku). Plik nie zostaje na serwerze - czytamy z niego operacje
          i od razu kasujemy. Wgranie tego samego okresu drugi raz niczego nie zdubluje.</p>
       <form method="post" enctype="multipart/form-data" class="form" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin:0;">
         <?= mada_csrf_field() ?>
