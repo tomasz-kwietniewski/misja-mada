@@ -525,6 +525,23 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   adopcja, więc nie da się tą drogą skasować historii wpłat.
   **Nie chować z powrotem `donor_id` w ukrytym polu** - przed 2026-08-12 tak właśnie było
   i obie operacje wymagały wejścia do bazy.
+- **Powiązanie darczyńca-dziecko edytuje się z OBU stron.** Karta dziecka ma tabelę wszystkich
+  jego adopcji (także zakończonych) z przyciskiem „✎ Zmień darczyńcę" i „+ Przypisz darczyńcę",
+  a karta darczyńcy - imię dziecka jako link do jego karty. Ekran adopcji przyjmuje `?child=<id>`
+  (podpowiedź dziecka przy nowej adopcji) i `?back=dziecko` (po zapisie wraca na kartę dziecka,
+  zamiast wyrzucać pracownika na kartę obcego darczyńcy). Zakończone okresy są w tabeli celowo:
+  dubel bywa parą „jedna aktywna + jedna zakończona" i inaczej byłby niewidoczny.
+- **Usuwanie adopcji** (`adopt_adoption_delete_if_unpaid()`, `.danger-zone` na ekranie edycji
+  adopcji, przepisanie numeru adopcji + confirm): furtka na POMYŁKI - to samo dziecko wpisane
+  dwa razy, adopcja założona nie tej osobie. Serwer odmawia, gdy wisi przy niej **jakakolwiek
+  wpłata** (sprawdzane w funkcji, nie tylko w interfejsie). Wycofanie się darczyńcy to nadal
+  „Zakończ", które zachowuje okres i historię.
+- **Dziecko, które ma już opiekuna**, jest w selekcie oznaczone „(ma darczyńcę: …)", a po wybraniu
+  daje czerwoną ramkę i pytanie przy zapisie. Zajętość liczy `adopt_children_open_donors()`
+  **z pominięciem edytowanej adopcji** - `adopt_child_list()` liczy opiekunów razem z nią, więc
+  dziecko z drugim, równoległym wpisem pokazywało się jako „wolne". Tak w sierpniu 2026 powstał
+  dubel tej samej dziewczynki u tej samej darczyni. Karta dziecka dodatkowo ostrzega, gdy trwa
+  więcej niż jedna adopcja naraz (bywa to celowe - kilku darczyńców na jedno dziecko).
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Przypomnienia o zaległościach** (`adopcja/cron-przypomnienia.php` + `adopcja/mail-przypomnienie.php`,

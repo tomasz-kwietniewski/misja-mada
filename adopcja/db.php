@@ -500,6 +500,30 @@ function adopt_child_list(): array {
 }
 
 /**
+ * Mapa child_id => nazwy darczyńców, u których dziecko ma TRWAJĄCĄ adopcję,
+ * z pominięciem jednej adopcji (tej właśnie edytowanej).
+ *
+ * `adopt_child_list()` tu nie wystarczy: liczy opiekunów RAZEM z edytowanym
+ * wpisem, więc dziecko mające drugą, równoległą adopcję wyglądało w selekcie
+ * na „wolne" - a właśnie tak powstał dubel tego samego dziecka u tej samej
+ * darczyni (dwa wpisy, jeden zakończony ręcznie).
+ */
+function adopt_children_open_donors(?int $exceptAdoptionId = null): array {
+    $sql = "SELECT a.child_id,
+                   GROUP_CONCAT(DISTINCT d.full_name ORDER BY d.full_name SEPARATOR '; ') AS donors
+              FROM adopt_adoptions a
+              JOIN adopt_donors d ON d.id = a.donor_id
+             WHERE a.child_id IS NOT NULL AND a.status IN ('pending','active')"
+         . ($exceptAdoptionId !== null ? ' AND a.id <> ?' : '')
+         . ' GROUP BY a.child_id';
+    $st = payu_db()->prepare($sql);
+    $st->execute($exceptAdoptionId !== null ? [$exceptAdoptionId] : []);
+    $out = [];
+    foreach ($st->fetchAll() as $r) $out[(int)$r['child_id']] = (string)$r['donors'];
+    return $out;
+}
+
+/**
  * Adopcje danego dziecka wraz z darczyńcą - do bloku „opiekun" na karcie dziecka.
  * Zwraca też zakończone okresy (historia opieki nad dzieckiem bywa potrzebna),
  * posortowane od najnowszych.
@@ -970,6 +994,22 @@ function adopt_adoption_resume(int $oldId, string $startMonth): int {
         'status'        => 'active',
         'notes'         => 'Wznowienie adopcji #' . (int)$old['id'],
     ]);
+}
+
+/**
+ * Usuwa adopcję - WYŁĄCZNIE gdy nie wisi przy niej ani jedna wpłata. To furtka
+ * na POMYŁKI (to samo dziecko wpisane dwa razy, adopcja założona nie temu
+ * darczyńcy), a nie sposób na wycofanie się z programu - do tego jest „Zakończ",
+ * który zachowuje okres i historię. Zwraca false, gdy przy adopcji są wpłaty:
+ * skasowanie ich rozjechałoby sprawozdania, więc taki wpis zostaje.
+ */
+function adopt_adoption_delete_if_unpaid(int $id): bool {
+    $pdo = payu_db();
+    $st = $pdo->prepare('SELECT COUNT(*) FROM adopt_payments WHERE adoption_id = ?');
+    $st->execute([$id]);
+    if ((int)$st->fetchColumn() > 0) return false;
+    $pdo->prepare('DELETE FROM adopt_adoptions WHERE id = ?')->execute([$id]);
+    return true;
 }
 
 function adopt_payment_get(int $id): ?array {

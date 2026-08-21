@@ -101,6 +101,12 @@ function dz_flash() {
         'archived' => ['ok', 'Dziecko przeniesione do archiwum - nie będzie proponowane przy nowych adopcjach. Historia i wpłaty zostają, można je przywrócić w każdej chwili.'],
         'restored' => ['ok', 'Dziecko wróciło do programu.'],
         'deleted'  => ['ok', 'Dziecko zostało usunięte (nie miało żadnej adopcji).'],
+        /* Komunikaty z ekranu adopcji, gdy pracownik przyszedł tu z karty dziecka. */
+        'adoptok'  => ['ok', 'Zapisano powiązanie darczyńca - dziecko.'],
+        'adoptdel' => ['ok', 'Adopcja została usunięta (nie było przy niej żadnej wpłaty).'],
+        'adopthaspay' => ['error', 'Nie usunięto: przy tej adopcji są wpłaty. Zamiast kasować, zakończ ją („Zakończ" na karcie darczyńcy) albo przenieś do właściwego darczyńcy.'],
+        'mailok'   => ['ok', 'Mail z przedstawieniem dziecka (dossier) został wysłany - data wysyłki jest odnotowana przy adopcji.'],
+        'mailfail' => ['error', 'Mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki). Zmiany w adopcji zostały zapisane.'],
         'hasadopt' => ['error', 'Nie usunięto: to dziecko ma adopcje, a razem z nimi historię wpłat. Zamiast kasować, przenieś je do archiwum.'],
         'invalid' => ['error', 'Podaj numer (liczba > 0) i imię; data urodzenia w formacie RRRR-MM-DD.'],
         'taken'   => ['error', 'Ten numer jest już zajęty.'],
@@ -167,32 +173,61 @@ panel_header('Podopieczni - Adopcja Serca');
       $statusLabel = ['pending' => 'oczekująca', 'active' => 'aktywna', 'ended' => 'zakończona', 'cancelled' => 'anulowana'];
       $openAd = array_values(array_filter($editAdoptions, fn($a) => in_array($a['status'], ['pending', 'active'], true)));
     ?>
+    <?php
+      /* Powiązania darczyńca-dziecko są edytowalne TAKŻE stąd. Wcześniej karta
+         dziecka tylko pokazywała opiekuna i odsyłała „zrób to z karty darczyńcy" -
+         a pracownik, który patrzy na dziecko, chce poprawić je na miejscu.
+         Tabela pokazuje wszystkie okresy (także zakończone), bo dubel bywa właśnie
+         w parze „jedna aktywna + jedna zakończona" i inaczej byłby niewidoczny. */
+      $childBack = '&back=dziecko&child=' . (int)$editChild['id'];
+    ?>
     <div class="donor-card">
       <div style="grid-column:1/-1;">
-        <span class="dc-label">Darczyńca / opiekun</span>
-        <?php if (!$openAd): ?>
+        <div class="bar" style="margin:0 0 10px;">
+          <span class="dc-label" style="margin:0;">Darczyńca / opiekun</span>
+          <a href="adopcja-edit.php?child=<?= (int)$editChild['id'] ?>&amp;back=dziecko" class="btn-primary btn-sm">+ Przypisz darczyńcę</a>
+        </div>
+        <?php if (!$editAdoptions): ?>
           <span class="badge badge-err">brak przypisanego darczyńcy</span>
-          <span class="hint">- dziecko czeka na opiekuna. Przypisanie robi się z karty darczyńcy („+ Nowa adopcja") albo w Zgłoszeniach.</span>
-        <?php else: foreach ($openAd as $a): ?>
-          <div style="margin-bottom:6px;">
-            <a href="darczynca.php?id=<?= (int)$a['donor_id'] ?>"><b><?= mada_esc($a['donor_name']) ?></b></a>
-            <span class="badge <?= $a['status'] === 'active' ? 'badge-ok' : 'badge-arch' ?>"><?= mada_esc($statusLabel[$a['status']] ?? $a['status']) ?></span>
-            <span class="hint">· od <?= mada_esc(adopt_month_label($a['start_month'])) ?><?php
-              if ($a['end_month'] !== null) echo ' do ' . mada_esc(adopt_month_label($a['end_month']));
-              if (($a['donor_email'] ?? '') !== '') echo ' · ' . mada_esc($a['donor_email']);
-              if (($a['donor_phone'] ?? '') !== '') echo ' · ' . mada_esc($a['donor_phone']);
-            ?></span>
-            <span class="badge <?= $a['dossier_sent_at'] !== null ? 'badge-ok' : 'badge-err' ?>">dossier: <?php
-              echo $a['dossier_sent_at'] !== null
-                ? 'wysłane ' . mada_esc(date('d.m.Y', strtotime((string)$a['dossier_sent_at'])))
-                : 'nie wysłano'; ?></span>
-          </div>
-        <?php endforeach; endif; ?>
-        <?php $closed = array_filter($editAdoptions, fn($a) => !in_array($a['status'], ['pending', 'active'], true)); ?>
-        <?php if ($closed): ?>
-          <p class="hint" style="margin:6px 0 0;">Wcześniejsi opiekunowie: <?php
-            echo implode(', ', array_map(fn($a) => mada_esc($a['donor_name']) . ' (do ' . mada_esc(adopt_month_label($a['end_month'])) . ')', $closed));
-          ?></p>
+          <span class="hint">- dziecko czeka na opiekuna. Przypisz go przyciskiem obok
+            (albo z karty darczyńcy przyciskiem „+ Nowa adopcja").</span>
+        <?php else: ?>
+          <?php if (count($openAd) > 1): ?>
+            <div class="alert alert-error" style="margin:0 0 10px;">
+              To dziecko ma <b><?= count($openAd) ?> trwające adopcje naraz</b>. Bywa to celowe
+              (kilku darczyńców składa się na jedno dziecko), ale najczęściej oznacza dubel -
+              ten sam wpis założony dwa razy. Zbędny wpis usuwa się przez „Zmień darczyńcę"
+              -> sekcja „Usuń tę adopcję" (możliwe tylko, gdy nie ma przy nim wpłat).
+            </div>
+          <?php endif; ?>
+          <table class="events" style="margin:0;">
+            <thead><tr><th>Darczyńca</th><th>Status</th><th>Okres</th><th>Kwota</th><th>Dossier</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach ($editAdoptions as $a): ?>
+              <tr>
+                <td>
+                  <a href="darczynca.php?id=<?= (int)$a['donor_id'] ?>"><b><?= mada_esc($a['donor_name']) ?></b></a>
+                  <?php $kontakt = implode(' · ', array_filter([(string)($a['donor_email'] ?? ''), (string)($a['donor_phone'] ?? '')])); ?>
+                  <?php if ($kontakt !== ''): ?><br><span class="hint"><?= mada_esc($kontakt) ?></span><?php endif; ?>
+                </td>
+                <td><span class="badge <?= in_array($a['status'], ['pending', 'active'], true) ? 'badge-ok' : 'badge-arch' ?>">
+                    <?= mada_esc($statusLabel[$a['status']] ?? $a['status']) ?></span></td>
+                <td class="hint" style="white-space:nowrap;"><?= mada_esc(adopt_month_label($a['start_month'])) ?>
+                    - <?= $a['end_month'] !== null ? mada_esc(adopt_month_label($a['end_month'])) : 'bezterm.' ?></td>
+                <td class="hint" style="white-space:nowrap;"><?= number_format($a['amount_grosze'] / 100, 0, ',', ' ') ?> zł
+                    <?= ['monthly' => 'mies.', 'quarterly' => 'kwart.', 'yearly' => 'rocznie'][$a['frequency']] ?? '' ?></td>
+                <td><span class="badge <?= $a['dossier_sent_at'] !== null ? 'badge-ok' : 'badge-err' ?>"><?php
+                    echo $a['dossier_sent_at'] !== null
+                      ? 'wysłane ' . mada_esc(date('d.m.Y', strtotime((string)$a['dossier_sent_at'])))
+                      : 'nie wysłano'; ?></span></td>
+                <td style="white-space:nowrap;">
+                  <a class="btn-secondary btn-sm" href="adopcja-edit.php?id=<?= (int)$a['id'] . $childBack ?>"
+                     title="Przepnij dziecko do innego darczyńcy, popraw okres i kwotę albo usuń pomyłkowy wpis">✎ Zmień darczyńcę</a>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
         <?php endif; ?>
       </div>
     </div>
