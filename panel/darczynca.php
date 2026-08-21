@@ -144,6 +144,8 @@ function dk_flash() {
         'mailfail' => ['error', 'Mail do darczyńcy NIE został wysłany (brak adresu albo błąd wysyłki). Zmiany w adopcji zostały zapisane.'],
         'paydel'   => ['ok',    'Wpłata została usunięta.'],
         'ended'    => ['ok',    'Adopcja została zakończona (miesiące po końcu nie liczą się jako zaległość).'],
+        'adoptdel' => ['ok',    'Adopcja została usunięta (nie było przy niej żadnej wpłaty).'],
+        'adopthaspay' => ['error', 'Nie usunięto: przy tej adopcji są wpłaty. Zamiast kasować, zakończ ją przyciskiem „Zakończ" albo przenieś do właściwego darczyńcy.'],
         'resumed'  => ['ok',    'Adopcja wznowiona jako nowy okres - przerwa nie liczy się jako zaległość.'],
         'saved'    => ['ok',    'Zapisano zmiany.'],
         'badpay'   => ['error', 'Nieprawidłowe dane (kwota, miesiące YYYY-MM albo data).'],
@@ -335,7 +337,15 @@ panel_header('Darczyńca - Adopcja Serca');
                 ? adopt_arrears($a['start_month'], $a['end_month'], $p, $today) : [];
       ?>
         <tr>
-          <td><?= $a['child_name'] !== null ? mada_esc($a['child_name']) . ' <span class="hint">(nr ' . (int)$a['child_number'] . ')</span>' : '<span class="hint">bez dziecka</span>' ?></td>
+          <?php /* Imię dziecka prowadzi na jego kartę - stamtąd widać dossier, zdjęcie
+                   i pozostałych opiekunów. Wcześniej ta droga istniała tylko w jedną
+                   stronę (z dziecka do darczyńcy), więc sprawdzenie „co to za dziecko"
+                   wymagało szukania go po numerze w zakładce Podopieczni. */ ?>
+          <td><?php if ($a['child_name'] !== null): ?>
+                <a href="dzieci.php?edit=<?= (int)$a['child_id'] ?>#formularz"
+                   title="Otwórz kartę dziecka"><?= mada_esc($a['child_name']) ?></a>
+                <span class="hint">(nr <?= (int)$a['child_number'] ?>)</span>
+              <?php else: ?><span class="hint">bez dziecka</span><?php endif; ?></td>
           <td><?= mada_esc(adopt_month_label($a['start_month'])) ?> - <?= $a['end_month'] !== null ? mada_esc(adopt_month_label($a['end_month'])) : 'bezterm.' ?></td>
           <td><?= ['monthly' => 'mies.', 'quarterly' => 'kwart.', 'yearly' => 'roczna'][$a['frequency']] ?? '' ?></td>
           <td><?= number_format($a['amount_grosze'] / 100, 0, ',', ' ') ?> zł</td>
