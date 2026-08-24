@@ -1400,9 +1400,14 @@ function bank_match_context(): array {
            FROM adopt_adoptions WHERE status IN ('pending','active')"
     )->fetchAll();
 
+    /* Wpłaty jadą w całości, nie zwinięte do „opłacone do".
+       bank_match_op() musi widzieć LUKI w pokryciu: ostatnia opłacona data
+       nic nie mówi o miesiącach przeskoczonych po drodze, a to właśnie one
+       decydują, od kiedy zacząć okres nowej wpłaty. */
     $pays = adopt_payments_by_adoptions(array_map(fn($a) => (int)$a['id'], $adoptions));
     foreach ($adoptions as &$a) {
-        $a['paid_until'] = adopt_paid_until($pays[(int)$a['id']] ?? []);
+        $a['payments']   = $pays[(int)$a['id']] ?? [];
+        $a['paid_until'] = adopt_paid_until($a['payments']);
     }
     unset($a);
 

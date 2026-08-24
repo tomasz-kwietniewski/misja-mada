@@ -294,6 +294,153 @@ $opWyplataMisja = ['op_date' => '2026-08-10', 'amount_grosze' => -500000, 'curre
                    'account' => '', 'account_key' => ''];
 eq(bank_guess_category($opWyplataMisja), 'wyplata_adopcja', 'kategoria: przelew do misji to wypłata');
 
+/* ── Kto wpłacił: nadawca obłożony adresem ──────────────────────
+   Bank wkłada w jedno pole osobę, ulicę, kod, miasto i ogon systemowy. */
+eq(bank_party_person('HELENA ŻANKOWSKA UL.GAGARINA 31 M.12 00-753 WARSZAWA ELIXIR 07-08-2026'),
+   'helena zankowska', 'nadawca: adres i ogon ELIXIR odcięte');
+eq(bank_party_person('ŁUKASZ WILK WYSZATYCE 292 37-733 WYSZATYCE ELIXIR 14-08-2026'),
+   'lukasz wilk wyszatyce', 'nadawca: wieś bez numeru zostaje, ale numer ucina resztę');
+eq(bank_party_person(''), '', 'nadawca: puste pole');
+
+/* ── Darczyńca zapisany w kartotece jako para ───────────────────
+   To był powód, dla którego panel pisał „brak tropu w tytule i nadawcy"
+   przy nadawcach z nazwiskiem jak wół: adopt_name_match zwraca dla par
+   „fuzzy", a bank_match_op brał wyłącznie „exact". */
+$ctxPara = [
+    'children' => [
+        ['id' => 1, 'number' => 23, 'name' => 'Kiady'],
+        ['id' => 2, 'number' => 75, 'name' => 'Alvin'],
+        ['id' => 3, 'number' => 90, 'name' => 'Maja'],
+    ],
+    'donors' => [
+        ['id' => 20, 'full_name' => 'Helena i Jan Żankowscy'],
+        ['id' => 21, 'full_name' => 'Krzysztof Miszkurka'],
+        ['id' => 22, 'full_name' => 'Barbara Wójcik'],
+    ],
+    'adoptions' => [
+        ['id' => 200, 'donor_id' => 20, 'child_id' => 1, 'amount_grosze' => 7000,
+         'start_month' => '2026-01', 'end_month' => null, 'status' => 'active',
+         'payments' => [['period_from' => '2026-01', 'period_to' => '2026-05']]],
+        ['id' => 201, 'donor_id' => 21, 'child_id' => 2, 'amount_grosze' => 7000,
+         'start_month' => '2026-01', 'end_month' => null, 'status' => 'active',
+         'payments' => [['period_from' => '2026-01', 'period_to' => '2026-05']]],
+        ['id' => 202, 'donor_id' => 22, 'child_id' => 3, 'amount_grosze' => 7000,
+         'start_month' => '2026-01', 'end_month' => null, 'status' => 'active',
+         'payments' => [['period_from' => '2026-01', 'period_to' => '2026-07']]],
+    ],
+    'accounts' => [],
+];
+
+$opPara = ['op_date' => '2026-08-07', 'amount_grosze' => 14000, 'currency' => 'PLN',
+           'title' => 'WSPÓLNA DAROWIZNA OD HELENY I JANA ŻANKOWSKICH_NA CELE POŻYTKU PUBLICZNEGO'
+                    . ' - DZIAŁALNOŚĆ CHARYTATYWNA - ADOPCJA SERCA',
+           'party' => 'HELENA ŻANKOWSKA UL.GAGARINA 31 M.12 00-753 WARSZAWA ELIXIR 07-08-2026',
+           'account' => '', 'account_key' => ''];
+$cPara = bank_donor_candidates($opPara, $ctxPara['donors']);
+eq(count($cPara), 1, 'para: jeden kandydat, nie tłum');
+eq($cPara[0]['id'], 20, 'para: trafiony darczyńca zapisany jako dwoje ludzi');
+eq($cPara[0]['level'], 'fuzzy', 'para: trafienie niepewne, bo zapis się różni');
+$mPara = bank_match_op($opPara, $ctxPara);
+eq($mPara['donor_id'], 20,        'para: darczyńca wskazany mimo niepewnego nazwiska');
+eq($mPara['adoption_id'], 200,    'para: jedyna adopcja tego darczyńcy');
+ok($mPara['confidence'] !== 'auto', 'para: niepewne nazwisko nigdy nie daje pewności');
+ok(str_contains($mPara['reason'], 'sprawdź'), 'para: podpowiedź prosi o sprawdzenie');
+
+// Nazwisko bywa TYLKO w tytule, nadawcą jest ktoś inny (np. współmałżonek
+// płacący ze swojego konta).
+$opTytulNazwisko = ['op_date' => '2026-08-07', 'amount_grosze' => 7000, 'currency' => 'PLN',
+    'title' => 'Darowizna od Barbary Wójcik - Adopcja Serca',
+    'party' => 'ANDRZEJ NOWICKI UL. LIPOWA 4 00-004 WARSZAWA ELIXIR 07-08-2026',
+    'account' => '', 'account_key' => ''];
+$cTyt = bank_donor_candidates($opTytulNazwisko, $ctxPara['donors']);
+eq($cTyt[0]['id'] ?? 0, 22,       'tytuł: nazwisko z tytułu wskazuje darczyńcę');
+eq($cTyt[0]['where'] ?? '', 'tytule', 'tytuł: wiadomo, skąd trop');
+
+// Obcy nadawca nie może przypadkiem trafić w kogokolwiek z kartoteki.
+$opObcy2 = ['op_date' => '2026-08-07', 'amount_grosze' => 5000, 'currency' => 'PLN',
+            'title' => 'darowizna na cele statutowe', 'party' => 'ZENON PIETRZAK ELIXIR 07-08-2026',
+            'account' => '', 'account_key' => ''];
+eq(bank_donor_candidates($opObcy2, $ctxPara['donors']), [], 'obcy: brak fałszywych kandydatów');
+
+/* ── Okres wypisany w tytule przelewu ───────────────────────────
+   Najpewniejsze źródło, bo pochodzi od samego darczyńcy. */
+$tm = bank_title_months('Adopcja serca czerwiec, lipiec,sierpień, wrzesień, październik,'
+                      . ' listopad, grudzień 2026', '2026-08-14');
+eq($tm['from'] ?? '', '2026-06', 'tytuł-okres: pierwszy wymieniony miesiąc');
+eq($tm['to'] ?? '',   '2026-12', 'tytuł-okres: ostatni wymieniony miesiąc');
+eq($tm['months'] ?? 0, 7,        'tytuł-okres: siedem miesięcy');
+eq($tm['gap'] ?? true, false,    'tytuł-okres: ciąg bez dziur');
+
+eq(bank_title_months('składka za VI-XII 2026', '2026-08-14')['from'] ?? '', '2026-06',
+   'tytuł-okres: zapis rzymski');
+eq(bank_title_months('adopcja 06-12/2026', '2026-08-14')['months'] ?? 0, 7,
+   'tytuł-okres: zapis cyfrowy z zakresem');
+eq(bank_title_months('wpłata za lipiec', '2026-07-20')['from'] ?? '', '2026-07',
+   'tytuł-okres: pojedynczy miesiąc przy słowie okresowym');
+eq(bank_title_months('Adopcja Serca', '2026-08-14'), [],
+   'tytuł-okres: zwykły tytuł nie udaje okresu');
+eq(bank_title_months('darowizna Maja', '2026-08-14', ['Kiady', 'Maja']), [],
+   'tytuł-okres: imię dziecka wygrywa z nazwą miesiąca');
+eq(bank_title_months('za styczeń', '2026-12-28')['from'] ?? '', '2027-01',
+   'tytuł-okres: styczeń pisany w grudniu to następny rok');
+eq(bank_title_months('styczeń i marzec 2026', '2026-03-10')['gap'] ?? false, true,
+   'tytuł-okres: dziura w wyliczeniu zgłoszona');
+
+// Tytuł Miszkurki w komplecie: 490 zł przy stawce 70 zł to dokładnie te
+// siedem miesięcy, które wypisał.
+$opMisz = ['op_date' => '2026-08-14', 'amount_grosze' => 49000, 'currency' => 'PLN',
+    'title' => 'Adopcja serca czerwiec, lipiec,sierpień, wrzesień, październik, listopad, grudzień 2026',
+    'party' => 'MISZKURKA KRZYSZTOF NA POPIELÓWKĘ 43K/1 32-087 ZIELONKI ELIXIR 13-08-2026',
+    'account' => '', 'account_key' => ''];
+$mMisz = bank_match_op($opMisz, $ctxPara);
+eq($mMisz['donor_id'], 21,          'Miszkurka: darczyńca rozpoznany po nadawcy');
+eq($mMisz['period_from'], '2026-06', 'Miszkurka: okres z tytułu, nie od bieżącego miesiąca');
+eq($mMisz['period_to'], '2026-12',   'Miszkurka: koniec okresu z tytułu');
+eq($mMisz['warn'], [],               'Miszkurka: kwota zgadza się z tytułem, brak ostrzeżeń');
+
+/* ── Okres liczony od pierwszej DZIURY, nie od ostatniej wpłaty ──
+   Darczyńca opłacił styczeń-maj, potem z wyprzedzeniem sam wrzesień.
+   Start od max(period_to)+1 dałby październik i zaległości przepadłyby. */
+$ctxDziura = $ctxPara;
+$ctxDziura['adoptions'][0]['payments'] = [
+    ['period_from' => '2026-01', 'period_to' => '2026-05'],
+    ['period_from' => '2026-09', 'period_to' => '2026-09'],
+];
+$opDziura = ['op_date' => '2026-08-20', 'amount_grosze' => 21000, 'currency' => 'PLN',
+             'title' => 'Adopcja Serca', 'party' => 'JAN ŻANKOWSKI ELIXIR 20-08-2026',
+             'account' => '', 'account_key' => ''];
+$mDziura = bank_match_op($opDziura, $ctxDziura);
+eq($mDziura['period_from'], '2026-06', 'dziura: start od pierwszego niepokrytego miesiąca');
+eq($mDziura['period_to'], '2026-08',   'dziura: trzy miesiące z kwoty 210 zł');
+eq($mDziura['warn'], [], 'dziura: proponowany zakres nie nachodzi na opłacony wrzesień');
+
+// Wpłata na miesiące już opłacone musi to powiedzieć wprost.
+$opNaklad = ['op_date' => '2026-08-20', 'amount_grosze' => 7000, 'currency' => 'PLN',
+             'title' => 'adopcja za marzec 2026', 'party' => 'BARBARA WÓJCIK ELIXIR 20-08-2026',
+             'account' => '', 'account_key' => ''];
+$mNaklad = bank_match_op($opNaklad, $ctxPara);
+eq($mNaklad['period_from'], '2026-03', 'nakładanie: okres wzięty z tytułu');
+ok(!empty($mNaklad['warn']), 'nakładanie: ostrzeżenie o opłaconym już miesiącu');
+ok(str_contains(implode(' ', $mNaklad['warn']), '2026-03'), 'nakładanie: wskazany konkretny miesiąc');
+
+// Tytuł mówi swoje, kwota swoje - obie liczby na wierzchu.
+$opSprzecznosc = ['op_date' => '2026-08-20', 'amount_grosze' => 14000, 'currency' => 'PLN',
+    'title' => 'adopcja czerwiec, lipiec, sierpień 2026', 'party' => 'KRZYSZTOF MISZKURKA ELIXIR 20-08-2026',
+    'account' => '', 'account_key' => ''];
+$mSprz = bank_match_op($opSprzecznosc, $ctxPara);
+eq($mSprz['months'], 3, 'sprzeczność: liczba miesięcy z tytułu');
+ok(str_contains(implode(' ', $mSprz['warn']), 'kwota starcza na 2'),
+   'sprzeczność: kwota kontra tytuł pokazane pracownikowi');
+
+// Wpłata w obcej walucie: stawka jest w złotych, więc dzielenie kwoty nie ma sensu.
+$opGbp = ['op_date' => '2026-08-10', 'amount_grosze' => 24000, 'currency' => 'GBP',
+          'title' => 'Adopcja Serca - darowizna Alvin 75', 'party' => 'KRZYSZTOF MISZKURKA ELIXIR 10-08-2026',
+          'account' => '', 'account_key' => ''];
+$mGbp = bank_match_op($opGbp, $ctxPara);
+eq($mGbp['adoption_id'], 201, 'waluta: adopcja rozpoznana mimo funtów');
+eq($mGbp['months'], null,     'waluta: bez automatycznego podziału na miesiące');
+ok(str_contains($mGbp['reason'], 'GBP'), 'waluta: powód napisany wprost');
+
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty parsera wyciągu bankowego: {$T['pass']} OK";
 if ($T['fail'] > 0) { echo ", {$T['fail']} BŁĄD\n"; exit(1); }
