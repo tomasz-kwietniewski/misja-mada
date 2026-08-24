@@ -42,6 +42,18 @@ function adopt_db_drop_columns(PDO $pdo, string $table, array $cols): void {
     }
 }
 
+/** Dokłada indeks, jeśli go jeszcze nie ma (MySQL nie zna ADD INDEX IF NOT EXISTS). */
+function adopt_db_add_index(PDO $pdo, string $table, string $name, string $cols): void {
+    $st = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.STATISTICS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?'
+    );
+    $st->execute([$table, $name]);
+    if ((int)$st->fetchColumn() === 0) {
+        $pdo->exec("ALTER TABLE `$table` ADD INDEX `$name` $cols");
+    }
+}
+
 /** Gwarantuje istnienie schematu - raz na proces. */
 function adopt_db_ensure_schema(): void {
     static $done = false;
@@ -281,14 +293,50 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
+    /* Partia importu = jeden wgrany plik (2026-08-24).
+       Trzyma to, co plik sam o sobie mówi (rachunek, waluta, salda, zapowiadana
+       liczba operacji) razem z wynikiem kontroli formatu. Powód: bank kiedyś
+       zmieni eksport, a najgorszy scenariusz to nie awaria, tylko import, który
+       przechodzi z przekłamanymi liczbami. Raport wisi nad poczekalnią do czasu
+       rozliczenia partii - wcześniej szedł do sesji i znikał po pierwszym
+       przeładowaniu strony, czyli dokładnie wtedy, gdy był potrzebny. */
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS adopt_bank_batches (
+            id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            file_name     VARCHAR(200)    NULL,
+            layout        VARCHAR(20)     NOT NULL DEFAULT '',   -- erste | naglowek
+            columns_count SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            currency      CHAR(3)         NULL,
+            account       VARCHAR(34)     NULL,
+            holder        VARCHAR(200)    NULL,
+            date_from     DATE            NULL,
+            ops_declared  INT UNSIGNED    NULL,                  -- ile zapowiada metryka
+            ops_read      INT UNSIGNED    NOT NULL DEFAULT 0,
+            ops_added     INT UNSIGNED    NOT NULL DEFAULT 0,    -- po odsianiu duplikatów
+            sum_grosze    BIGINT          NOT NULL DEFAULT 0,
+            balance_from  BIGINT          NULL,
+            balance_to    BIGINT          NULL,
+            warnings      TEXT            NULL,                  -- JSON z bank_sanity_report
+            status        ENUM('open','undone') NOT NULL DEFAULT 'open',
+            imported_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            imported_by   VARCHAR(64)     NULL,
+            PRIMARY KEY (id),
+            KEY idx_status (status, id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
     /* Rozliczanie CZĘŚCIOWE (2026-08-24): jeden przelew potrafi pokrywać dwoje
        dzieci tego samego darczyńcy, a bywa i tak, że część kwoty to adopcja,
        a reszta zwykła darowizna. Operacja zostaje w poczekalni z resztą do
-       rozdysponowania, dopóki `allocated_grosze` nie dobije do kwoty. */
+       rozdysponowania, dopóki `allocated_grosze` nie dobije do kwoty.
+       `batch_id` wiąże operację z partią; operacje wczytane przed tą zmianą
+       zostają bez partii i po prostu do żadnej nie należą. */
     adopt_db_add_columns($pdo, 'adopt_bank_ops', [
         'allocated_grosze' => 'BIGINT NOT NULL DEFAULT 0',
         'target_count'     => 'SMALLINT UNSIGNED NOT NULL DEFAULT 0',
+        'batch_id'         => 'BIGINT UNSIGNED NULL',
     ]);
+    adopt_db_add_index($pdo, 'adopt_bank_ops', 'idx_batch', '(batch_id, status)');
 
     /* Rachunki darczyńców potwierdzone przy imporcie - dzięki temu kolejne
        wpłaty tej samej osoby dopasowują się same, nawet przy byle jakim
@@ -1310,12 +1358,13 @@ function fin_flow_sums(int $year): array {
   ───────────────────────────────────────────────────────────────── */
 
 /** Dopisuje operacje z wgranego pliku. Zwraca [dodane, pominięte-duplikaty]. */
-function bank_ops_insert_many(array $ops, ?string $user = null): array {
+function bank_ops_insert_many(array $ops, ?string $user = null, ?int $batchId = null): array {
     $pdo = payu_db();
     $st = $pdo->prepare(
         'INSERT IGNORE INTO adopt_bank_ops
-            (op_hash, op_date, amount_grosze, currency, title, party, account, account_key, imported_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            (op_hash, op_date, amount_grosze, currency, title, party, account, account_key,
+             imported_by, batch_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $added = 0;
     foreach ($ops as $op) {
@@ -1329,10 +1378,90 @@ function bank_ops_insert_many(array $ops, ?string $user = null): array {
             mb_substr((string)($op['account'] ?? ''), 0, 40) ?: null,
             mb_substr((string)($op['account_key'] ?? ''), 0, 34) ?: null,
             $user,
+            $batchId,
         ]);
         $added += $st->rowCount();
     }
     return ['added' => $added, 'dups' => count($ops) - $added];
+}
+
+/* ── Partie importu ────────────────────────────────────────────────
+   Jeden wgrany plik = jedna partia. Trzyma to, co plik sam o sobie mówi
+   (rachunek, waluta, salda, liczba operacji) razem z wynikiem kontroli
+   (bank_sanity_report). Dzięki temu ostrzeżenie o zmienionym formacie
+   wisi nad poczekalnią, dopóki partia nie zostanie rozliczona - wcześniej
+   szło do sesji i znikało po pierwszym przeładowaniu strony. */
+
+function bank_batch_insert(array $d): int {
+    $pdo = payu_db();
+    $st = $pdo->prepare(
+        'INSERT INTO adopt_bank_batches
+            (file_name, layout, columns_count, currency, account, holder, date_from,
+             ops_declared, ops_read, ops_added, sum_grosze, balance_from, balance_to,
+             warnings, imported_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    $st->execute([
+        mb_substr((string)($d['file_name'] ?? ''), 0, 200) ?: null,
+        mb_substr((string)($d['layout'] ?? ''), 0, 20),
+        (int)($d['columns_count'] ?? 0),
+        mb_substr((string)($d['currency'] ?? ''), 0, 3) ?: null,
+        mb_substr((string)($d['account'] ?? ''), 0, 34) ?: null,
+        mb_substr((string)($d['holder'] ?? ''), 0, 200) ?: null,
+        $d['date_from'] ?? null,
+        isset($d['ops_declared']) ? (int)$d['ops_declared'] : null,
+        (int)($d['ops_read'] ?? 0),
+        (int)($d['ops_added'] ?? 0),
+        (int)($d['sum_grosze'] ?? 0),
+        isset($d['balance_from']) ? (int)$d['balance_from'] : null,
+        isset($d['balance_to']) ? (int)$d['balance_to'] : null,
+        $d['warnings'] ? json_encode($d['warnings'], JSON_UNESCAPED_UNICODE) : null,
+        $d['imported_by'] ?? null,
+    ]);
+    return (int)$pdo->lastInsertId();
+}
+
+/**
+ * Partie, które mają jeszcze nierozliczone operacje - tylko takie pokazujemy
+ * nad poczekalnią. Liczba otwartych operacji liczona jest na bieżąco, żeby
+ * nie trzeba było utrzymywać osobnego stanu (i żeby nie mógł się rozjechać).
+ */
+function bank_batches_open(): array {
+    return payu_db()->query(
+        "SELECT b.*, COUNT(o.id) AS open_ops
+           FROM adopt_bank_batches b
+           JOIN adopt_bank_ops o ON o.batch_id = b.id AND o.status = 'open'
+          WHERE b.status = 'open'
+          GROUP BY b.id
+          ORDER BY b.id DESC"
+    )->fetchAll();
+}
+
+/** Liczba operacji faktycznie dopisanych (znana dopiero po odsianiu duplikatów). */
+function bank_batch_mark_added(int $id, int $added): void {
+    payu_db()->prepare('UPDATE adopt_bank_batches SET ops_added = ? WHERE id = ?')
+             ->execute([$added, $id]);
+}
+
+function bank_batch_get(int $id): ?array {
+    $st = payu_db()->prepare('SELECT * FROM adopt_bank_batches WHERE id = ?');
+    $st->execute([$id]);
+    return $st->fetch() ?: null;
+}
+
+/**
+ * Cofa import: usuwa z poczekalni WYŁĄCZNIE operacje nierozliczone.
+ * Zapisanych wpłat i przepływów nie rusza - były decyzją człowieka i mają
+ * swoje wiersze w księgach. Razem z operacjami znikają ich odciski, więc
+ * poprawiony plik da się wgrać od nowa.
+ */
+function bank_batch_undo(int $id, ?string $user = null): int {
+    $pdo = payu_db();
+    $st = $pdo->prepare("DELETE FROM adopt_bank_ops WHERE batch_id = ? AND status = 'open'");
+    $st->execute([$id]);
+    $usuniete = $st->rowCount();
+    $pdo->prepare("UPDATE adopt_bank_batches SET status = 'undone' WHERE id = ?")->execute([$id]);
+    return $usuniete;
 }
 
 /** Operacje z poczekalni; '' = wszystkie statusy. Najnowsze u góry. */

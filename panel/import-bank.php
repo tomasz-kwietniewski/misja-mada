@@ -38,23 +38,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // nawet wtedy, gdy parser się wyłoży.
             $tmp = $f['tmp_name'] . '.' . $ext;
             if (!@move_uploaded_file($f['tmp_name'], $tmp)) mada_redirect('import-bank.php?msg=readerr');
+            $peek = [];
             try {
                 [$headers, $rows, $meta] = bank_read_table($tmp);
                 $ops = $headers ? bank_rows_to_ops($headers, $rows, $meta) : [];
+                // Plik ma treść, ale nie rozumiemy układu - to najczęstszy objaw
+                // zmiany formatu po stronie banku. Pokazujemy surowe wiersze
+                // zamiast obwiniać pracownika o zły eksport.
+                if (!$ops) $peek = bank_peek_rows($tmp);
             } finally {
                 @unlink($tmp);
             }
 
-            if (!$ops) mada_redirect('import-bank.php?msg=empty');
+            if (!$ops) {
+                $_SESSION['bank_import_peek'] = $peek;
+                mada_audit('bank.import', 'bank', null,
+                    ['plik' => (string)$f['name'], 'operacji' => 0, 'uklad' => 'nierozpoznany']);
+                mada_redirect('import-bank.php?msg=' . ($peek ? 'layout' : 'empty'));
+            }
 
-            // Metryka pliku mówi, ile operacji ma być i o ile zmieniło się saldo.
-            // Jeśli się nie zgadza, pracownik musi to zobaczyć ZANIM zatwierdzi
-            // wpłaty - ucięty plik wygląda dokładnie jak spokojny, krótki tydzień.
-            $_SESSION['bank_import_meta'] = ['meta' => $meta, 'ops' => count($ops),
-                                             'warn' => bank_check_meta($meta, $ops)];
-            $res = bank_ops_insert_many($ops, $user);
-            mada_audit('bank.import', 'bank', null,
-                ['plik' => (string)$f['name'], 'operacji' => count($ops)] + $res);
+            /* Kontrola formatu i kompletności. Metryka pliku mówi, ile operacji
+               ma być i o ile zmieniło się saldo; jej BRAK jest tak samo ważną
+               informacją, bo znaczy, że nie mamy czym sprawdzić danych. Wynik
+               zostaje przy partii, a nie w sesji - ma być widoczny za każdym
+               razem, gdy ktoś patrzy na te operacje. */
+            $warnings = bank_sanity_report($meta, $ops, $rows);
+            // Najczęstsza szerokość wiersza - zapisujemy ją, żeby dało się później
+            // odczytać z historii, kiedy układ pliku się zmienił.
+            $widths = array_count_values(array_filter(array_map('bank_row_width', $rows)));
+            arsort($widths);
+            $batchId = bank_batch_insert([
+                'file_name'     => (string)$f['name'],
+                'layout'        => $headers === BANK_ERSTE_HEADER ? 'erste' : 'naglowek',
+                'columns_count' => $widths ? (int)array_key_first($widths) : 0,
+                'currency'      => (string)($meta['currency'] ?? ''),
+                'account'       => (string)($meta['account'] ?? ''),
+                'holder'        => (string)($meta['holder'] ?? ''),
+                'date_from'     => $meta['date_from'] ?? null,
+                'ops_declared'  => $meta['count'] ?? null,
+                'ops_read'      => count($ops),
+                'sum_grosze'    => array_sum(array_column($ops, 'amount_grosze')),
+                'balance_from'  => $meta['balance_from'] ?? null,
+                'balance_to'    => $meta['balance_to'] ?? null,
+                'warnings'      => $warnings,
+                'imported_by'   => $user,
+            ]);
+            $res = bank_ops_insert_many($ops, $user, $batchId);
+            bank_batch_mark_added($batchId, (int)$res['added']);
+            mada_audit('bank.import', 'bank', $batchId, [
+                'plik' => (string)$f['name'], 'operacji' => count($ops),
+                'uklad' => $headers === BANK_ERSTE_HEADER ? 'erste' : 'naglowek',
+                'ostrzezenia' => count($warnings),
+            ] + $res);
             mada_redirect('import-bank.php?msg=loaded&n=' . (int)$res['added'] . '&d=' . (int)$res['dups']);
         }
 
@@ -167,6 +202,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             bank_op_resolve((int)$op['id'], 'skipped', null, $user);
             mada_redirect('import-bank.php?msg=skipped');
         }
+        /* ── Cofnięcie całego importu ────────────────────────────
+           Ratunek na wypadek, gdy plik okazał się nie tym, czym miał być
+           (zmieniony format, zły zakres dat, pomyłkowy rachunek). Usuwa
+           WYŁĄCZNIE operacje nierozliczone - zapisane wpłaty i przepływy
+           były decyzją człowieka i zostają. */
+        if ($action === 'undo-batch') {
+            $bid = (int)($_POST['batch_id'] ?? 0);
+            $b = $bid > 0 ? bank_batch_get($bid) : null;
+            if (!$b || $b['status'] !== 'open') mada_redirect('import-bank.php?msg=bad');
+            $usuniete = bank_batch_undo($bid, $user);
+            mada_audit('bank.undo', 'bank', $bid,
+                ['plik' => (string)($b['file_name'] ?? ''), 'usunieto' => $usuniete]);
+            mada_redirect('import-bank.php?msg=undone&n=' . $usuniete);
+        }
+
         if ($action === 'reopen') {
             $op = bank_op_get((int)($_POST['op_id'] ?? 0));
             // Cofamy tylko pominięte - zapisanej wpłaty nie da się „odkliknąć"
@@ -194,6 +244,8 @@ function imp_flash() {
         'empty'    => ['error', 'W pliku nie znaleziono operacji. Wgraj plik prosto z bankowości '
                               . '(w Erste: Historia -> zakres dat -> pobierz CSV), bez otwierania '
                               . 'i zapisywania go po drodze w Excelu.'],
+        'layout'   => ['error', ''],   // treść składana w imp_layout_flash()
+        'undone'   => ['ok', ''],      // j.w.
         'bad'      => ['error', 'Nieprawidłowe dane operacji.'],
         'nosel'    => ['error', 'Nie zaznaczono żadnej adopcji do rozliczenia.'],
         'okres'    => ['error', 'Okres musi mieć postać RRRR-MM, a miesiąc „do" nie może być '
@@ -209,6 +261,12 @@ function imp_flash() {
         $txt = 'Wczytano ' . (int)($_GET['n'] ?? 0) . ' nowych operacji'
              . ((int)($_GET['d'] ?? 0) > 0 ? ', pominięto ' . (int)$_GET['d'] . ' już wczytanych wcześniej' : '') . '.';
     }
+    if ($m === 'layout')  return imp_layout_flash();
+    if ($m === 'undone') {
+        $txt = 'Import cofnięty - z poczekalni usunięto ' . (int)($_GET['n'] ?? 0)
+             . ' nierozliczonych operacji. Zapisane wcześniej wpłaty i przepływy zostały nietknięte, '
+             . 'a poprawiony plik można wgrać od nowa.';
+    }
     if ($m === 'payok') {
         $n = max(1, (int)($_GET['n'] ?? 1));
         $rest = (int)($_GET['rest'] ?? 0);
@@ -219,29 +277,83 @@ function imp_flash() {
                   . imp_money($rest) . '.'
                 : '');
     }
-    return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>'
-         . imp_meta_flash();
+    return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>';
 }
 
 /**
- * Rozliczenie wgranego pliku z jego własną metryką: który rachunek, jaka
- * waluta, czy liczba operacji i suma zgadzają się z saldami. Pokazujemy raz,
- * zaraz po wgraniu - potem znika, żeby nie wisiało nad kolejnymi decyzjami.
+ * Komunikat na wypadek, gdy plik ma treść, ale układu kolumn nie rozumiemy.
+ *
+ * Dotąd każdy taki przypadek kończył się radą „wgraj plik prosto z bankowości,
+ * bez otwierania w Excelu" - czyli obwinialiśmy pracownika o błąd, którego nie
+ * popełnił, a najbardziej prawdopodobną przyczyną jest zmiana formatu po
+ * stronie banku. Pokazujemy więc pierwsze wiersze pliku: zrzut tego ekranu
+ * wystarczy, żeby zdiagnozować sprawę zdalnie.
  */
-function imp_meta_flash(): string {
-    $s = $_SESSION['bank_import_meta'] ?? null;
-    unset($_SESSION['bank_import_meta']);
-    if (!is_array($s) || !is_array($s['meta'] ?? null) || !$s['meta']) return '';
-    $m = $s['meta'];
-    $opis = 'Rachunek ' . mada_esc((string)($m['holder'] ?? '')) . ' (' . mada_esc((string)($m['currency'] ?? 'PLN')) . ')'
-          . (isset($m['date_from']) && $m['date_from'] ? ', wyciąg od ' . mada_esc($m['date_from']) : '')
-          . ': plik zapowiada ' . (int)($m['count'] ?? 0) . ' operacji, rozpoznano ' . (int)$s['ops'] . '.';
-    if (!empty($s['warn'])) {
-        return '<div class="alert alert-error"><strong>Plik nie zgadza się ze swoją metryką.</strong><br>'
-             . $opis . '<br>' . mada_esc(implode('; ', $s['warn']))
-             . '<br>Zanim zatwierdzisz wpłaty, sprawdź, czy eksport objął cały zakres dat.</div>';
+function imp_layout_flash(): string {
+    $peek = $_SESSION['bank_import_peek'] ?? [];
+    unset($_SESSION['bank_import_peek']);
+    $h = '<div class="alert alert-error"><strong>Nie rozpoznaję układu tego pliku.</strong><br>'
+       . 'Plik ma treść, ale kolumny nie wyglądają tak jak dotychczas. Najczęściej znaczy to, '
+       . 'że bank zmienił format eksportu - wtedy ponawianie wgrywania nic nie da. '
+       . 'Pokaż ten ekran Tomkowi, wystarczy zrzut.';
+    if ($peek) {
+        $h .= '<br><span class="hint">Pierwsze wiersze pliku (numery rachunków zamazane):</span>'
+            . '<pre style="white-space:pre-wrap;word-break:break-all;font-size:12px;'
+            . 'background:var(--creamDk);padding:8px;border-radius:6px;margin:6px 0 0;">'
+            . mada_esc(implode("
+", $peek)) . '</pre>';
     }
-    return '<div class="alert alert-ok">' . $opis . ' Suma operacji zgadza się ze zmianą salda.</div>';
+    return $h . '</div>';
+}
+
+/**
+ * Raport wgranego pliku: który rachunek, jaka waluta, czy liczba operacji
+ * i suma zgadzają się z saldami, czy układ kolumn wygląda jak dotychczas.
+ *
+ * Wisi nad poczekalnią tak długo, jak długo partia ma nierozliczone operacje.
+ * Wcześniej ten sam komunikat szedł do sesji i pokazywał się dokładnie RAZ,
+ * czyli znikał przy pierwszym przeładowaniu strony - a więc wtedy, gdy był
+ * najbardziej potrzebny. Przy ostrzeżeniach twardych („nie mam jak sprawdzić
+ * kompletności") raport jest czerwony i ma przy sobie cofnięcie importu.
+ */
+function imp_batch_report(array $b): string {
+    $warn = json_decode((string)($b['warnings'] ?? ''), true) ?: [];
+    $hard = bank_sanity_has_hard($warn);
+    $cur  = (string)($b['currency'] ?? '') ?: 'PLN';
+
+    $opis = 'Plik <b>' . mada_esc((string)($b['file_name'] ?? '(bez nazwy)')) . '</b>'
+          . ($b['holder'] ? ', rachunek ' . mada_esc((string)$b['holder']) : '')
+          . ' (' . mada_esc($cur) . ')'
+          . ($b['date_from'] ? ', wyciąg od ' . mada_esc((string)$b['date_from']) : '')
+          . ': '
+          . ($b['ops_declared'] !== null
+              ? 'plik zapowiada ' . (int)$b['ops_declared'] . ' operacji, rozpoznano ' . (int)$b['ops_read']
+              : 'rozpoznano ' . (int)$b['ops_read'] . ' operacji')
+          . ', nowych ' . (int)$b['ops_added']
+          . ', do rozliczenia zostało ' . (int)$b['open_ops'] . '.';
+
+    $h = '<div class="alert alert-' . ($hard ? 'error' : 'ok') . '">';
+    if ($hard) $h .= '<strong>Ten plik wymaga sprawdzenia, zanim zatwierdzisz wpłaty.</strong><br>';
+    $h .= $opis;
+    if ($warn) {
+        $h .= '<ul style="margin:6px 0 0;padding-left:18px;">';
+        foreach ($warn as $w) {
+            $h .= '<li' . (($w['level'] ?? '') === 'hard' ? '' : ' class="hint"') . '>'
+                . mada_esc((string)($w['text'] ?? '')) . '</li>';
+        }
+        $h .= '</ul>';
+    } else {
+        $h .= ' Suma operacji zgadza się ze zmianą salda, układ pliku bez zmian.';
+    }
+    $pytanie = 'Cofnąć cały ten import? Z poczekalni znikną operacje jeszcze nierozliczone. '
+             . 'Zapisane wpłaty i przepływy zostaną nietknięte.';
+    $h .= '<form method="post" style="margin:8px 0 0;" onsubmit="return confirm('
+        . mada_esc(json_encode($pytanie, JSON_UNESCAPED_UNICODE)) . ');">'
+        . mada_csrf_field()
+        . '<input type="hidden" name="action" value="undo-batch">'
+        . '<input type="hidden" name="batch_id" value="' . (int)$b['id'] . '">'
+        . '<button type="submit" class="btn-ghost btn-sm">Cofnij cały import</button></form>';
+    return $h . '</div>';
 }
 
 /** Kwota w groszach -> "1 234,56 zł" (albo z kodem waluty). */
@@ -257,10 +369,13 @@ $ctx = ['children' => [], 'donors' => [], 'adoptions' => [], 'accounts' => []];
 $adoptionOptions = [];
 $adoptionsByDonor = [];
 $childNames = [];
+$batches = [];
 try {
     adopt_db_ensure_schema();
     $counts = bank_ops_counts();
     $ops = bank_ops_list($status);
+    // Raporty wgranych plików, które mają jeszcze coś do rozliczenia.
+    if ($status === 'open') $batches = bank_batches_open();
     if ($status === 'open' && $ops) {
         $ctx = bank_match_context();
         // Lista adopcji do ręcznego wskazania: "Nazwisko - Imię dziecka (nr)".
@@ -317,6 +432,10 @@ panel_header('Import z banku - Finanse');
            <?= $status === $k ? 'aria-current="page"' : '' ?>><?= $lbl ?> (<?= (int)$counts[$k] ?>)</a>
       <?php endforeach; ?>
     </div>
+
+    <?php foreach ($batches as $b): ?>
+      <?= imp_batch_report($b) ?>
+    <?php endforeach; ?>
 
     <?php if (!$ops): ?>
       <p class="hint"><?= $status === 'open'

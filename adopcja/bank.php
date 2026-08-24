@@ -137,6 +137,139 @@ function bank_check_meta(array $meta, array $ops): array {
     return $out;
 }
 
+/* ── Czy ten plik na pewno jest tym, czym był rok temu ─────────── */
+
+/** Liczba kolumn wiersza bez pustych ogonów (linie CSV kończą się przecinkiem). */
+function bank_row_width(array $r): int {
+    for ($i = count($r) - 1; $i >= 0; $i--) {
+        if (trim((string)$r[$i]) !== '') return $i + 1;
+    }
+    return 0;
+}
+
+/**
+ * Kontrola wgranego pliku: czy wygląda tak, jak wyglądać powinien.
+ *
+ * Powód istnienia: bank kiedyś zmieni eksport. Przesunięte kolumny zwykle dają
+ * zero operacji, czyli awarię głośną i nieszkodliwą - groźne są przypadki,
+ * w których import PRZECHODZI, a liczby są przekłamane. Metryka rachunku
+ * (liczba operacji i oba salda) wyłapuje większość z nich, więc najważniejsze
+ * jest to, żeby jej brak nie wyglądał jak „wszystko w porządku".
+ *
+ * Zwraca listę ['level' => 'hard'|'soft', 'text' => ...]. `hard` znaczy
+ * „nie ufaj tym danym, dopóki nie sprawdzisz"; `soft` to sygnał, że plik
+ * odbiega od dotychczasowego układu.
+ */
+function bank_sanity_report(array $meta, array $ops, array $rows = []): array {
+    $out = [];
+    // Uwaga: arrow fn przechwytuje przez WARTOŚĆ, więc dopisywanie do $out
+    // wymaga zwykłej domknięcia z referencją - inaczej raport zawsze wychodzi pusty.
+    $add = function (string $lvl, string $txt) use (&$out): void {
+        $out[] = ['level' => $lvl, 'text' => $txt];
+    };
+
+    if (!$meta) {
+        $add('hard', 'nie rozpoznaję metryki rachunku (pierwsza linia pliku) - nie mam jak '
+                   . 'sprawdzić, czy wczytały się wszystkie operacje, ani jaka jest waluta '
+                   . 'rachunku; format eksportu mógł się zmienić');
+    } else {
+        foreach (bank_check_meta($meta, $ops) as $msg) {
+            $add(str_contains($msg, 'więcej niż jeden rachunek') ? 'soft' : 'hard', $msg);
+        }
+        if (($meta['currency'] ?? '') === '') {
+            $add('hard', 'plik nie podaje waluty rachunku - przyjęto złotówki, więc wpłata '
+                       . 'w euro albo funtach weszłaby jako złotówki');
+        }
+    }
+
+    if (!$ops) return $out;
+
+    // Układ kolumn: dotąd zawsze osiem (BANK_ERSTE_HEADER).
+    $widths = array_map('bank_row_width', $rows);
+    $widths = array_values(array_filter($widths, fn($w) => $w > 0));
+    if ($widths) {
+        $common = array_count_values($widths);
+        arsort($common);
+        $w = (int)array_key_first($common);
+        if ($w !== count(BANK_ERSTE_HEADER)) {
+            $add('soft', 'wiersze mają ' . $w . ' kolumn zamiast ' . count(BANK_ERSTE_HEADER)
+                       . ' - układ pliku wygląda inaczej niż dotychczas');
+        }
+    }
+
+    // Puste opisy w większości operacji = kolumny prawdopodobnie się przesunęły.
+    $biale = 0;
+    foreach ($ops as $o) {
+        if (trim((string)($o['title'] ?? '')) === '' && trim((string)($o['party'] ?? '')) === '') $biale++;
+    }
+    if ($biale > 0 && $biale / count($ops) > 0.2) {
+        $add('hard', $biale . ' z ' . count($ops) . ' operacji nie ma ani tytułu, ani nadawcy '
+                   . '- kolumny mogły się przesunąć');
+    }
+
+    // Heurystyka na wypadek, gdyby w miejsce kwoty trafiła kolumna salda:
+    // salda po operacjach bywają ciągiem monotonicznym, kwoty przelewów nie.
+    if (count($ops) >= 5) {
+        $kwoty = array_column($ops, 'amount_grosze');
+        $rosnie = true; $maleje = true;
+        for ($i = 1; $i < count($kwoty); $i++) {
+            if ($kwoty[$i] <= $kwoty[$i - 1]) $rosnie = false;
+            if ($kwoty[$i] >= $kwoty[$i - 1]) $maleje = false;
+        }
+        if (($rosnie || $maleje) && min($kwoty) > 0) {
+            $add('hard', 'kwoty operacji układają się w ciąg rosnący lub malejący, jak kolumna '
+                       . 'salda - sprawdź, czy kwota nie jest brana z niewłaściwej kolumny');
+        }
+    }
+
+    // Rachunek kontrahenta znika, gdy kolumny się przesuną.
+    if (count($ops) > 5 && !array_filter(array_column($ops, 'account_key'))) {
+        $add('soft', 'żadna operacja nie ma rozpoznanego rachunku kontrahenta - dopasowania '
+                   . 'po zapamiętanym rachunku nie zadziałają');
+    }
+
+    // Daty spoza zapowiadanego zakresu.
+    if (!empty($meta['date_from'])) {
+        $poza = array_filter($ops, fn($o) => (string)$o['op_date'] < (string)$meta['date_from']);
+        if ($poza) {
+            $add('soft', count($poza) . ' operacji ma datę wcześniejszą niż początek zakresu '
+                       . 'zapowiadany w pliku (' . $meta['date_from'] . ')');
+        }
+    }
+    return $out;
+}
+
+/**
+ * Kilka pierwszych linii pliku do pokazania na ekranie, gdy układu nie
+ * rozumiemy. Bez tego komunikat brzmiałby „nie znaleziono operacji, wgraj
+ * plik prosto z bankowości" - czyli oskarżałby pracownika o błąd, którego
+ * nie popełnił, a prawdziwą przyczyną byłaby zmiana formatu po stronie banku.
+ * Zrzut takiego ekranu wystarcza do zdalnej diagnozy.
+ *
+ * Numery rachunków są maskowane: to dane osobowe, a do rozpoznania układu
+ * kolumn zupełnie niepotrzebne.
+ */
+function bank_peek_rows(string $path, int $n = 3, int $maxLen = 300): array {
+    $raw = @file_get_contents($path, false, null, 0, 64 * 1024);
+    if ($raw === false || $raw === '') return [];
+    $lines = preg_split("/\r\n|\n|\r/", bank_to_utf8($raw));
+    $out = [];
+    foreach ($lines as $l) {
+        $l = trim($l);
+        if ($l === '') continue;
+        $l = (string)preg_replace('/\d[\d\s]{8,}\d/', '[numer rachunku]', $l);
+        $out[] = mb_substr($l, 0, $maxLen);
+        if (count($out) >= $n) break;
+    }
+    return $out;
+}
+
+/** Czy raport zawiera ostrzeżenie, przy którym nie wolno ufać liczbom. */
+function bank_sanity_has_hard(array $report): bool {
+    foreach ($report as $r) if (($r['level'] ?? '') === 'hard') return true;
+    return false;
+}
+
 /** Nagłówek -> postać porównywalna (małe litery, bez ogonków i interpunkcji). */
 function bank_header_key(string $h): string {
     return adopt_name_normalize($h);

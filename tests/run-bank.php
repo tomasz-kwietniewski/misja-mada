@@ -475,6 +475,53 @@ $podzialTytul = bank_split_payment(
     bank_title_months('adopcja listopad, grudzień 2026', '2026-08-07'));
 eq($podzialTytul[301]['period_from'] ?? '', '2026-11', 'podział: okres z tytułu ma pierwszeństwo');
 
+/* ── Czy plik nadal jest tym, czym był ──────────────────────────
+   Bank kiedyś zmieni eksport. Groźne są nie awarie, tylko importy, które
+   PRZECHODZĄ z przekłamanymi liczbami - i to wyłapuje ten raport. */
+$metryka = "2026-08-14,05-08-2026,'70 1090 1056 0000 0001 5832 5871,FUNDACJA MISJA MADA,PLN,\"90,00\",\"640,00\",4,\n";
+$tresc = "14-08-2026,14-08-2026,ADOPCJA SERCA - Kiady 23,JAN KOWALSKI UL. KWIATOWA 1 00-001 WARSZAWA ELIXIR 14-08-2026,12 1090 1056 0000 0001 1111 2222,\"360,00\",\"640,00\",1,\n"
+       . "13-08-2026,13-08-2026,ADOPCJA SERCA,ANNA NOWAK UL. POLNA 2 00-002 WARSZAWA ELIXIR 13-08-2026,31 1090 1072 0000 0001 0988 0871,\"120,00\",\"280,00\",2,\n"
+       . "12-08-2026,12-08-2026,Wpłata,MARIA LIS UL. LEŚNA 3 00-003 WARSZAWA ELIXIR 12-08-2026,57 1240 1040 1111 0010 5698 4900,\"75,00\",\"160,00\",3,\n"
+       . "11-08-2026,11-08-2026,Opłata za rachunek,CENTRUM USŁUG ROZLICZENIOWYCH,48 1090 0004 0000 0011 8415 0001,\"-5,00\",\"85,00\",4,\n";
+
+$pOk = tmpfile_with($metryka . $tresc);
+[$hOk, $rOk, $mOk] = bank_read_table($pOk);
+$opsOk = bank_rows_to_ops($hOk, $rOk, $mOk);
+eq(bank_sanity_report($mOk, $opsOk, $rOk), [], 'kontrola: poprawny plik nie generuje ostrzeżeń');
+eq(bank_row_width(['a', 'b', 'c', '']), 3, 'kontrola: puste ogony kolumn nie liczą się do szerokości');
+@unlink($pOk);
+
+// Bez metryki nie mamy CZYM sprawdzić pliku - i to musi być powiedziane wprost,
+// bo wcześniej cisza wyglądała identycznie jak „wszystko się zgadza".
+$pBez = tmpfile_with($tresc);
+[$hBez, $rBez, $mBez] = bank_read_table($pBez);
+$repBez = bank_sanity_report($mBez, bank_rows_to_ops($hBez, $rBez, $mBez), $rBez);
+ok(bank_sanity_has_hard($repBez), 'kontrola: brak metryki to ostrzeżenie twarde');
+ok(str_contains($repBez[0]['text'], 'metryki'), 'kontrola: napisane wprost, czego brakuje');
+@unlink($pBez);
+
+// Ucięty eksport wygląda jak spokojny tydzień - łapią go liczba i salda.
+$pUciety = tmpfile_with($metryka . implode("\n", array_slice(explode("\n", $tresc), 0, 3)) . "\n");
+[$hU, $rU, $mU] = bank_read_table($pUciety);
+$repU = bank_sanity_report($mU, bank_rows_to_ops($hU, $rU, $mU), $rU);
+eq(count($repU), 2, 'kontrola: ucięty plik łapany na liczbie operacji i na saldzie');
+ok(bank_sanity_has_hard($repU), 'kontrola: ucięty plik to ostrzeżenie twarde');
+@unlink($pUciety);
+
+/* Kolumna dołożona w środku wiersza (bank „ulepsza" eksport). Parser nie
+   rozpoznaje takich wierszy jako operacji, czyli awaria jest GŁOŚNA - ale
+   pracownik musi dostać sensowny komunikat, a nie radę „nie otwieraj w Excelu". */
+$pZmiana = tmpfile_with(
+    "14-08-2026,14-08-2026,PRZELEW,ADOPCJA SERCA,JAN KOWALSKI ELIXIR 14-08-2026,12 1090 1056 0000 0001 1111 2222,\"360,00\",\"640,00\",1,\n"
+  . "13-08-2026,13-08-2026,PRZELEW,ADOPCJA SERCA,ANNA NOWAK ELIXIR 13-08-2026,31 1090 1072 0000 0001 0988 0871,\"120,00\",\"280,00\",2,\n");
+[$hZ, $rZ, $mZ] = bank_read_table($pZmiana);
+eq(bank_rows_to_ops($hZ, $rZ, $mZ), [], 'zmiana układu: parser nie udaje, że rozumie plik');
+$peek = bank_peek_rows($pZmiana);
+eq(count($peek), 2, 'zmiana układu: pierwsze wiersze do pokazania pracownikowi');
+ok(str_contains($peek[0], '[numer rachunku]'), 'zmiana układu: numer rachunku zamazany w podglądzie');
+ok(!str_contains($peek[0], '1090 1056 0000'), 'zmiana układu: numeru rachunku nie widać');
+@unlink($pZmiana);
+
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty parsera wyciągu bankowego: {$T['pass']} OK";
 if ($T['fail'] > 0) { echo ", {$T['fail']} BŁĄD\n"; exit(1); }
