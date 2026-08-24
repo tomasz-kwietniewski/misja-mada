@@ -72,7 +72,8 @@ function eks_wplaty_rows(): array {
 }
 
 function eks_wplaty_lista_rows(int $year): array {
-    $rows = [['Data wpłaty', 'Darczyńca', 'Dziecko', 'Okres od', 'Okres do', 'Kwota (zł)', 'Metoda', 'Notatka', 'Kto wpisał']];
+    $rows = [['Data wpłaty', 'Darczyńca', 'Dziecko', 'Okres od', 'Okres do', 'Kwota', 'Waluta',
+              'Metoda', 'Notatka', 'Kto wpisał']];
     $st = payu_db()->prepare(
         "SELECT p.*, d.full_name, c.name AS child_name
            FROM adopt_payments p
@@ -86,7 +87,8 @@ function eks_wplaty_lista_rows(int $year): array {
     foreach ($st->fetchAll() as $p) {
         $rows[] = [$p['paid_at'], $p['full_name'], $p['child_name'] ?? '',
                    adopt_month_label($p['period_from']), adopt_month_label($p['period_to']),
-                   $p['amount_grosze'] / 100, $p['method'], $p['note'] ?? '', $p['created_by'] ?? 'auto'];
+                   $p['amount_grosze'] / 100, $p['currency'] ?? 'PLN',
+                   $p['method'], $p['note'] ?? '', $p['created_by'] ?? 'auto'];
     }
     return $rows;
 }

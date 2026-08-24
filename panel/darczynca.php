@@ -462,7 +462,11 @@ panel_header('Darczyńca - Adopcja Serca');
         <tr>
           <td><?= mada_esc(adopt_month_label($p['period_from'])) ?><?= $p['period_to'] !== $p['period_from'] ? ' - ' . mada_esc(adopt_month_label($p['period_to'])) : '' ?></td>
           <td><?= $p['child'] !== null ? mada_esc($p['child']) : '-' ?></td>
-          <td><?= number_format($p['amount_grosze'] / 100, 2, ',', ' ') ?> zł</td>
+          <?php /* Waluta pokazywana tylko przy wpłatach spoza złotówek - fundacja
+                   ma rachunki EUR i GBP, a część darczyńców z zagranicy ma stawkę
+                   umówioną w swojej walucie. */ ?>
+          <td><?= number_format($p['amount_grosze'] / 100, 2, ',', ' ') ?>
+              <?= mada_esc(($p['currency'] ?? 'PLN') === 'PLN' ? 'zł' : (string)$p['currency']) ?></td>
           <td><?= mada_esc($p['paid_at']) ?></td>
           <td><?= $methodLabel[$p['method']] ?? $p['method'] ?></td>
           <td class="hint"><?= mada_esc($p['note'] ?? '') ?></td>
