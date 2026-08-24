@@ -58,36 +58,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mada_redirect('import-bank.php?msg=loaded&n=' . (int)$res['added'] . '&d=' . (int)$res['dups']);
         }
 
-        /* ── Zapis operacji jako wpłaty Adopcji Serca ───────────── */
+        /* ── Zapis operacji jako wpłaty Adopcji Serca ─────────────
+           Jedna operacja może dać KILKA wpłat: darczyńca z dwojgiem dzieci
+           robi zwykle jeden przelew na oba. Gdy rozdysponowana suma nie
+           pokrywa całej kwoty, operacja zostaje w poczekalni z resztą. */
         if ($action === 'save-payment') {
             $op = bank_op_get((int)($_POST['op_id'] ?? 0));
-            $adoptionId = (int)($_POST['adoption_id'] ?? 0);
-            $ad = $adoptionId > 0 ? adopt_adoption_get($adoptionId) : null;
-            $from = trim((string)($_POST['period_from'] ?? ''));
-            $to   = trim((string)($_POST['period_to'] ?? '')) ?: $from;
-            if (!$op || $op['status'] !== 'open' || !$ad || (int)$op['amount_grosze'] <= 0
-                || !adopt_month_valid($from) || !adopt_month_valid($to) || $to < $from) {
+            if (!$op || $op['status'] !== 'open' || (int)$op['amount_grosze'] <= 0) {
                 mada_redirect('import-bank.php?msg=bad');
             }
-            $pid = adopt_payment_insert([
-                'adoption_id'   => $adoptionId,
-                'amount_grosze' => (int)$op['amount_grosze'],
-                'paid_at'       => $op['op_date'],
-                'period_from'   => $from,
-                'period_to'     => $to,
-                'method'        => 'transfer',
-                'note'          => 'wyciąg: ' . (string)$op['title'],
-                'created_by'    => $user,
-            ]);
-            adopt_adoption_backfill_start($adoptionId);
+            $left = abs((int)$op['amount_grosze']) - (int)($op['allocated_grosze'] ?? 0);
+            $items = []; $seen = [];
+            foreach (array_keys((array)($_POST['use'] ?? [])) as $i) {
+                $aid = (int)(($_POST['adoption_id'][$i] ?? 0));
+                if ($aid <= 0) continue;
+                if (isset($seen[$aid])) mada_redirect('import-bank.php?msg=dubel');
+                $ad = adopt_adoption_get($aid);
+                if (!$ad) mada_redirect('import-bank.php?msg=bad');
+                $from = trim((string)($_POST['period_from'][$i] ?? ''));
+                $to   = trim((string)($_POST['period_to'][$i] ?? '')) ?: $from;
+                if (!adopt_month_valid($from) || !adopt_month_valid($to) || $to < $from) {
+                    mada_redirect('import-bank.php?msg=okres');
+                }
+                $amount = bank_parse_amount((string)($_POST['amount'][$i] ?? ''));
+                if ($amount === null || $amount <= 0) mada_redirect('import-bank.php?msg=kwota');
+                $seen[$aid] = true;
+                $items[] = ['adoption_id' => $aid, 'donor_id' => (int)$ad['donor_id'],
+                            'amount' => $amount, 'from' => $from, 'to' => $to];
+            }
+            if (!$items) mada_redirect('import-bank.php?msg=nosel');
+            if (array_sum(array_column($items, 'amount')) > $left) {
+                mada_redirect('import-bank.php?msg=kwota');
+            }
+
+            $pdo = payu_db();
+            $pdo->beginTransaction();
+            try {
+                $first = null; $suma = 0;
+                foreach ($items as $it) {
+                    $pid = adopt_payment_insert([
+                        'adoption_id'   => $it['adoption_id'],
+                        'amount_grosze' => $it['amount'],
+                        'currency'      => (string)$op['currency'],
+                        'paid_at'       => $op['op_date'],
+                        'period_from'   => $it['from'],
+                        'period_to'     => $it['to'],
+                        'method'        => 'transfer',
+                        'note'          => 'wyciąg: ' . (string)$op['title'],
+                        'created_by'    => $user,
+                    ]);
+                    adopt_adoption_backfill_start($it['adoption_id']);
+                    $first ??= $pid;
+                    $suma += $it['amount'];
+                    mada_audit('bank.payment', 'payment', $pid, [
+                        'operacja' => (int)$op['id'], 'adopcja' => $it['adoption_id'],
+                        'okres' => $it['from'] . '..' . $it['to'],
+                        'kwota' => number_format($it['amount'] / 100, 2, '.', ''),
+                    ]);
+                }
+                bank_op_allocate((int)$op['id'], $suma, count($items), $first, $user);
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
+
             if (!empty($_POST['zapamietaj']) && (string)$op['account_key'] !== '') {
-                bank_account_remember((string)$op['account_key'], (int)$ad['donor_id'],
+                bank_account_remember((string)$op['account_key'], $items[0]['donor_id'],
                                       (string)$op['party'], $user);
             }
-            bank_op_resolve((int)$op['id'], 'payment', $pid, $user);
-            mada_audit('bank.payment', 'payment', $pid,
-                ['operacja' => (int)$op['id'], 'adopcja' => $adoptionId, 'okres' => "$from..$to"]);
-            mada_redirect('import-bank.php?msg=payok');
+            $rest = $left - array_sum(array_column($items, 'amount'));
+            mada_redirect('import-bank.php?msg=payok&n=' . count($items) . '&rest=' . max(0, $rest));
         }
 
         /* ── Zapis operacji jako przepływu finansowego ──────────── */
@@ -154,6 +195,12 @@ function imp_flash() {
                               . '(w Erste: Historia -> zakres dat -> pobierz CSV), bez otwierania '
                               . 'i zapisywania go po drodze w Excelu.'],
         'bad'      => ['error', 'Nieprawidłowe dane operacji.'],
+        'nosel'    => ['error', 'Nie zaznaczono żadnej adopcji do rozliczenia.'],
+        'okres'    => ['error', 'Okres musi mieć postać RRRR-MM, a miesiąc „do" nie może być '
+                              . 'wcześniejszy niż „od".'],
+        'kwota'    => ['error', 'Kwoty są nieprawidłowe albo ich suma przekracza to, '
+                              . 'co zostało do rozliczenia w tej operacji.'],
+        'dubel'    => ['error', 'Ta sama adopcja wskazana dwa razy w jednej operacji.'],
     ];
     $m = $_GET['msg'] ?? '';
     if (!isset($codes[$m])) return '';
@@ -161,6 +208,16 @@ function imp_flash() {
     if ($m === 'loaded') {
         $txt = 'Wczytano ' . (int)($_GET['n'] ?? 0) . ' nowych operacji'
              . ((int)($_GET['d'] ?? 0) > 0 ? ', pominięto ' . (int)$_GET['d'] . ' już wczytanych wcześniej' : '') . '.';
+    }
+    if ($m === 'payok') {
+        $n = max(1, (int)($_GET['n'] ?? 1));
+        $rest = (int)($_GET['rest'] ?? 0);
+        $txt = ($n === 1 ? 'Wpłata zapisana i dopisana do macierzy.'
+                         : 'Zapisano ' . $n . ($n <= 4 ? ' wpłaty' : ' wpłat') . ' i dopisano do macierzy.')
+             . ($rest > 0
+                ? ' Operacja została w poczekalni - do rozliczenia zostało '
+                  . imp_money($rest) . '.'
+                : '');
     }
     return '<div class="alert alert-' . ($t === 'ok' ? 'ok' : 'error') . '">' . mada_esc($txt) . '</div>'
          . imp_meta_flash();
@@ -198,6 +255,8 @@ if (!in_array($status, ['open', 'payment', 'flow', 'skipped'], true)) $status = 
 $ops = []; $counts = ['open' => 0, 'payment' => 0, 'flow' => 0, 'skipped' => 0];
 $ctx = ['children' => [], 'donors' => [], 'adoptions' => [], 'accounts' => []];
 $adoptionOptions = [];
+$adoptionsByDonor = [];
+$childNames = [];
 try {
     adopt_db_ensure_schema();
     $counts = bank_ops_counts();
@@ -211,6 +270,10 @@ try {
                 . ($a['child_name'] ? ' - ' . $a['child_name'] . ' (nr ' . (int)$a['child_number'] . ')' : ' - bez dziecka')
                 . ' · ' . number_format(((int)$a['amount_grosze']) / 100, 0, ',', ' ') . ' zł/mies.';
         }
+        // Adopcje po darczyńcy - z nich powstają gotowe wiersze formularza,
+        // gdy jedna wpłata ma pokryć kilkoro dzieci tej samej osoby.
+        foreach ($ctx['adoptions'] as $a) $adoptionsByDonor[(int)$a['donor_id']][] = $a;
+        $childNames = array_column($ctx['children'], 'name');
     }
 } catch (Throwable $e) {
     $dbError = $dbError ?: $e->getMessage();
@@ -263,14 +326,35 @@ panel_header('Import z banku - Finanse');
 
       <?php foreach ($ops as $op):
           $isIn = (int)$op['amount_grosze'] > 0;
-          $m = $status === 'open'
-             ? bank_match_op([
-                 'op_date' => $op['op_date'], 'amount_grosze' => (int)$op['amount_grosze'],
-                 'currency' => $op['currency'], 'title' => (string)$op['title'],
-                 'party' => (string)$op['party'], 'account' => (string)$op['account'],
-                 'account_key' => (string)$op['account_key'],
-               ], $ctx)
-             : null;
+          $opArr = [
+              'op_date' => $op['op_date'], 'amount_grosze' => (int)$op['amount_grosze'],
+              'currency' => $op['currency'], 'title' => (string)$op['title'],
+              'party' => (string)$op['party'], 'account' => (string)$op['account'],
+              'account_key' => (string)$op['account_key'],
+          ];
+          $m = $status === 'open' ? bank_match_op($opArr, $ctx) : null;
+
+          // Ile z tej operacji zostało jeszcze do rozdysponowania.
+          $left = abs((int)$op['amount_grosze']) - (int)($op['allocated_grosze'] ?? 0);
+          $part = (int)($op['allocated_grosze'] ?? 0) > 0;
+
+          /* Wiersze formularza: adopcje rozpoznanego darczyńcy (gotowe do
+             zaznaczenia) plus dwa puste z pełną listą. Przy dwojgu dzieci
+             panel proponuje podział kwoty - patrz bank_split_payment. */
+          $rowsFor = []; $split = [];
+          if ($status === 'open' && $isIn) {
+              $did = (int)($m['donor_id'] ?? 0);
+              if ($did > 0) $rowsFor = $adoptionsByDonor[$did] ?? [];
+              if (!$rowsFor && (int)($m['adoption_id'] ?? 0) > 0) {
+                  foreach ($ctx['adoptions'] as $a) {
+                      if ((int)$a['id'] === (int)$m['adoption_id']) { $rowsFor = [$a]; break; }
+                  }
+              }
+              if (count($rowsFor) > 1) {
+                  $split = bank_split_payment($opArr, $rowsFor,
+                      bank_title_months((string)$op['title'], (string)$op['op_date'], $childNames));
+              }
+          }
       ?>
         <div class="events" style="border:1px solid var(--rule);border-radius:10px;padding:14px 16px;margin:0 0 12px;background:#fff;">
           <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;">
@@ -281,44 +365,121 @@ panel_header('Import z banku - Finanse');
             <span class="hint" style="flex:1;min-width:200px;"><?= mada_esc((string)$op['title']) ?></span>
             <?php if ($op['status'] !== 'open'): ?>
               <span class="badge" style="background:var(--creamDk);color:#8a7963;border-color:var(--rule);">
-                <?= $op['status'] === 'payment' ? 'wpłata #' . (int)$op['target_id']
-                  : ($op['status'] === 'flow' ? 'przepływ #' . (int)$op['target_id'] : 'pominięta') ?></span>
+                <?php if ($op['status'] === 'payment'): ?>
+                  <?= (int)($op['target_count'] ?? 1) > 1
+                      ? (int)$op['target_count'] . ' wpłaty (rozdzielona)'
+                      : 'wpłata #' . (int)$op['target_id'] ?>
+                <?php else: ?>
+                  <?= $op['status'] === 'flow' ? 'przepływ #' . (int)$op['target_id'] : 'pominięta' ?>
+                <?php endif; ?></span>
             <?php endif; ?>
           </div>
 
           <?php if ($status === 'open'): ?>
-            <p class="hint" style="margin:6px 0 10px;">
+            <p class="hint" style="margin:6px 0 4px;">
               <?= $m['reason'] !== '' ? mada_esc('Podpowiedź: ' . $m['reason']) : '' ?>
               <?php if ((string)$op['account_key'] !== ''): ?>
                 <span style="margin-left:8px;">rachunek: <?= mada_esc((string)$op['account']) ?></span>
               <?php endif; ?>
+              <?php if ($part): ?>
+                <span class="badge" style="margin-left:8px;background:var(--creamDk);color:#8a7963;border-color:var(--rule);">
+                  rozliczono <?= mada_esc(imp_money((int)$op['allocated_grosze'], (string)$op['currency'])) ?>
+                  z <?= mada_esc(imp_money(abs((int)$op['amount_grosze']), (string)$op['currency'])) ?>,
+                  zostało <?= mada_esc(imp_money($left, (string)$op['currency'])) ?></span>
+              <?php endif; ?>
             </p>
+
+            <?php /* Ostrzeżenia merytoryczne: nachodzenie na opłacone miesiące,
+                     rozjazd tytułu z kwotą. Nie blokują zapisu - mają być widoczne. */ ?>
+            <?php foreach ((array)($m['warn'] ?? []) as $w): ?>
+              <p class="hint" style="margin:0 0 4px;color:var(--err);">Uwaga: <?= mada_esc($w) ?></p>
+            <?php endforeach; ?>
+
+            <?php if (!empty($m['donor_candidates'])): ?>
+              <p class="hint" style="margin:0 0 6px;">Kto to może być:
+                <?php foreach ($m['donor_candidates'] as $c): ?>
+                  <span class="badge" style="margin-right:4px;"><?= mada_esc($c['name']) ?>
+                    <?= $c['level'] === 'fuzzy' ? '(podobne)' : '' ?></span>
+                <?php endforeach; ?>
+                - wskaż adopcję z listy.
+              </p>
+            <?php endif; ?>
 
             <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;">
               <?php if ($isIn): ?>
-              <form method="post" class="form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0;flex:2;min-width:320px;">
+              <form method="post" class="form" style="margin:0;flex:2;min-width:340px;">
                 <?= mada_csrf_field() ?>
                 <input type="hidden" name="action" value="save-payment">
                 <input type="hidden" name="op_id" value="<?= (int)$op['id'] ?>">
-                <label style="flex:1;min-width:260px;">Wpłata na adopcję
-                  <select name="adoption_id" required>
-                    <option value="">- wskaż adopcję -</option>
-                    <?php foreach ($adoptionOptions as $aid => $lbl): ?>
-                      <option value="<?= $aid ?>" <?= (int)($m['adoption_id'] ?? 0) === $aid ? 'selected' : '' ?>><?= mada_esc($lbl) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </label>
-                <label>Okres od<input type="text" name="period_from" placeholder="2026-08" style="width:90px;"
-                       value="<?= mada_esc((string)($m['period_from'] ?? '')) ?>" required></label>
-                <label>do<input type="text" name="period_to" placeholder="2027-01" style="width:90px;"
-                       value="<?= mada_esc((string)($m['period_to'] ?? '')) ?>"></label>
-                <?php if ((string)$op['account_key'] !== ''): ?>
-                  <label style="flex-direction:row;align-items:center;gap:6px;">
-                    <input type="checkbox" name="zapamietaj" value="1" checked style="width:auto;">
-                    <span class="hint">zapamiętaj rachunek</span>
-                  </label>
-                <?php endif; ?>
-                <button type="submit" class="btn-primary btn-sm">Zapisz wpłatę</button>
+                <p style="margin:0 0 6px;font-weight:600;">Wpłata na adopcję</p>
+
+                <?php
+                  $i = 0;
+                  // Wiersze gotowe: adopcje rozpoznanego darczyńcy.
+                  foreach ($rowsFor as $a):
+                      $aid = (int)$a['id'];
+                      $s = $split[$aid] ?? null;
+                      $one = count($rowsFor) === 1 && (int)($m['adoption_id'] ?? 0) === $aid;
+                      $checked = $s !== null || $one;
+                      $amt  = $s['amount_grosze'] ?? ($one ? $left : null);
+                      $from = $s['period_from'] ?? ($one ? ($m['period_from'] ?? '') : '');
+                      $to   = $s['period_to']   ?? ($one ? ($m['period_to'] ?? '') : '');
+                      $lbl  = $adoptionOptions[$aid] ?? ('adopcja #' . $aid);
+                ?>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0 0 6px;">
+                    <input type="hidden" name="adoption_id[<?= $i ?>]" value="<?= $aid ?>">
+                    <label style="flex-direction:row;align-items:center;gap:6px;flex:1;min-width:240px;">
+                      <input type="checkbox" name="use[<?= $i ?>]" value="1" style="width:auto;"
+                             <?= $checked ? 'checked' : '' ?>>
+                      <span><?= mada_esc($lbl) ?></span>
+                    </label>
+                    <label>kwota<input type="text" name="amount[<?= $i ?>]" style="width:90px;"
+                           value="<?= $amt !== null ? mada_esc(number_format($amt / 100, 2, ',', '')) : '' ?>"></label>
+                    <label>okres od<input type="text" name="period_from[<?= $i ?>]" placeholder="RRRR-MM"
+                           style="width:90px;" value="<?= mada_esc((string)$from) ?>"></label>
+                    <label>do<input type="text" name="period_to[<?= $i ?>]" placeholder="RRRR-MM"
+                           style="width:90px;" value="<?= mada_esc((string)$to) ?>"></label>
+                  </div>
+                <?php $i++; endforeach; ?>
+
+                <?php /* Dwa puste wiersze: dla nierozpoznanego darczyńcy i dla
+                         wpłat trafiających do kogoś spoza podpowiedzi. */ ?>
+                <?php for ($k = 0; $k < 2; $k++): $j = $i + $k; ?>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0 0 6px;">
+                    <label style="flex-direction:row;align-items:center;gap:6px;flex:1;min-width:240px;">
+                      <input type="checkbox" name="use[<?= $j ?>]" value="1" style="width:auto;">
+                      <select name="adoption_id[<?= $j ?>]" style="flex:1;min-width:220px;">
+                        <option value="">- wskaż adopcję -</option>
+                        <?php foreach ($adoptionOptions as $aid => $lbl): ?>
+                          <option value="<?= $aid ?>"
+                            <?= (!$rowsFor && $k === 0 && (int)($m['adoption_id'] ?? 0) === $aid) ? 'selected' : '' ?>>
+                            <?= mada_esc($lbl) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </label>
+                    <label>kwota<input type="text" name="amount[<?= $j ?>]" style="width:90px;"
+                           value="<?= (!$rowsFor && $k === 0 && (int)($m['adoption_id'] ?? 0) > 0)
+                                      ? mada_esc(number_format($left / 100, 2, ',', '')) : '' ?>"></label>
+                    <label>okres od<input type="text" name="period_from[<?= $j ?>]" placeholder="RRRR-MM"
+                           style="width:90px;" value="<?= (!$rowsFor && $k === 0) ? mada_esc((string)($m['period_from'] ?? '')) : '' ?>"></label>
+                    <label>do<input type="text" name="period_to[<?= $j ?>]" placeholder="RRRR-MM"
+                           style="width:90px;" value="<?= (!$rowsFor && $k === 0) ? mada_esc((string)($m['period_to'] ?? '')) : '' ?>"></label>
+                  </div>
+                <?php endfor; ?>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+                  <span class="hint">do rozliczenia:
+                    <?= mada_esc(imp_money($left, (string)$op['currency'])) ?><?php
+                      if (!empty($m['months'])): ?> · <?= mada_esc(bank_months_label((int)$m['months'])) ?><?php
+                      endif; ?></span>
+                  <?php if ((string)$op['account_key'] !== ''): ?>
+                    <label style="flex-direction:row;align-items:center;gap:6px;margin:0;">
+                      <input type="checkbox" name="zapamietaj" value="1" checked style="width:auto;">
+                      <span class="hint">zapamiętaj rachunek</span>
+                    </label>
+                  <?php endif; ?>
+                  <button type="submit" class="btn-primary btn-sm">Zapisz wpłatę</button>
+                </div>
               </form>
               <?php endif; ?>
 

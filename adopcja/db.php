@@ -136,6 +136,18 @@ function adopt_db_migrate(?PDO $pdo = null): void {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
+    /* Waluta wpłaty (2026-08-24). Fundacja ma rachunki PLN, EUR i GBP, a część
+       darczyńców z zagranicy ma stawkę umówioną w swojej walucie - 240 GBP
+       zapisane bez tej kolumny wyglądałoby w panelu jak 240 zł. Pokrycie
+       miesięcy liczy się po okresach, nie po kwotach, więc sam okres adopcji
+       był poprawny; fałszowały się tylko sumy pieniężne.
+       `amount_pln_grosze` czeka puste - wyciąg nie podaje kursu, pojawia się
+       on dopiero przy przewalutowaniu. */
+    adopt_db_add_columns($pdo, 'adopt_payments', [
+        'currency'          => "CHAR(3) NOT NULL DEFAULT 'PLN'",
+        'amount_pln_grosze' => 'INT UNSIGNED NULL',
+    ]);
+
     /* Dossier dziecka (wzór: PDF wysyłany darczyńcom) - kolumny dokładane do
        istniejących instalacji przez ALTER (MySQL 8 nie zna ADD COLUMN IF NOT EXISTS). */
     adopt_db_add_columns($pdo, 'adopt_children', [
@@ -268,6 +280,15 @@ function adopt_db_migrate(?PDO $pdo = null): void {
             KEY idx_status (status, op_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+
+    /* Rozliczanie CZĘŚCIOWE (2026-08-24): jeden przelew potrafi pokrywać dwoje
+       dzieci tego samego darczyńcy, a bywa i tak, że część kwoty to adopcja,
+       a reszta zwykła darowizna. Operacja zostaje w poczekalni z resztą do
+       rozdysponowania, dopóki `allocated_grosze` nie dobije do kwoty. */
+    adopt_db_add_columns($pdo, 'adopt_bank_ops', [
+        'allocated_grosze' => 'BIGINT NOT NULL DEFAULT 0',
+        'target_count'     => 'SMALLINT UNSIGNED NOT NULL DEFAULT 0',
+    ]);
 
     /* Rachunki darczyńców potwierdzone przy imporcie - dzięki temu kolejne
        wpłaty tej samej osoby dopasowują się same, nawet przy byle jakim
@@ -778,14 +799,15 @@ function adopt_payment_insert(array $d): int {
     $pdo = payu_db();
     $st = $pdo->prepare(
         'INSERT INTO adopt_payments
-            (adoption_id, charge_id, amount_grosze, paid_at, period_from, period_to,
+            (adoption_id, charge_id, amount_grosze, currency, paid_at, period_from, period_to,
              method, note, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $st->execute([
         $d['adoption_id'],
         $d['charge_id'] ?? null,
         $d['amount_grosze'],
+        strtoupper((string)($d['currency'] ?? 'PLN')) ?: 'PLN',
         $d['paid_at'],
         $d['period_from'],
         $d['period_to'],
@@ -1347,6 +1369,32 @@ function bank_op_resolve(int $id, string $status, ?int $targetId, ?string $user 
           WHERE id = ?'
     );
     $st->execute([$status, $targetId, $user, $id]);
+}
+
+/**
+ * Dopisuje rozliczoną część operacji (jedną albo kilka wpłat naraz).
+ *
+ * Operacja zamyka się dopiero wtedy, gdy rozliczona suma dobije do jej kwoty.
+ * Wcześniej zostaje w poczekalni z resztą do rozdysponowania - stąd darczyńca
+ * z dwojgiem dzieci i przelewem na oba naraz, a także wpłata mieszana
+ * (część na adopcję, część jako zwykła darowizna).
+ */
+function bank_op_allocate(int $id, int $addGrosze, int $addCount, ?int $firstTarget,
+                          ?string $user = null): void {
+    $op = bank_op_get($id);
+    if (!$op) return;
+    $alloc = (int)($op['allocated_grosze'] ?? 0) + $addGrosze;
+    $full  = $alloc >= abs((int)$op['amount_grosze']);
+    payu_db()->prepare(
+        'UPDATE adopt_bank_ops
+            SET allocated_grosze = ?, target_count = target_count + ?,
+                target_id = COALESCE(target_id, ?), status = ?,
+                resolved_at = ?, resolved_by = ?
+          WHERE id = ?'
+    )->execute([
+        $alloc, $addCount, $firstTarget, $full ? 'payment' : 'open',
+        $full ? date('Y-m-d H:i:s') : null, $full ? $user : null, $id,
+    ]);
 }
 
 /** Przywraca operację do poczekalni (cofnięcie pomyłkowej decyzji). */

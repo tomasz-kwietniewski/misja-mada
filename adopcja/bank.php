@@ -885,6 +885,51 @@ function bank_match_op(array $op, array $ctx): array {
     ];
 }
 
+/**
+ * Propozycja rozdzielenia jednej wpłaty na kilkoro dzieci tego samego darczyńcy.
+ *
+ * Radek: „Darczyńcy, którzy mają 2 dzieci i robią 1 wpłatę - mogę wybrać tylko
+ * 1 dziecko". Wpłata 140 zł przy dwóch adopcjach po 70 zł to jeden miesiąc dla
+ * każdego z dzieci; 280 zł to dwa miesiące. Liczymy tylko wtedy, gdy kwota
+ * dzieli się bez reszty przez SUMĘ stawek - inaczej podział byłby zgadywaniem
+ * i pola zostają puste, do wypełnienia ręcznego.
+ *
+ * $ads to adopcje jednego darczyńcy (id, amount_grosze, start_month, end_month,
+ * payments). Zwraca [adoption_id => ['amount_grosze','period_from','period_to',
+ * 'months']] albo [] gdy podziału nie widać.
+ */
+function bank_split_payment(array $op, array $ads, array $titleMonths = []): array {
+    if (count($ads) < 2) return [];
+    if (($op['currency'] ?? 'PLN') !== 'PLN') return [];      // stawki są w złotych
+    $amount = (int)($op['amount_grosze'] ?? 0);
+    $sum = 0;
+    foreach ($ads as $a) $sum += (int)($a['amount_grosze'] ?? 0);
+    if ($amount <= 0 || $sum <= 0 || $amount % $sum !== 0) return [];
+    $n = intdiv($amount, $sum);
+    if ($n < 1 || $n > 24) return [];
+
+    $out = [];
+    foreach ($ads as $a) {
+        $rate = (int)($a['amount_grosze'] ?? 0);
+        if ($rate <= 0) continue;
+        // Okres z tytułu, gdy darczyńca go wypisał; inaczej od pierwszej zaległości.
+        if ($titleMonths && ($titleMonths['months'] ?? 0) === $n) {
+            $from = $titleMonths['from'];
+            $to   = $titleMonths['to'];
+        } else {
+            $from = bank_first_unpaid($a, (string)($op['op_date'] ?? ''));
+            $to   = $from !== null ? adopt_month_add($from, $n - 1) : null;
+        }
+        $out[(int)$a['id']] = [
+            'amount_grosze' => $rate * $n,
+            'period_from'   => $from,
+            'period_to'     => $to,
+            'months'        => $n,
+        ];
+    }
+    return $out;
+}
+
 /** Liczba miesięcy z odmienionym rzeczownikiem: 1 miesiąc, 3 miesiące, 7 miesięcy. */
 function bank_months_label(int $n): string {
     $mod10 = $n % 10;

@@ -441,6 +441,40 @@ eq($mGbp['adoption_id'], 201, 'waluta: adopcja rozpoznana mimo funtów');
 eq($mGbp['months'], null,     'waluta: bez automatycznego podziału na miesiące');
 ok(str_contains($mGbp['reason'], 'GBP'), 'waluta: powód napisany wprost');
 
+/* ── Jedna wpłata, dwoje dzieci ─────────────────────────────────
+   Radek: „Darczyńcy, którzy mają 2 dzieci i robią 1 wpłatę - mogę wybrać
+   tylko 1 dziecko i nie mogę przyporządkować wpłat dla 2 dziecka". */
+$dwoje = [
+    ['id' => 301, 'amount_grosze' => 7000, 'start_month' => '2026-01', 'end_month' => null,
+     'payments' => [['period_from' => '2026-01', 'period_to' => '2026-07']]],
+    ['id' => 302, 'amount_grosze' => 7000, 'start_month' => '2026-01', 'end_month' => null,
+     'payments' => [['period_from' => '2026-01', 'period_to' => '2026-07']]],
+];
+$podzial = bank_split_payment(
+    ['op_date' => '2026-08-07', 'amount_grosze' => 14000, 'currency' => 'PLN'], $dwoje);
+eq(array_keys($podzial), [301, 302], 'podział: obie adopcje dostają swoją część');
+eq($podzial[301]['amount_grosze'], 7000, 'podział: 140 zł to po 70 zł na dziecko');
+eq($podzial[301]['period_from'], '2026-08', 'podział: okres od pierwszego niezapłaconego');
+eq($podzial[301]['months'], 1, 'podział: jeden miesiąc dla każdego dziecka');
+
+// Dwa miesiące dla dwojga dzieci naraz.
+eq(bank_split_payment(['op_date' => '2026-08-07', 'amount_grosze' => 28000, 'currency' => 'PLN'],
+                      $dwoje)[302]['period_to'] ?? '', '2026-09', 'podział: 280 zł to dwa miesiące');
+
+// Kwota nie dzieląca się przez sumę stawek - nie zgadujemy, pola zostają puste.
+eq(bank_split_payment(['op_date' => '2026-08-07', 'amount_grosze' => 15000, 'currency' => 'PLN'],
+                      $dwoje), [], 'podział: nierówna kwota nie jest dzielona na siłę');
+eq(bank_split_payment(['op_date' => '2026-08-07', 'amount_grosze' => 14000, 'currency' => 'GBP'],
+                      $dwoje), [], 'podział: obca waluta wobec stawek w złotych');
+eq(bank_split_payment(['op_date' => '2026-08-07', 'amount_grosze' => 7000, 'currency' => 'PLN'],
+                      [$dwoje[0]]), [], 'podział: jedno dziecko nie wymaga dzielenia');
+
+// Okres wypisany w tytule wygrywa z wyliczonym, gdy liczba miesięcy się zgadza.
+$podzialTytul = bank_split_payment(
+    ['op_date' => '2026-08-07', 'amount_grosze' => 28000, 'currency' => 'PLN'], $dwoje,
+    bank_title_months('adopcja listopad, grudzień 2026', '2026-08-07'));
+eq($podzialTytul[301]['period_from'] ?? '', '2026-11', 'podział: okres z tytułu ma pierwszeństwo');
+
 // ── Wynik ──────────────────────────────────────────────────────
 echo "\nTesty parsera wyciągu bankowego: {$T['pass']} OK";
 if ($T['fail'] > 0) { echo ", {$T['fail']} BŁĄD\n"; exit(1); }
