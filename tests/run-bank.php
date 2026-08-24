@@ -142,6 +142,55 @@ eq($ops4[0]['amount_grosze'], 24000, 'erste GBP: kwota w funtach');
 eq($ops4[0]['account_key'], 'GB82BUKB20966003769674', 'erste GBP: IBAN zagraniczny jako klucz rachunku');
 @unlink($p3); @unlink($p4);
 
+/* ── Operacje bliźniacze: dwa osobne przelewy, nie duplikat ─────
+   Darczyńca z dwojgiem dzieci potrafi wysłać dwa przelewy po 70 zł tego
+   samego dnia, z tym samym tytułem. Wcześniej miały identyczny odcisk
+   i drugi znikał jako rzekomy duplikat - czyli wpłata przepadała cicho. */
+$bliz = "2026-08-14,14-08-2026,'70 1090 1056 0000 0001 5832 5871,FUNDACJA MISJA MADA,PLN,\"0,00\",\"140,00\",2,\n"
+      . "14-08-2026,14-08-2026,ADOPCJA SERCA,MARIA WISNIEWSKA UL. LESNA 3 00-003 WARSZAWA ELIXIR 14-08-2026,31 1090 1072 0000 0001 0988 0871,\"70,00\",\"140,00\",1,\n"
+      . "14-08-2026,14-08-2026,ADOPCJA SERCA,MARIA WISNIEWSKA UL. LESNA 3 00-003 WARSZAWA ELIXIR 14-08-2026,31 1090 1072 0000 0001 0988 0871,\"70,00\",\"70,00\",2,\n";
+$p5 = tmpfile_with($bliz);
+[$h5, $r5, $meta5] = bank_read_table($p5);
+$ops5 = bank_rows_to_ops($h5, $r5, $meta5);
+eq(count($ops5), 2, 'bliźniaki: dwa identyczne przelewy to dwie operacje');
+ok($ops5[0]['op_hash'] !== $ops5[1]['op_hash'], 'bliźniaki: różne odciski mimo identycznych pól');
+eq(bank_check_meta($meta5, $ops5), [], 'bliźniaki: suma zgodna z saldami');
+
+// Ponowny import tego samego pliku musi dać te same odciski, inaczej
+// dedup przestałby chronić przed zdublowaniem wpłat.
+$ops5again = bank_rows_to_ops($h5, $r5, $meta5);
+eq(array_column($ops5again, 'op_hash'), array_column($ops5, 'op_hash'),
+   'bliźniaki: powtórny odczyt daje te same odciski');
+// Pierwsze wystąpienie liczy się jak dawniej - operacje wczytane przed tą
+// zmianą nie mogą wrócić do poczekalni jako „nowe".
+$solo = $ops5[0]; unset($solo['seq'], $solo['op_hash']);
+eq(bank_op_hash($solo), $ops5[0]['op_hash'], 'bliźniaki: odcisk pierwszego wystąpienia bez zmian');
+@unlink($p5);
+
+/* ── Metryka przeżywa dołożenie nazw kolumn ─────────────────────
+   Gdyby bank dorzucił do eksportu wiersz z nazwami kolumn, parser poszedłby
+   ścieżką nagłówkową, która wcześniej zwracała pustą metrykę - a razem z nią
+   znikała kontrola kompletności i waluta rachunku (240 GBP jako 240 zł). */
+$zNaglowkiem = "2026-08-14,10-08-2026,'34 1090 1056 0000 0001 6645 4246,Fundacja Misja Mada,GBP,\"0,00\",\"240,00\",1,\n"
+             . "Data księgowania,Data operacji,Tytuł,Nadawca,Numer rachunku,Kwota,Saldo,Lp\n"
+             . "10-08-2026,10-08-2026,Adopcja Serca - darowizna Michael nr 134,ADAM TESTOWY,GB82 BUKB 2096 6003 7696 74,\"240,00\",\"240,00\",1,\n";
+$p6 = tmpfile_with($zNaglowkiem);
+[$h6, $r6, $meta6] = bank_read_table($p6);
+eq($h6[1] ?? '', 'Data operacji', 'nagłówek: wiersz nazw kolumn rozpoznany');
+eq($meta6['currency'] ?? '', 'GBP', 'nagłówek: metryka rachunku nie ginie razem z nagłówkiem');
+$ops6 = bank_rows_to_ops($h6, $r6, $meta6);
+eq(count($ops6), 1, 'nagłówek: jedna operacja');
+eq($ops6[0]['currency'], 'GBP', 'nagłówek: waluta z metryki mimo innego układu pliku');
+@unlink($p6);
+
+// Metryka podana razem z operacjami nie może przejść jako operacja
+// (ma daty i kwoty, więc bez osobnego testu wyglądałaby jak wpłata 871,37).
+$zMetryka = bank_rows_to_ops(BANK_ERSTE_HEADER, [
+    ['2026-08-14', '05-08-2026', "'70 1090 1056 0000 0001 5832 5871", 'FUNDACJA MISJA MADA', 'PLN', '871,37', '7167,56', '47', ''],
+    ['14-08-2026', '14-08-2026', 'ADOPCJA SERCA', 'JAN KOWALSKI', '12 1090 1056 0000 0001 1111 2222', '70,00', '7167,56', '1', ''],
+], ['currency' => 'PLN']);
+eq(count($zMetryka), 1, 'metryka: wiersz rachunku odsiany z listy operacji');
+
 // ── Wskazówki z tytułu przelewu ────────────────────────────────
 $h = bank_title_hints('Adopcja Serca - darowizna - Kiady 23');
 eq($h['numbers'], [23], 'tytuł: numer dziecka');

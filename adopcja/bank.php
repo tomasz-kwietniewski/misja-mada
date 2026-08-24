@@ -278,14 +278,24 @@ function bank_read_xlsx(string $path): array {
  * Wydziela wiersz nagłówka: pierwszy, w którym rozpoznajemy datę i kwotę.
  * Wszystko powyżej to nagłówek raportu (nazwa rachunku, zakres dat itd.).
  * Brak takiego wiersza nie kończy sprawy - plik idzie wtedy ścieżką Erste.
+ *
+ * Metryka rachunku spotkana po drodze WRACA razem z nagłówkiem. Wcześniej
+ * ta ścieżka zwracała pustą metrykę, więc gdyby bank dołożył do eksportu
+ * nazwy kolumn - czyli formalnie go ulepszył - panel po cichu straciłby
+ * kontrolę kompletności (bank_check_meta) i walutę rachunku.
  */
 function bank_split_header(array $rows): array {
+    $meta = [];
     foreach ($rows as $i => $r) {
         if (count($r) < 3) continue;
-        if (bank_erste_meta($r) !== null) continue;   // metryka rachunku to nie nagłówek
+        $m = bank_erste_meta($r);
+        if ($m !== null) {                            // metryka rachunku to nie nagłówek
+            if (!$meta) $meta = $m;
+            continue;
+        }
         $map = bank_map_columns($r);
         if (isset($map['date'], $map['amount'])) {
-            return [$r, array_values(array_slice($rows, $i + 1)), []];
+            return [$r, array_values(array_slice($rows, $i + 1)), $meta];
         }
     }
     return bank_split_erste($rows);
@@ -363,14 +373,26 @@ function bank_account_key(string $raw): string {
 /**
  * Odcisk operacji - chroni przed zdublowaniem wpłat przy ponownym
  * wgraniu tego samego pliku albo zachodzących na siebie zakresach dat.
+ *
+ * `seq` odróżnia operacje BLIŹNIACZE: dwa osobne przelewy po 70 zł tego
+ * samego dnia, od tej samej osoby, z tym samym tytułem (darczyńca płacący
+ * za dwoje dzieci dwoma przelewami) miały wcześniej identyczny odcisk
+ * i drugi z nich znikał jako rzekomy duplikat. Numer wystąpienia liczy
+ * bank_rows_to_ops w obrębie jednego pliku, więc ponowny import tego
+ * samego zakresu dat dalej daje zero nowych operacji.
+ *
+ * Do odcisku wchodzi dopiero od drugiego wystąpienia - dzięki temu
+ * operacje wczytane przed tą zmianą zachowują swoje odciski i nie wracają
+ * do poczekalni jako „nowe".
  */
 function bank_op_hash(array $op): string {
+    $seq = (int)($op['seq'] ?? 0);
     return sha1(implode('|', [
         $op['op_date'] ?? '', (string)($op['amount_grosze'] ?? ''), $op['currency'] ?? '',
         adopt_name_normalize((string)($op['title'] ?? '')),
         adopt_name_normalize((string)($op['party'] ?? '')),
         $op['account_key'] ?? '',
-    ]));
+    ]) . ($seq > 0 ? '|#' . $seq : ''));
 }
 
 /**
@@ -389,7 +411,12 @@ function bank_rows_to_ops(array $headers, array $rows, array $meta = []): array 
         return $i === null ? '' : trim((string)($r[$i] ?? ''));
     };
     $ops = [];
+    $seen = [];        // odcisk bez numeru wystąpienia => ile razy już był
     foreach ($rows as $r) {
+        // Metryka rachunku ma daty i kwoty, więc w pliku z nazwami kolumn
+        // przeszłaby tu jako operacja - odsiewamy ją po numerze rachunku
+        // i kodzie waluty naraz, tak samo jak w ścieżce pozycyjnej.
+        if (bank_erste_meta($r) !== null) continue;
         $date = bank_parse_date($get($r, $map['date'] ?? null));
         $amount = bank_parse_amount($get($r, $map['amount'] ?? null));
         if ($date === null || $amount === null || $amount === 0) continue;
@@ -405,7 +432,11 @@ function bank_rows_to_ops(array $headers, array $rows, array $meta = []): array 
             'account_key'   => bank_account_key($acc),
             'raw'           => $r,
         ];
-        $op['op_hash'] = bank_op_hash($op);
+        $base = bank_op_hash($op);
+        $n = $seen[$base] ?? 0;
+        $seen[$base] = $n + 1;
+        $op['seq'] = $n;
+        $op['op_hash'] = $n > 0 ? bank_op_hash($op) : $base;
         $ops[] = $op;
     }
     return $ops;
