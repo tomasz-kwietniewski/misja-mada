@@ -1450,14 +1450,24 @@ function bank_batch_get(int $id): ?array {
 }
 
 /**
- * Cofa import: usuwa z poczekalni WYŁĄCZNIE operacje nierozliczone.
- * Zapisanych wpłat i przepływów nie rusza - były decyzją człowieka i mają
- * swoje wiersze w księgach. Razem z operacjami znikają ich odciski, więc
- * poprawiony plik da się wgrać od nowa.
+ * Cofa import: usuwa z poczekalni operacje, przy których NICZEGO nie zapisano.
+ *
+ * Zapisanych wpłat i przepływów nie ruszamy - były decyzją człowieka i mają
+ * swoje wiersze w księgach. Z tego samego powodu zostaje też operacja
+ * rozliczona CZĘŚCIOWO (`allocated_grosze > 0`): usunięcie jej skasowałoby
+ * jedyny ślad, że część kwoty jest już zaksięgowana, a ponowny import tego
+ * samego pliku wróciłby z pełną kwotą - prosta droga do policzenia tej wpłaty
+ * drugi raz.
+ *
+ * Razem z usuwanymi operacjami znikają ich odciski, więc poprawiony plik da
+ * się wgrać od nowa.
  */
 function bank_batch_undo(int $id, ?string $user = null): int {
     $pdo = payu_db();
-    $st = $pdo->prepare("DELETE FROM adopt_bank_ops WHERE batch_id = ? AND status = 'open'");
+    $st = $pdo->prepare(
+        "DELETE FROM adopt_bank_ops
+          WHERE batch_id = ? AND status = 'open' AND allocated_grosze = 0"
+    );
     $st->execute([$id]);
     $usuniete = $st->rowCount();
     $pdo->prepare("UPDATE adopt_bank_batches SET status = 'undone' WHERE id = ?")->execute([$id]);

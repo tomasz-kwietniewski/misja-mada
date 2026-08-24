@@ -205,8 +205,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         /* ── Cofnięcie całego importu ────────────────────────────
            Ratunek na wypadek, gdy plik okazał się nie tym, czym miał być
            (zmieniony format, zły zakres dat, pomyłkowy rachunek). Usuwa
-           WYŁĄCZNIE operacje nierozliczone - zapisane wpłaty i przepływy
-           były decyzją człowieka i zostają. */
+           operacje, przy których niczego nie zapisano; wpłaty, przepływy
+           i operacje rozliczone częściowo zostają - patrz bank_batch_undo. */
         if ($action === 'undo-batch') {
             $bid = (int)($_POST['batch_id'] ?? 0);
             $b = $bid > 0 ? bank_batch_get($bid) : null;
@@ -264,8 +264,8 @@ function imp_flash() {
     if ($m === 'layout')  return imp_layout_flash();
     if ($m === 'undone') {
         $txt = 'Import cofnięty - z poczekalni usunięto ' . (int)($_GET['n'] ?? 0)
-             . ' nierozliczonych operacji. Zapisane wcześniej wpłaty i przepływy zostały nietknięte, '
-             . 'a poprawiony plik można wgrać od nowa.';
+             . ' operacji, przy których niczego nie zapisano. Wpłaty, przepływy i operacje '
+             . 'rozliczone częściowo zostały nietknięte, a poprawiony plik można wgrać od nowa.';
     }
     if ($m === 'payok') {
         $n = max(1, (int)($_GET['n'] ?? 1));
@@ -345,8 +345,8 @@ function imp_batch_report(array $b): string {
     } else {
         $h .= ' Suma operacji zgadza się ze zmianą salda, układ pliku bez zmian.';
     }
-    $pytanie = 'Cofnąć cały ten import? Z poczekalni znikną operacje jeszcze nierozliczone. '
-             . 'Zapisane wpłaty i przepływy zostaną nietknięte.';
+    $pytanie = 'Cofnąć cały ten import? Z poczekalni znikną operacje, przy których niczego '
+             . 'jeszcze nie zapisano. Wpłaty, przepływy i operacje rozliczone częściowo zostaną.';
     $h .= '<form method="post" style="margin:8px 0 0;" onsubmit="return confirm('
         . mada_esc(json_encode($pytanie, JSON_UNESCAPED_UNICODE)) . ');">'
         . mada_csrf_field()
@@ -445,17 +445,21 @@ panel_header('Import z banku - Finanse');
 
       <?php foreach ($ops as $op):
           $isIn = (int)$op['amount_grosze'] > 0;
+          // Ile z tej operacji zostało jeszcze do rozdysponowania.
+          $left = abs((int)$op['amount_grosze']) - (int)($op['allocated_grosze'] ?? 0);
+          $part = (int)($op['allocated_grosze'] ?? 0) > 0;
+
+          /* Podpowiedź liczymy od kwoty POZOSTAŁEJ, nie od pełnej: przy operacji
+             rozliczonej w części „kwota = 2 miesiące" dotyczyłaby pieniędzy,
+             których już nie ma do rozdysponowania. */
           $opArr = [
-              'op_date' => $op['op_date'], 'amount_grosze' => (int)$op['amount_grosze'],
+              'op_date' => $op['op_date'],
+              'amount_grosze' => (int)$op['amount_grosze'] > 0 ? $left : (int)$op['amount_grosze'],
               'currency' => $op['currency'], 'title' => (string)$op['title'],
               'party' => (string)$op['party'], 'account' => (string)$op['account'],
               'account_key' => (string)$op['account_key'],
           ];
           $m = $status === 'open' ? bank_match_op($opArr, $ctx) : null;
-
-          // Ile z tej operacji zostało jeszcze do rozdysponowania.
-          $left = abs((int)$op['amount_grosze']) - (int)($op['allocated_grosze'] ?? 0);
-          $part = (int)($op['allocated_grosze'] ?? 0) > 0;
 
           /* Wiersze formularza: adopcje rozpoznanego darczyńcy (gotowe do
              zaznaczenia) plus dwa puste z pełną listą. Przy dwojgu dzieci
@@ -561,9 +565,13 @@ panel_header('Import z banku - Finanse');
                   </div>
                 <?php $i++; endforeach; ?>
 
-                <?php /* Dwa puste wiersze: dla nierozpoznanego darczyńcy i dla
-                         wpłat trafiających do kogoś spoza podpowiedzi. */ ?>
-                <?php for ($k = 0; $k < 2; $k++): $j = $i + $k; ?>
+                <?php /* Puste wiersze na wpłaty trafiające poza podpowiedź. Gdy nikogo nie
+                         rozpoznaliśmy, potrzebne są dwa (żeby dało się od razu rozdzielić
+                         wpłatę na dwoje dzieci); przy rozpoznanym darczyńcy wystarczy jeden,
+                         bo jego adopcje stoją już wyżej - a przy 47 operacjach każdy zbędny
+                         wiersz to szum na ekranie. */ ?>
+                <?php $puste = $rowsFor ? 1 : 2; ?>
+                <?php for ($k = 0; $k < $puste; $k++): $j = $i + $k; ?>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0 0 6px;">
                     <label style="flex-direction:row;align-items:center;gap:6px;flex:1;min-width:240px;">
                       <input type="checkbox" name="use[<?= $j ?>]" value="1" style="width:auto;">
