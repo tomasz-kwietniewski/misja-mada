@@ -395,8 +395,10 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
 
 - **Model** (`adopcja/db.php`, schemat idempotentny, CLI `php adopcja/migrate.php`): dzieci
   (`adopt_children`, klucz = Numer Dziecka), darczyńcy, adopcje (okres od-do, częstotliwość, metoda,
-  powiązanie z subskrypcją PayU) i **wpłaty jako zdarzenia z zakresem miesięcy** (`period_from..period_to`) -
-  z tego liczy się „opłacone do" i zaległości (`adopcja/lib.php`, czysta logika pod testami).
+  powiązanie z subskrypcją PayU) i **wpłaty jako zdarzenia z zakresem miesięcy** (`period_from..period_to`,
+  z walutą - fundacja ma rachunki PLN, EUR i GBP) - z tego liczy się „opłacone do" i zaległości
+  (`adopcja/lib.php`, czysta logika pod testami). Pokrycie miesięcy liczy się **po okresach, nie po
+  kwotach**, więc wpłata w obcej walucie nie psuje macierzy.
 - **Strony panelu**: `adopcje.php` (dashboard: zalegają / wygasają), `darczyncy.php` + `darczynca.php`
   (karta z historią wpłat, szybką wpłatą i notatkami fundacji), `dzieci.php`, `wplaty.php`
   (**macierz miesięcy** jak w arkuszu - klik czerwonej komórki odnotowuje wpłatę), `zgloszenia.php`
@@ -432,17 +434,57 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   kodowej). **Realny eksport Erste nazw kolumn w ogóle nie ma** (przecinek, UTF-8, w pierwszej
   linii metryka rachunku), więc jest dla niego druga ścieżka - układ pozycyjny `BANK_ERSTE_HEADER`.
   Z metryki bierze się też **waluta** (rachunek walutowy podaje ją raz, nie przy operacji - bez
-  tego 240 GBP weszłoby jako 240 zł) oraz **kontrola importu**: `bank_check_meta` porównuje liczbę
-  operacji i sumę kwot z saldami z pliku i pokazuje wynik po wgraniu, bo ucięty eksport wygląda
-  identycznie jak spokojny tydzień. **Zbiorcza wypłata z bramki PayU nigdy nie jest wpłatą
+  tego 240 GBP weszłoby jako 240 zł). **Zbiorcza wypłata z bramki PayU nigdy nie jest wpłatą
   darczyńcy** - te wpłaty panel ma już z notyfikacji (`payu/notify.php`), więc idzie do Finansów
-  jako przepływ (`bank_is_gateway_settlement`). Wgrany plik **nie zostaje na serwerze**. Dopasowanie idzie
-  po kolei: zapamiętany rachunek darczyńcy (`adopt_donor_accounts`, potwierdzany checkboxem przy
-  zapisie), numer i imię dziecka z tytułu przelewu (fundacyjny wzór „Adopcja Serca - darowizna -
-  Kiady 23"), nazwa nadawcy (`adopt_name_match`), a kwota podzielona przez stawkę adopcji daje
-  liczbę miesięcy liczoną od pierwszego nieopłaconego. Czego nie da się wskazać jednoznacznie,
-  zostaje do ręcznej decyzji. **Ponowne wgranie tego samego okresu niczego nie dubluje** - każda
-  operacja ma odcisk (`op_hash` z daty, kwoty, tytułu, nadawcy i rachunku).
+  jako przepływ (`bank_is_gateway_settlement`). Wgrany plik **nie zostaje na serwerze**.
+
+  **Dopasowanie darczyńcy** idzie po kolei: zapamiętany rachunek (`adopt_donor_accounts`,
+  potwierdzany checkboxem przy zapisie), numer i imię dziecka z tytułu przelewu (fundacyjny wzór
+  „Adopcja Serca - darowizna - Kiady 23"), wreszcie nazwisko - szukane **i w nadawcy, i w tytule**
+  (`bank_donor_candidates`). Pole nadawcy najpierw czyści `bank_party_person`: bank wkłada w nie
+  osobę razem z adresem i ogonem „ELIXIR DD-MM-RRRR", a nazwa ulicy potrafi trafić w cudze
+  nazwisko. Liczy się nie tylko trafienie dokładne, ale i przybliżone - **darczyńca zapisany
+  w kartotece jako para** („Helena i Jan Żankowscy") wobec nadawcy „HELENA ŻANKOWSKA" daje
+  `fuzzy` z `adopt_name_match`, a takich w kartotece jest sporo. Trafienie niepewne wskazuje
+  osobę, ale **nigdy nie podnosi pewności do `auto`** i wprost prosi o sprawdzenie.
+
+  **Okres wpłaty** ma trzy źródła, od najpewniejszego: miesiące wypisane w tytule przelewu
+  (`bank_title_months` - „Adopcja serca czerwiec, lipiec, ... grudzień 2026" to deklaracja samego
+  darczyńcy; rozumie nazwy w mianowniku i dopełniaczu, zapis rzymski i cyfrowy, a imię dziecka
+  „Maja" ma pierwszeństwo przed dopełniaczem „maja"), potem kwota podzielona przez stawkę licząc
+  od **pierwszej luki w pokryciu** (`adopt_arrears`, nie od `max(period_to)+1` - inaczej jedna
+  wpłata z wyprzedzeniem zasłaniałaby wszystkie zaległości sprzed niej), na końcu `start_month`.
+  Rozjazd tytułu z kwotą, dziura w wyliczeniu i nachodzenie na miesiące już opłacone idą na ekran
+  jako ostrzeżenia, nie jako blokada.
+
+  **Jedna operacja może dać kilka wpłat**: darczyńca z dwojgiem dzieci robi zwykle jeden przelew
+  na oba, więc formularz pokazuje wiersze - po jednym na adopcję rozpoznanej osoby, z własną kwotą
+  i okresem. `bank_split_payment` proponuje podział tylko wtedy, gdy kwota dzieli się bez reszty
+  przez sumę stawek; inaczej pola zostają puste. Operacja zamyka się dopiero, gdy rozliczona suma
+  (`allocated_grosze`) dobije do kwoty - wcześniej wraca do poczekalni z resztą, co obsługuje też
+  wpłaty mieszane (część na adopcję, część jako darowizna). Wpłata niesie **walutę**
+  (`adopt_payments.currency`); przy obcej panel nie dzieli kwoty przez stawkę w złotych i prosi
+  o okres ręcznie.
+
+  **Ponowne wgranie tego samego okresu niczego nie dubluje** - każda operacja ma odcisk
+  (`op_hash`). Wchodzi w niego także **numer wystąpienia**: dwa osobne przelewy tej samej kwoty,
+  tego samego dnia i z tym samym tytułem (darczyńca płacący za dwoje dzieci osobno) miały wcześniej
+  identyczny odcisk i drugi znikał jako rzekomy duplikat. Numer liczy się od drugiego wystąpienia,
+  więc operacje wczytane wcześniej zachowują swoje odciski.
+
+  **Kontrola pliku na wypadek zmiany formatu.** Przesunięte kolumny zwykle dają zero operacji,
+  czyli awarię głośną i nieszkodliwą; groźne są importy, które przechodzą z przekłamanymi liczbami.
+  `bank_sanity_report` sprawdza metrykę, zgodność liczby operacji i sald, szerokość wierszy wobec
+  znanego układu, puste opisy, kwoty układające się w ciąg jak kolumna salda, brak rozpoznanych
+  rachunków i daty spoza zakresu; **brak metryki jest ostrzeżeniem twardym**, a nie ciszą nie do
+  odróżnienia od „wszystko się zgadza". Wynik zostaje przy **partii importu**
+  (`adopt_bank_batches` - jeden wgrany plik) i wisi nad poczekalnią, dopóki partia ma co rozliczać.
+  Przy raporcie stoi **„Cofnij cały import"**: usuwa operacje, przy których niczego nie zapisano -
+  wpłaty, przepływy i operacje rozliczone częściowo zostają, bo skasowanie tych ostatnich
+  zostawiłoby wpłatę bez śladu, a ponowny import wróciłby z pełną kwotą. Gdy układu nie da się
+  rozpoznać, ekran pokazuje pierwsze wiersze pliku z **zamazanymi numerami rachunków**
+  (`bank_peek_rows`) zamiast radzić „wgraj plik prosto z bankowości", co obwiniało pracownika
+  o cudzy błąd.
 - **Raty kartowe**: `payu/notify.php` przy `COMPLETED` dopisuje wpłatę do powiązanych adopcji
   (idempotentnie, kwota dzielona między dzieci); powiązanie subskrypcji w edycji adopcji robi
   **backfill** historycznych rat. Opłacona adopcja kartowa **sama zakłada darczyńcę i adopcje
