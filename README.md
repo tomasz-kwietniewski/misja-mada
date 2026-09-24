@@ -568,8 +568,11 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   **Nie chować z powrotem `donor_id` w ukrytym polu** - przed 2026-08-12 tak właśnie było
   i obie operacje wymagały wejścia do bazy.
 - **Powiązanie darczyńca-dziecko edytuje się z OBU stron.** Karta dziecka ma tabelę wszystkich
-  jego adopcji (także zakończonych) z przyciskiem „✎ Zmień darczyńcę" i „+ Przypisz darczyńcę",
-  a karta darczyńcy - imię dziecka jako link do jego karty. Ekran adopcji przyjmuje `?child=<id>`
+  jego adopcji (także zakończonych) z przyciskiem „✎ Zmień darczyńcę", wyborem istniejącego
+  zgłoszenia oczekującego bez dziecka i osobnym przyciskiem „+ Nowa adopcja". Przy zgłoszeniu
+  ze strony należy wybrać istniejący wpis: zapis dopisuje dziecko i aktywuje adopcję bez
+  tworzenia dubla. „+ Nowa adopcja" zakłada dodatkowy wpis. Karta darczyńcy pokazuje imię
+  dziecka jako link do jego karty. Ekran adopcji przyjmuje `?child=<id>`
   (podpowiedź dziecka przy nowej adopcji) i `?back=dziecko` (po zapisie wraca na kartę dziecka,
   zamiast wyrzucać pracownika na kartę obcego darczyńcy). Zakończone okresy są w tabeli celowo:
   dubel bywa parą „jedna aktywna + jedna zakończona" i inaczej byłby niewidoczny.
@@ -584,6 +587,13 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   dziecko z drugim, równoległym wpisem pokazywało się jako „wolne". Tak w sierpniu 2026 powstał
   dubel tej samej dziewczynki u tej samej darczyni. Karta dziecka dodatkowo ostrzega, gdy trwa
   więcej niż jedna adopcja naraz (bywa to celowe - kilku darczyńców na jedno dziecko).
+- **Zgłoszenia oczekujące na dziecko** (`panel/zgloszenia.php`) pokazują najpierw najstarsze
+  według daty utworzenia adopcji; przełącznik pozwala też sortować po nazwisku darczyńcy.
+  W tabeli widoczna jest data zgłoszenia. Karta dziecka pokazuje osobne oznaczenia „opis"
+  i „zdjęcie"; oznaczenie zdjęcia wymaga faktycznie istniejącego pliku. Błąd przesyłania zdjęcia
+  jest wyświetlany, a wcześniejszy plik pozostaje do czasu pomyślnego zapisu nowego.
+- **Czas adopcji**: „NIEOKREŚLONY" czyści miesiąc końcowy. „OKREŚLONY" wymaga miesiąca
+  końcowego; stare rekordy z czasem określonym i pustym końcem mają ostrzeżenie w edycji.
 - **Przerwa i powrót darczyńcy**: „Zakończ" zamyka okres adopcji (miesiące po końcu nie liczą się
   jako zaległość), „Wznów" tworzy nowy okres - historia zostaje, przerwa nie generuje zaległości.
 - **Przypomnienia o zaległościach** (`adopcja/cron-przypomnienia.php` + `adopcja/mail-przypomnienie.php`,

@@ -346,7 +346,7 @@ panel_header('Darczyńca - Adopcja Serca');
                    title="Otwórz kartę dziecka"><?= mada_esc($a['child_name']) ?></a>
                 <span class="hint">(nr <?= (int)$a['child_number'] ?>)</span>
               <?php else: ?><span class="hint">bez dziecka</span><?php endif; ?></td>
-          <td><?= mada_esc(adopt_month_label($a['start_month'])) ?> - <?= $a['end_month'] !== null ? mada_esc(adopt_month_label($a['end_month'])) : 'bezterm.' ?></td>
+          <td><?= mada_esc(adopt_month_label($a['start_month'])) ?> - <?= mada_esc(adopt_adoption_end_label($a)) ?></td>
           <td><?= ['monthly' => 'mies.', 'quarterly' => 'kwart.', 'yearly' => 'roczna'][$a['frequency']] ?? '' ?></td>
           <td><?= number_format($a['amount_grosze'] / 100, 0, ',', ' ') ?> zł</td>
           <td><?= $methodLabel[$a['method']] ?? $a['method'] ?><?php if ($a['subscription_id'] !== null): ?> <span class="hint">(sub #<?= (int)$a['subscription_id'] ?>)</span><?php endif; ?></td>
