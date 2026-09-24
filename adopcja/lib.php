@@ -310,6 +310,31 @@ function adopt_sort_by_surname(array $rows, string $field = 'full_name'): array 
     return $rows;
 }
 
+/** Lista dzieci: numer, imię albo nazwisko pierwszego darczyńcy. Brak darczyńcy na końcu. */
+function adopt_sort_children(array $rows, string $sort = 'number', string $dir = 'asc'): array {
+    usort($rows, static function ($a, $b) use ($sort, $dir): int {
+        if ($sort === 'donor') {
+            $aDonor = trim((string)($a['donors'] ?? ''));
+            $bDonor = trim((string)($b['donors'] ?? ''));
+            if ($aDonor === '' || $bDonor === '') {
+                if ($aDonor === '' && $bDonor !== '') return 1;
+                if ($bDonor === '' && $aDonor !== '') return -1;
+            }
+            $aKey = adopt_surname_key(trim(explode(';', $aDonor)[0]));
+            $bKey = adopt_surname_key(trim(explode(';', $bDonor)[0]));
+            $cmp = strcmp($aKey, $bKey) ?: strcmp(adopt_name_normalize($aDonor), adopt_name_normalize($bDonor));
+        } elseif ($sort === 'name') {
+            $cmp = strcmp(adopt_name_normalize((string)($a['name'] ?? '')),
+                          adopt_name_normalize((string)($b['name'] ?? '')));
+        } else {
+            $cmp = (int)($a['number'] ?? 0) <=> (int)($b['number'] ?? 0);
+        }
+        if ($cmp !== 0) return $dir === 'desc' ? -$cmp : $cmp;
+        return (int)($a['number'] ?? 0) <=> (int)($b['number'] ?? 0);
+    });
+    return $rows;
+}
+
 /** Oczekujące adopcje: kolejność zgłoszeń albo nazwiska darczyńców. */
 function adopt_sort_pending_adoptions(array $rows, string $sort = 'date'): array {
     usort($rows, static function ($a, $b) use ($sort): int {

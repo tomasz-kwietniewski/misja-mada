@@ -157,6 +157,24 @@ eq(adopt_adoption_end_label(['duration' => 'fixed', 'end_month' => null]),
 eq(adopt_adoption_end_label(['duration' => 'indefinite', 'end_month' => null]),
    'bezterm.', 'indefinite: bezterminowa');
 
+// Lista podopiecznych: nagłówki NR, IMIĘ, DARCZYŃCA przełączają kolejność.
+$childRows = [
+    ['id' => 1, 'number' => 12, 'name' => 'Żaneta', 'donors' => 'Adam Żak'],
+    ['id' => 2, 'number' => 2, 'name' => 'Ala', 'donors' => 'Zofia Bal'],
+    ['id' => 3, 'number' => 8, 'name' => 'Łucja', 'donors' => null],
+    ['id' => 4, 'number' => 7, 'name' => 'Ala', 'donors' => 'Anna Cel'],
+];
+eq(array_column(adopt_sort_children($childRows, 'number', 'asc'), 'number'), [2, 7, 8, 12],
+   'dzieci: numery rosnąco jako liczby');
+eq(array_column(adopt_sort_children($childRows, 'number', 'desc'), 'number'), [12, 8, 7, 2],
+   'dzieci: drugi klik numeru odwraca kolejność');
+eq(array_column(adopt_sort_children($childRows, 'name', 'asc'), 'number'), [2, 7, 8, 12],
+   'dzieci: imiona alfabetycznie, polskie znaki i numer przy remisie');
+eq(array_column(adopt_sort_children($childRows, 'donor', 'asc'), 'number'), [2, 7, 12, 8],
+   'dzieci: darczyńcy po nazwisku, brak darczyńcy na końcu');
+eq(array_column(adopt_sort_children($childRows, 'donor', 'desc'), 'number'), [12, 7, 2, 8],
+   'dzieci: darczyńcy odwrotnie, brak darczyńcy nadal na końcu');
+
 // ── e-maile z pola arkusza ─────────────────────────────────────
 eq(adopt_parse_emails('a@b.pl'), ['a@b.pl', null], 'emails: pojedynczy');
 eq(adopt_parse_emails('krzysiekmiszkurka@gmail.com; katarzyna.zak00@gmail.com'),
