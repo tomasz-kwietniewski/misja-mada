@@ -588,8 +588,10 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
   dubel tej samej dziewczynki u tej samej darczyni. Karta dziecka dodatkowo ostrzega, gdy trwa
   więcej niż jedna adopcja naraz (bywa to celowe - kilku darczyńców na jedno dziecko).
 - **Zgłoszenia oczekujące na dziecko** (`panel/zgloszenia.php`) pokazują najpierw najstarsze
-  według daty utworzenia adopcji; przełącznik pozwala też sortować po nazwisku darczyńcy.
-  W tabeli widoczna jest data zgłoszenia. Karta dziecka pokazuje osobne oznaczenia „opis"
+  według daty potwierdzenia zgłoszenia i utworzenia adopcji; przełącznik pozwala też sortować
+  po nazwisku darczyńcy. Tabela pokazuje datę dodania do oczekujących, nie pierwotną datę
+  wysłania formularza. Lista dzieci pozwala sortować kliknięciem nagłówka według numeru,
+  imienia albo nazwiska darczyńcy, w obu kierunkach. Karta dziecka pokazuje osobne oznaczenia „opis"
   i „zdjęcie"; oznaczenie zdjęcia wymaga faktycznie istniejącego pliku. Błąd przesyłania zdjęcia
   jest wyświetlany, a wcześniejszy plik pozostaje do czasu pomyślnego zapisu nowego.
 - **Czas adopcji**: „NIEOKREŚLONY" czyści miesiąc końcowy. „OKREŚLONY" wymaga miesiąca

@@ -159,6 +159,21 @@ $pendingAdoptions = [];
 $showAdd = isset($_GET['dodaj']);
 $q = trim((string)($_GET['q'] ?? ''));
 $showArchived = ($_GET['arch'] ?? '') === '1';
+$sort = in_array($_GET['sort'] ?? '', ['number', 'name', 'donor'], true) ? $_GET['sort'] : 'number';
+$dir = ($_GET['dir'] ?? '') === 'desc' ? 'desc' : 'asc';
+
+function dz_list_url(string $sort, string $dir, string $q, bool $arch): string {
+    $params = ['sort' => $sort, 'dir' => $dir];
+    if ($q !== '') $params['q'] = $q;
+    if ($arch) $params['arch'] = '1';
+    return 'dzieci.php?' . http_build_query($params);
+}
+
+function dz_sort_url(string $column, string $sort, string $dir, string $q, bool $arch): string {
+    $nextDir = $sort === $column && $dir === 'asc' ? 'desc' : 'asc';
+    return dz_list_url($column, $nextDir, $q, $arch) . '#lista';
+}
+
 $totalChildren = 0;
 $archivedCnt = 0;
 try {
@@ -185,6 +200,7 @@ try {
             return mb_strpos($hay, $needle) !== false;
         }));
     }
+    $children = adopt_sort_children($children, $sort, $dir);
     if (isset($_GET['edit'])) {
         $editChild = adopt_child_get((int)$_GET['edit']);
         if ($editChild) {
@@ -198,6 +214,16 @@ try {
 
 panel_header('Podopieczni - Adopcja Serca');
 ?>
+    <style>
+      .child-sort-link { display:inline-flex; align-items:center; gap:7px; color:inherit; text-decoration:none; }
+      .child-sort-link:hover, .child-sort-link:focus-visible { text-decoration:underline; }
+      .child-sort-icon { display:inline-flex; flex-direction:column; justify-content:center; align-items:center; width:18px; height:18px; border:1px solid currentColor; border-radius:4px; opacity:.7; }
+      .child-sort-icon::before, .child-sort-icon::after { content:""; border-left:4px solid transparent; border-right:4px solid transparent; }
+      .child-sort-icon::before { border-bottom:5px solid currentColor; margin-bottom:2px; }
+      .child-sort-icon::after { border-top:5px solid currentColor; }
+      th[aria-sort="ascending"] .child-sort-icon, th[aria-sort="descending"] .child-sort-icon { opacity:1; background:var(--brown); color:#fff; border-color:var(--brown); }
+      th[aria-sort="ascending"] .child-sort-icon::after, th[aria-sort="descending"] .child-sort-icon::before { opacity:.3; }
+    </style>
     <div class="bar">
       <h2 style="margin:0;">Podopieczni (dzieci)</h2>
       <a href="dzieci.php?dodaj=1#formularz" class="btn-primary btn-sm">+ Dodaj dziecko</a>
@@ -448,12 +474,15 @@ panel_header('Podopieczni - Adopcja Serca');
     <p class="hint">Baza podopiecznych jest pusta - dodaj pierwsze dziecko przyciskiem „+ Dodaj dziecko".</p>
 <?php else: ?>
     <form method="get" style="margin:0 0 16px;display:flex;gap:10px;">
+      <input type="hidden" name="sort" value="<?= mada_esc($sort) ?>">
+      <input type="hidden" name="dir" value="<?= mada_esc($dir) ?>">
+      <?php if ($showArchived): ?><input type="hidden" name="arch" value="1"><?php endif; ?>
       <input type="search" name="q" value="<?= mada_esc($q) ?>" placeholder="Szukaj: imię, numer, darczyńca"
              style="flex:1;max-width:340px;padding:8px 12px;border:1px solid var(--rule);border-radius:9px;font:inherit;">
       <button type="submit" class="btn-secondary btn-sm">Szukaj</button>
-      <?php if ($q !== ''): ?><a href="dzieci.php" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
+      <?php if ($q !== ''): ?><a href="<?= mada_esc(dz_list_url($sort, $dir, '', $showArchived)) ?>" class="btn-ghost btn-sm">Wyczyść</a><?php endif; ?>
       <?php if ($q === '' && $archivedCnt > 0): ?>
-        <a href="dzieci.php<?= $showArchived ? '' : '?arch=1' ?>" class="btn-ghost btn-sm" style="margin-left:auto;">
+        <a href="<?= mada_esc(dz_list_url($sort, $dir, '', !$showArchived)) ?>" class="btn-ghost btn-sm" style="margin-left:auto;">
           <?= $showArchived ? 'Ukryj archiwalne' : 'Pokaż archiwalne (' . $archivedCnt . ')' ?>
         </a>
       <?php endif; ?>
@@ -471,9 +500,19 @@ panel_header('Podopieczni - Adopcja Serca');
         if ($archivedCnt > 0) echo ', w archiwum: ' . $archivedCnt . ($showArchived ? ' (pokazane)' : ' (ukryte)');
       endif; ?>,
        z darczyńcą: <?= $withDonor ?>, bez darczyńcy: <?= count($children) - $withDonor ?>.</p>
-    <table class="events">
+    <table class="events" id="lista">
       <thead><tr>
-        <th>Nr</th><th>Imię</th><th>Status</th><th>Darczyńca</th><th>Uwagi</th><th></th>
+        <th aria-sort="<?= $sort === 'number' ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none' ?>">
+          <a class="child-sort-link" href="<?= mada_esc(dz_sort_url('number', $sort, $dir, $q, $showArchived)) ?>" aria-label="Sortuj po numerze dziecka<?= $sort === 'number' ? ($dir === 'asc' ? ' malejąco' : ' rosnąco') : ' rosnąco' ?>">Nr<span class="child-sort-icon" aria-hidden="true"></span></a>
+        </th>
+        <th aria-sort="<?= $sort === 'name' ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none' ?>">
+          <a class="child-sort-link" href="<?= mada_esc(dz_sort_url('name', $sort, $dir, $q, $showArchived)) ?>" aria-label="Sortuj po imieniu dziecka<?= $sort === 'name' ? ($dir === 'asc' ? ' malejąco' : ' rosnąco') : ' rosnąco' ?>">Imię<span class="child-sort-icon" aria-hidden="true"></span></a>
+        </th>
+        <th>Status</th>
+        <th aria-sort="<?= $sort === 'donor' ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none' ?>">
+          <a class="child-sort-link" href="<?= mada_esc(dz_sort_url('donor', $sort, $dir, $q, $showArchived)) ?>" aria-label="Sortuj po nazwisku darczyńcy<?= $sort === 'donor' ? ($dir === 'asc' ? ' malejąco' : ' rosnąco') : ' rosnąco' ?>">Darczyńca<span class="child-sort-icon" aria-hidden="true"></span></a>
+        </th>
+        <th>Uwagi</th><th></th>
       </tr></thead>
       <tbody>
       <?php foreach ($children as $c): ?>

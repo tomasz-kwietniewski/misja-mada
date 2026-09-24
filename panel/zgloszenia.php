@@ -39,7 +39,7 @@ panel_header('Zgłoszenia - Adopcja Serca');
       <form method="get" style="display:flex;align-items:center;gap:8px;">
         <label for="pending-sort">Sortuj:</label>
         <select id="pending-sort" name="sort" onchange="this.form.submit()">
-          <option value="date" <?= $sort === 'date' ? 'selected' : '' ?>>kolejność zgłoszeń</option>
+          <option value="date" <?= $sort === 'date' ? 'selected' : '' ?>>od najstarszych oczekujących</option>
           <option value="surname" <?= $sort === 'surname' ? 'selected' : '' ?>>nazwisko darczyńcy</option>
         </select>
         <button type="submit" class="btn-secondary btn-sm">Pokaż</button>
@@ -49,7 +49,7 @@ panel_header('Zgłoszenia - Adopcja Serca');
       <p class="hint">Wszystkie potwierdzone zgłoszenia mają już przypisane dzieci.</p>
     <?php else: ?>
       <table class="events">
-        <thead><tr><th>Data zgłoszenia</th><th>Darczyńca</th><th>Start</th><th>Częst.</th><th>Kwota</th><th>Notatki</th><th></th></tr></thead>
+        <thead><tr><th>Dodano do oczekujących</th><th>Darczyńca</th><th>Start</th><th>Częst.</th><th>Kwota</th><th>Notatki</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($pendingAds as $a): ?>
           <tr>
