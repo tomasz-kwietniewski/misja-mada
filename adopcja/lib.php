@@ -310,6 +310,29 @@ function adopt_sort_by_surname(array $rows, string $field = 'full_name'): array 
     return $rows;
 }
 
+/** Oczekujące adopcje: kolejność zgłoszeń albo nazwiska darczyńców. */
+function adopt_sort_pending_adoptions(array $rows, string $sort = 'date'): array {
+    usort($rows, static function ($a, $b) use ($sort): int {
+        if ($sort === 'surname') {
+            $byName = strcmp(adopt_surname_key((string)($a['donor_name'] ?? '')),
+                             adopt_surname_key((string)($b['donor_name'] ?? '')))
+                   ?: strcmp((string)($a['donor_name'] ?? ''), (string)($b['donor_name'] ?? ''));
+            if ($byName !== 0) return $byName;
+        }
+        return strcmp((string)($a['created_at'] ?? ''), (string)($b['created_at'] ?? ''))
+            ?: ((int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
+    });
+    return $rows;
+}
+
+/** Nie pokazuj „bezterm.” przy błędnym rekordzie fixed bez daty końca. */
+function adopt_adoption_end_label(array $adoption): string {
+    if (!empty($adoption['end_month'])) return adopt_month_label($adoption['end_month']);
+    return ($adoption['duration'] ?? 'indefinite') === 'fixed'
+        ? 'brak daty końca'
+        : 'bezterm.';
+}
+
 /* ── Adres korespondencyjny (pola rozbite) ─────────────────────── */
 
 /** '00000' / '00 000' -> '00-000'; wejście nierozpoznane zwracane bez zmian. */

@@ -9,6 +9,12 @@ require_once __DIR__ . '/../adopcja/lib.php';
 
 $dbError = '';
 
+/* PHP opróżnia całe `$_POST` i `$_FILES`, gdy żądanie przekracza post_max_size. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES)
+    && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+    mada_redirect('dzieci.php?msg=photobig');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     mada_csrf_check();
     try {
@@ -36,30 +42,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 || ($d['birth_date'] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $d['birth_date']))) {
                 mada_redirect($back . '&msg=invalid');
             }
+            $photo = $_FILES['photo'] ?? null;
+            $photoError = $photo === null ? UPLOAD_ERR_NO_FILE : (int)($photo['error'] ?? UPLOAD_ERR_NO_FILE);
+            if (in_array($photoError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                mada_redirect($back . '&msg=photobig');
+            }
+            if (!in_array($photoError, [UPLOAD_ERR_OK, UPLOAD_ERR_NO_FILE], true)) {
+                mada_redirect($back . '&msg=photoerr');
+            }
+            $photoExt = null;
+            if ($photoError === UPLOAD_ERR_OK) {
+                if (empty($photo['tmp_name']) || !is_uploaded_file($photo['tmp_name'])) {
+                    mada_redirect($back . '&msg=photoerr');
+                }
+                if ((int)$photo['size'] > 6 * 1024 * 1024) mada_redirect($back . '&msg=photobig');
+                $info = @getimagesize($photo['tmp_name']);
+                $extMap = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+                if ($info === false || !isset($extMap[$info[2]])) mada_redirect($back . '&msg=phototype');
+                $photoExt = $extMap[$info[2]];
+            }
             if ($isAdd) {
                 if (adopt_child_by_number($d['number']) !== null) mada_redirect($back . '&msg=taken');
                 $cid = adopt_child_upsert($d['number'], $d['name'], $d['notes'] ?: null);
             }
             // Zdjęcie do dossier: uploads/dzieci/, losowa nazwa (nie do zgadnięcia
             // z zewnątrz - katalog jest publiczny jak inne uploads/).
-            if (!empty($_FILES['photo']['tmp_name']) && is_uploaded_file($_FILES['photo']['tmp_name'])) {
-                if ((int)$_FILES['photo']['size'] > 6 * 1024 * 1024) mada_redirect($back . '&msg=photobig');
-                $info = @getimagesize($_FILES['photo']['tmp_name']);
-                $extMap = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
-                if ($info === false || !isset($extMap[$info[2]])) mada_redirect($back . '&msg=phototype');
+            $newPhotoPath = null;
+            $oldPhotoPath = null;
+            if ($photoExt !== null) {
                 $dir = __DIR__ . '/../uploads/dzieci';
                 if (!is_dir($dir) && !@mkdir($dir, 0755, true)) mada_redirect($back . '&msg=photoerr');
-                $fname = 'dziecko-' . $cid . '-' . bin2hex(random_bytes(8)) . '.' . $extMap[$info[2]];
-                if (!@move_uploaded_file($_FILES['photo']['tmp_name'], $dir . '/' . $fname)) {
+                $fname = 'dziecko-' . $cid . '-' . bin2hex(random_bytes(8)) . '.' . $photoExt;
+                $newPhotoPath = $dir . '/' . $fname;
+                if (!@move_uploaded_file($photo['tmp_name'], $newPhotoPath)) {
                     mada_redirect($back . '&msg=photoerr');
                 }
                 $old = adopt_child_get($cid);
-                if ($old && !empty($old['photo'])) @unlink($dir . '/' . basename($old['photo']));
+                if ($old && !empty($old['photo'])) $oldPhotoPath = $dir . '/' . basename($old['photo']);
                 $d['photo'] = $fname;
             }
-            if (!adopt_child_update($cid, $d)) {
+            try {
+                $saved = adopt_child_update($cid, $d);
+            } catch (Throwable $e) {
+                if ($newPhotoPath !== null) @unlink($newPhotoPath);
+                throw $e;
+            }
+            if (!$saved) {
+                if ($newPhotoPath !== null) @unlink($newPhotoPath);
                 mada_redirect($back . '&msg=taken');
             }
+            if ($oldPhotoPath !== null && $oldPhotoPath !== $newPhotoPath) @unlink($oldPhotoPath);
             mada_audit($isAdd ? 'child.add' : 'child.edit', 'child', $cid, array_diff_key($d, ['description' => 1]));
             mada_redirect('dzieci.php?msg=' . ($isAdd ? 'added' : 'saved'));
         }
@@ -123,6 +155,7 @@ function dz_flash() {
 $children = [];
 $editChild = null;
 $editAdoptions = [];
+$pendingAdoptions = [];
 $showAdd = isset($_GET['dodaj']);
 $q = trim((string)($_GET['q'] ?? ''));
 $showArchived = ($_GET['arch'] ?? '') === '1';
@@ -154,7 +187,10 @@ try {
     }
     if (isset($_GET['edit'])) {
         $editChild = adopt_child_get((int)$_GET['edit']);
-        if ($editChild) $editAdoptions = adopt_adoptions_by_child((int)$editChild['id']);
+        if ($editChild) {
+            $editAdoptions = adopt_adoptions_by_child((int)$editChild['id']);
+            $pendingAdoptions = adopt_pending_unassigned_list();
+        }
     }
 } catch (Throwable $e) {
     $dbError = $dbError ?: $e->getMessage();
@@ -185,12 +221,34 @@ panel_header('Podopieczni - Adopcja Serca');
       <div style="grid-column:1/-1;">
         <div class="bar" style="margin:0 0 10px;">
           <span class="dc-label" style="margin:0;">Darczyńca / opiekun</span>
-          <a href="adopcja-edit.php?child=<?= (int)$editChild['id'] ?>&amp;back=dziecko" class="btn-primary btn-sm">+ Przypisz darczyńcę</a>
+          <a href="adopcja-edit.php?child=<?= (int)$editChild['id'] ?>&amp;back=dziecko" class="btn-secondary btn-sm">+ Nowa adopcja</a>
         </div>
+        <?php if ($pendingAdoptions): ?>
+          <form method="get" action="adopcja-edit.php" style="display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin:0 0 12px;">
+            <input type="hidden" name="child" value="<?= (int)$editChild['id'] ?>">
+            <input type="hidden" name="back" value="dziecko">
+            <label style="flex:1;min-width:240px;">Przypisz istniejące zgłoszenie bez dziecka
+              <select name="id" required>
+                <option value="">- wybierz darczyńcę i zgłoszenie -</option>
+                <?php foreach ($pendingAdoptions as $a): ?>
+                  <option value="<?= (int)$a['id'] ?>">
+                    <?= mada_esc($a['donor_name']) ?>, zgłoszenie #<?= (int)$a['id'] ?>,
+                    od <?= mada_esc(adopt_month_label($a['start_month'])) ?>,
+                    <?= $a['duration'] === 'fixed'
+                        ? ($a['end_month'] ? 'do ' . mada_esc(adopt_adoption_end_label($a)) : 'brak daty końca')
+                        : 'bezterminowo' ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <button type="submit" class="btn-primary btn-sm">Otwórz zgłoszenie i przypisz</button>
+          </form>
+          <p class="hint" style="margin:0 0 12px;">Wybór otwiera istniejącą adopcję. Jej zapis przypisze dziecko bez tworzenia kolejnego wpisu.</p>
+        <?php endif; ?>
         <?php if (!$editAdoptions): ?>
           <span class="badge badge-err">brak przypisanego darczyńcy</span>
-          <span class="hint">- dziecko czeka na opiekuna. Przypisz go przyciskiem obok
-            (albo z karty darczyńcy przyciskiem „+ Nowa adopcja").</span>
+          <span class="hint">- dziecko czeka na opiekuna. Wybierz oczekujące zgłoszenie powyżej
+            albo utwórz nową adopcję.</span>
         <?php else: ?>
           <?php if (count($openAd) > 1): ?>
             <div class="alert alert-error" style="margin:0 0 10px;">
@@ -213,7 +271,7 @@ panel_header('Podopieczni - Adopcja Serca');
                 <td><span class="badge <?= in_array($a['status'], ['pending', 'active'], true) ? 'badge-ok' : 'badge-arch' ?>">
                     <?= mada_esc($statusLabel[$a['status']] ?? $a['status']) ?></span></td>
                 <td class="hint" style="white-space:nowrap;"><?= mada_esc(adopt_month_label($a['start_month'])) ?>
-                    - <?= $a['end_month'] !== null ? mada_esc(adopt_month_label($a['end_month'])) : 'bezterm.' ?></td>
+                    - <?= mada_esc(adopt_adoption_end_label($a)) ?></td>
                 <td class="hint" style="white-space:nowrap;"><?= number_format($a['amount_grosze'] / 100, 0, ',', ' ') ?> zł
                     <?= ['monthly' => 'mies.', 'quarterly' => 'kwart.', 'yearly' => 'rocznie'][$a['frequency']] ?? '' ?></td>
                 <td><span class="badge <?= $a['dossier_sent_at'] !== null ? 'badge-ok' : 'badge-err' ?>"><?php
@@ -283,8 +341,12 @@ panel_header('Podopieczni - Adopcja Serca');
           <textarea name="description" rows="5" placeholder="Rodzina, w której wychowuje się..."><?= mada_esc($editChild['description'] ?? '') ?></textarea>
         </label>
         <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
-          <?php if (!empty($editChild['photo'])): ?>
+          <?php if (!empty($editChild['photo']) && is_file(__DIR__ . '/../uploads/dzieci/' . basename((string)$editChild['photo']))): ?>
             <img src="../uploads/dzieci/<?= mada_esc($editChild['photo']) ?>" alt="" style="height:90px;border-radius:9px;border:1px solid var(--rule);">
+          <?php elseif (!empty($editChild['photo'])): ?>
+            <span class="badge badge-err">Brak pliku zdjęcia na serwerze</span>
+          <?php else: ?>
+            <span class="hint">Brak zdjęcia.</span>
           <?php endif; ?>
           <label style="margin:0;">Zdjęcie (JPG/PNG/WEBP, maks. 6 MB)<?= !empty($editChild['photo']) ? ' - wgranie nowego podmienia obecne' : '' ?>
             <input type="file" name="photo" accept="image/jpeg,image/png,image/webp">
@@ -417,7 +479,16 @@ panel_header('Podopieczni - Adopcja Serca');
       <?php foreach ($children as $c): ?>
         <tr class="row-link" data-href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz">
           <td><b><?= (int)$c['number'] ?></b></td>
-          <td><a href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz"><?= mada_esc($c['name']) ?></a><?= !empty($c['description']) || !empty($c['photo']) ? ' <span title="dossier uzupełnione">📋</span>' : '' ?></td>
+          <td><a href="dzieci.php?edit=<?= (int)$c['id'] ?>#formularz"><?= mada_esc($c['name']) ?></a>
+            <?php if (!empty($c['description'])): ?><span class="hint" title="Opis w dossier">opis</span><?php endif; ?>
+            <?php if (!empty($c['photo'])): ?>
+              <?php if (is_file(__DIR__ . '/../uploads/dzieci/' . basename((string)$c['photo']))): ?>
+                <span class="badge badge-ok" title="Plik zdjęcia jest na serwerze">zdjęcie</span>
+              <?php else: ?>
+                <span class="badge badge-err">brak pliku zdjęcia</span>
+              <?php endif; ?>
+            <?php endif; ?>
+          </td>
           <td><?= $c['status'] === 'active' ? 'w programie' : '<span class="badge badge-arch">archiwum</span>' ?></td>
           <td><?php if ($c['donors'] !== null):
                 $dids = array_values(array_filter(explode(',', (string)($c['donor_ids'] ?? '')))); ?>

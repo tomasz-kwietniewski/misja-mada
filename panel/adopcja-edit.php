@@ -168,6 +168,10 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
 <?php elseif (!$donor && $childId <= 0): ?>
     <div class="alert alert-error">Najpierw wybierz darczyńcę (wejdź przez jego kartę) albo dziecko (karta podopiecznego).</div>
 <?php else: ?>
+    <?php if ($adoption && $adoption['duration'] === 'fixed' && $adoption['end_month'] === null): ?>
+      <div class="alert alert-error">Ta adopcja ma zapisany czas określony, ale brak miesiąca końca.
+        Wybierz „NIEOKREŚLONY” albo uzupełnij miesiąc końca i zapisz zmiany.</div>
+    <?php endif; ?>
     <form method="post" class="form" style="max-width:620px;"
           onsubmit="return ae_confirm_taken(this);">
       <?= mada_csrf_field() ?>
@@ -224,10 +228,11 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
           <option value="indefinite" <?= ($adoption['duration'] ?? '') !== 'fixed' ? 'selected' : '' ?>>NIEOKREŚLONY</option>
           <option value="fixed" <?= ($adoption['duration'] ?? '') === 'fixed' ? 'selected' : '' ?>>OKREŚLONY (od-do)</option>
         </select>
+        <span class="hint">Przy czasie nieokreślonym data końca zostanie usunięta.</span>
       </label>
       <div style="display:flex;gap:12px;">
         <label>Start (miesiąc)<input type="month" name="start_month" value="<?= mada_esc($adoption['start_month'] ?? '') ?>"></label>
-        <label>Koniec (dla OKREŚLONEGO)<input type="month" name="end_month" value="<?= mada_esc($adoption['end_month'] ?? '') ?>"></label>
+        <label id="ae-end-label">Koniec (dla OKREŚLONEGO)<input type="month" id="ae-end" name="end_month" value="<?= mada_esc($adoption['end_month'] ?? '') ?>"></label>
       </div>
 
       <div style="display:flex;gap:12px;">
@@ -333,6 +338,20 @@ panel_header(($id ? 'Edycja' : 'Nowa') . ' adopcja');
     <?php endif; ?>
 
     <script>
+    (function () {
+      var duration = document.getElementById('ae-duration');
+      var end = document.getElementById('ae-end');
+      var label = document.getElementById('ae-end-label');
+      if (!duration || !end || !label) return;
+      function refresh() {
+        var fixed = duration.value === 'fixed';
+        end.disabled = !fixed;
+        end.required = fixed;
+        label.style.opacity = fixed ? '1' : '0.5';
+      }
+      duration.addEventListener('change', refresh);
+      refresh();
+    })();
     /* Dziecko z opiekunem wybrane po raz drugi = najczęstsza pomyłka na tym ekranie.
        Adnotacja w opcji selecta okazała się za cicha, więc jest jeszcze czerwona
        ramka pod polem i pytanie przy zapisie. */

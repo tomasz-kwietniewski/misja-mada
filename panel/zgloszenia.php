@@ -11,13 +11,13 @@ require_once __DIR__ . '/../adopcja/lib.php';
 $dbError = '';
 $signups = [];
 $pendingAds = [];
+$sort = ($_GET['sort'] ?? '') === 'surname' ? 'surname' : 'date';
 try {
     adopt_db_ensure_schema();
     $signups = payu_db()->query(
         "SELECT * FROM adopt_signups ORDER BY id DESC LIMIT 100"
     )->fetchAll();
-    $pendingAds = array_values(array_filter(adopt_adoption_list_all(),
-        fn($a) => $a['status'] === 'pending'));
+    $pendingAds = adopt_sort_pending_adoptions(adopt_pending_unassigned_list(), $sort);
 } catch (Throwable $e) {
     $dbError = $e->getMessage();
 }
@@ -34,15 +34,26 @@ panel_header('Zgłoszenia - Adopcja Serca');
     <div class="alert alert-error">Błąd bazy danych: <?= mada_esc($dbError) ?></div>
 <?php else: ?>
 
-    <h3>Adopcje czekające na przypisanie dziecka (<?= count($pendingAds) ?>)</h3>
+    <div class="bar">
+      <h3 style="margin:0;">Adopcje czekające na przypisanie dziecka (<?= count($pendingAds) ?>)</h3>
+      <form method="get" style="display:flex;align-items:center;gap:8px;">
+        <label for="pending-sort">Sortuj:</label>
+        <select id="pending-sort" name="sort" onchange="this.form.submit()">
+          <option value="date" <?= $sort === 'date' ? 'selected' : '' ?>>kolejność zgłoszeń</option>
+          <option value="surname" <?= $sort === 'surname' ? 'selected' : '' ?>>nazwisko darczyńcy</option>
+        </select>
+        <button type="submit" class="btn-secondary btn-sm">Pokaż</button>
+      </form>
+    </div>
     <?php if (!$pendingAds): ?>
       <p class="hint">Wszystkie potwierdzone zgłoszenia mają już przypisane dzieci.</p>
     <?php else: ?>
       <table class="events">
-        <thead><tr><th>Darczyńca</th><th>Start</th><th>Częst.</th><th>Kwota</th><th>Notatki</th><th></th></tr></thead>
+        <thead><tr><th>Data zgłoszenia</th><th>Darczyńca</th><th>Start</th><th>Częst.</th><th>Kwota</th><th>Notatki</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($pendingAds as $a): ?>
           <tr>
+            <td><?= mada_esc(date('d.m.Y H:i', strtotime((string)$a['created_at']))) ?></td>
             <td><a href="darczynca.php?id=<?= (int)$a['donor_id'] ?>"><?= mada_esc($a['donor_name']) ?></a></td>
             <td><?= mada_esc(adopt_month_label($a['start_month'])) ?></td>
             <td><?= ['monthly' => 'mies.', 'quarterly' => 'kwart.', 'yearly' => 'roczna'][$a['frequency']] ?? '' ?></td>

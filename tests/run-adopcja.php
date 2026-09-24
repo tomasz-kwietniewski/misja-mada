@@ -143,6 +143,20 @@ eq(array_column($posort, 'full_name'),
    ['Agata Bal', 'Renata Ginak', 'Adam Paprocki', 'Marta i Tomek Świercz'],
    'sort_by_surname: Bal < Ginak < Paprocki < Świercz (nie po imionach)');
 
+$pending = [
+    ['id' => 4, 'donor_name' => 'Adam Żak', 'created_at' => '2026-09-19 10:00:00'],
+    ['id' => 3, 'donor_name' => 'Zofia Bal', 'created_at' => '2026-09-20 09:00:00'],
+    ['id' => 2, 'donor_name' => 'Adam Bal', 'created_at' => '2026-09-20 09:00:00'],
+];
+eq(array_column(adopt_sort_pending_adoptions($pending), 'id'), [4, 2, 3],
+   'pending: najstarsze zgłoszenie pierwsze, id rozstrzyga remis');
+eq(array_column(adopt_sort_pending_adoptions($pending, 'surname'), 'id'), [2, 3, 4],
+   'pending: alternatywnie po nazwisku, potem po nazwie i dacie');
+eq(adopt_adoption_end_label(['duration' => 'fixed', 'end_month' => null]),
+   'brak daty końca', 'fixed bez końca: widoczna niespójność');
+eq(adopt_adoption_end_label(['duration' => 'indefinite', 'end_month' => null]),
+   'bezterm.', 'indefinite: bezterminowa');
+
 // ── e-maile z pola arkusza ─────────────────────────────────────
 eq(adopt_parse_emails('a@b.pl'), ['a@b.pl', null], 'emails: pojedynczy');
 eq(adopt_parse_emails('krzysiekmiszkurka@gmail.com; katarzyna.zak00@gmail.com'),

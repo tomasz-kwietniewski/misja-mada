@@ -820,6 +820,17 @@ function adopt_adoption_list_all(): array {
     )->fetchAll();
 }
 
+/** Zgłoszenia bez dziecka, które nadal czekają na przypisanie. */
+function adopt_pending_unassigned_list(): array {
+    return payu_db()->query(
+        "SELECT a.*, d.full_name AS donor_name
+           FROM adopt_adoptions a
+           JOIN adopt_donors d ON d.id = a.donor_id
+          WHERE a.status = 'pending' AND a.child_id IS NULL
+          ORDER BY a.created_at, a.id"
+    )->fetchAll();
+}
+
 /** Uzupełnia start adopcji, jeśli nieznany (np. po dopięciu pierwszych wpłat). */
 function adopt_adoption_backfill_start(int $adoptionId): void {
     $st = payu_db()->prepare(
