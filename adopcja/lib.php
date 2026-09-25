@@ -350,6 +350,51 @@ function adopt_sort_pending_adoptions(array $rows, string $sort = 'date'): array
     return $rows;
 }
 
+/**
+ * „Ostatnie zgłoszenia z formularza": obie ścieżki formularza w jednej liście.
+ * Przelew zostawia wiersz w adopt_signups (double opt-in), karta - tylko
+ * subskrypcję PayU z goal='adopcja'. Lista oparta wyłącznie na adopt_signups
+ * gubiła wszystkich płacących kartą (zgłoszenie Asi 2026-09-25: Izabela Sarba).
+ * $cardSubs: wiersze subscriptions + n_adoptions (liczba powiązanych adopcji).
+ * Zwraca wiersze {created_at, email, name, children, method, status, badge},
+ * od najnowszych.
+ */
+function adopt_form_signup_rows(array $signups, array $cardSubs, int $limit = 100): array {
+    $rows = [];
+    $sgLabel = ['pending' => 'czeka na e-mail', 'confirmed' => 'potwierdzone', 'expired' => 'wygasłe'];
+    foreach ($signups as $s) {
+        $d = json_decode((string)($s['payload'] ?? ''), true) ?: [];
+        $st = (string)($s['status'] ?? '');
+        $rows[] = [
+            'created_at' => (string)($s['created_at'] ?? ''),
+            'email'      => (string)($s['email'] ?? ''),
+            'name'       => trim(($d['imie'] ?? '') . ' ' . ($d['nazwisko'] ?? '')),
+            'children'   => (int)($d['dzieci'] ?? 1),
+            'method'     => 'przelew',
+            'status'     => $sgLabel[$st] ?? $st,
+            'badge'      => $st === 'confirmed' ? 'badge-ok' : ($st === 'pending' ? 'badge-err' : 'badge-arch'),
+        ];
+    }
+    $subLabel = [
+        'pending_first' => 'płatność nieukończona', 'active' => 'opłacone kartą',
+        'paused' => 'karta wstrzymana', 'cancelled' => 'karta anulowana',
+    ];
+    foreach ($cardSubs as $s) {
+        $st = (string)($s['status'] ?? '');
+        $rows[] = [
+            'created_at' => (string)($s['created_at'] ?? ''),
+            'email'      => (string)($s['email'] ?? ''),
+            'name'       => trim(($s['first_name'] ?? '') . ' ' . ($s['last_name'] ?? '')),
+            'children'   => (int)($s['children'] ?? 0) ?: ((int)($s['n_adoptions'] ?? 0) ?: 1),
+            'method'     => 'karta',
+            'status'     => $subLabel[$st] ?? $st,
+            'badge'      => $st === 'active' ? 'badge-ok' : 'badge-arch',
+        ];
+    }
+    usort($rows, static fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
+    return array_slice($rows, 0, $limit);
+}
+
 /** Nie pokazuj „bezterm.” przy błędnym rekordzie fixed bez daty końca. */
 function adopt_adoption_end_label(array $adoption): string {
     if (!empty($adoption['end_month'])) return adopt_month_label($adoption['end_month']);
