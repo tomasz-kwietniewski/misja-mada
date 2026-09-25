@@ -590,7 +590,10 @@ ręczne arkusze „LISTA WSZYSTKICH DARCZYŃCÓW" i „PŁATNOŚCI":
 - **Zgłoszenia oczekujące na dziecko** (`panel/zgloszenia.php`) pokazują najpierw najstarsze
   według daty potwierdzenia zgłoszenia i utworzenia adopcji; przełącznik pozwala też sortować
   po nazwisku darczyńcy. Tabela pokazuje datę dodania do oczekujących, nie pierwotną datę
-  wysłania formularza. Lista dzieci pozwala sortować kliknięciem nagłówka według numeru,
+  wysłania formularza. Lista „Ostatnie zgłoszenia z formularza" na tej samej stronie łączy
+  **obie ścieżki**: przelew (`adopt_signups`, double opt-in) i kartę (`subscriptions` z
+  `goal='adopcja'` - ta ścieżka nie zostawia wiersza w `adopt_signups`, więc lista oparta tylko
+  na nim gubiła płacących kartą). Scala je `adopt_form_signup_rows()`. Lista dzieci pozwala sortować kliknięciem nagłówka według numeru,
   imienia albo nazwiska darczyńcy, w obu kierunkach. Karta dziecka pokazuje osobne oznaczenia „opis"
   i „zdjęcie"; oznaczenie zdjęcia wymaga faktycznie istniejącego pliku. Błąd przesyłania zdjęcia
   jest wyświetlany, a wcześniejszy plik pozostaje do czasu pomyślnego zapisu nowego.
