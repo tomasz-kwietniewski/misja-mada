@@ -14,15 +14,17 @@ $pendingAds = [];
 $sort = ($_GET['sort'] ?? '') === 'surname' ? 'surname' : 'date';
 try {
     adopt_db_ensure_schema();
-    $signups = payu_db()->query(
-        "SELECT * FROM adopt_signups ORDER BY id DESC LIMIT 100"
-    )->fetchAll();
+    $signups = adopt_form_signup_rows(
+        payu_db()->query("SELECT * FROM adopt_signups ORDER BY id DESC LIMIT 100")->fetchAll(),
+        payu_db()->query(
+            "SELECT s.*, (SELECT COUNT(*) FROM adopt_adoptions a WHERE a.subscription_id = s.id) AS n_adoptions
+               FROM subscriptions s WHERE s.goal = 'adopcja' ORDER BY s.id DESC LIMIT 100"
+        )->fetchAll()
+    );
     $pendingAds = adopt_sort_pending_adoptions(adopt_pending_unassigned_list(), $sort);
 } catch (Throwable $e) {
     $dbError = $e->getMessage();
 }
-
-$sgLabel = ['pending' => 'czeka na e-mail', 'confirmed' => 'potwierdzone', 'expired' => 'wygasłe'];
 
 panel_header('Zgłoszenia - Adopcja Serca');
 ?>
@@ -71,22 +73,24 @@ panel_header('Zgłoszenia - Adopcja Serca');
       <p class="hint">Brak zgłoszeń. Pojawią się tu po wysłaniu formularza „Zostań rodzicem adopcyjnym" (ścieżka przelewowa).</p>
     <?php else: ?>
       <table class="events">
-        <thead><tr><th>Data</th><th>E-mail</th><th>Imię i nazwisko</th><th>Dzieci</th><th>Status</th></tr></thead>
+        <thead><tr><th>Data</th><th>E-mail</th><th>Imię i nazwisko</th><th>Dzieci</th><th>Płatność</th><th>Status</th></tr></thead>
         <tbody>
-        <?php foreach ($signups as $s):
-            $d = json_decode((string)$s['payload'], true) ?: []; ?>
+        <?php foreach ($signups as $s): ?>
           <tr>
-            <td><?= mada_esc(substr((string)$s['created_at'], 0, 16)) ?></td>
+            <td><?= mada_esc(substr($s['created_at'], 0, 16)) ?></td>
             <td><?= mada_esc($s['email']) ?></td>
-            <td><?= mada_esc(trim(($d['imie'] ?? '') . ' ' . ($d['nazwisko'] ?? ''))) ?></td>
-            <td><?= (int)($d['dzieci'] ?? 1) ?></td>
-            <td><span class="badge <?= $s['status'] === 'confirmed' ? 'badge-ok' : ($s['status'] === 'pending' ? 'badge-err' : 'badge-arch') ?>">
-                <?= mada_esc($sgLabel[$s['status']] ?? $s['status']) ?></span></td>
+            <td><?= mada_esc($s['name']) ?></td>
+            <td><?= (int)$s['children'] ?></td>
+            <td><?= mada_esc($s['method']) ?></td>
+            <td><span class="badge <?= $s['badge'] ?>"><?= mada_esc($s['status']) ?></span></td>
           </tr>
         <?php endforeach; ?>
         </tbody>
       </table>
-      <p class="hint">Zgłoszenia „czeka na e-mail" starsze niż 7 dni wygasają automatycznie (cron).</p>
+      <p class="hint">„Czeka na e-mail" - ktoś wysłał formularz z przelewem, ale nie kliknął jeszcze linku
+        w mailu potwierdzającym. Do tego czasu nie ma go w kartotece i fundacja nie dostaje powiadomienia;
+        po 7 dniach bez potwierdzenia zgłoszenie wygasa. Zgłoszenia opłacone kartą nie wymagają
+        potwierdzenia - trafiają do kartoteki od razu po płatności.</p>
     <?php endif; ?>
 <?php endif; ?>
 <?php

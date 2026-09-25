@@ -152,6 +152,31 @@ eq(array_column(adopt_sort_pending_adoptions($pending), 'id'), [4, 2, 3],
    'pending: najstarsze zgłoszenie pierwsze, id rozstrzyga remis');
 eq(array_column(adopt_sort_pending_adoptions($pending, 'surname'), 'id'), [2, 3, 4],
    'pending: alternatywnie po nazwisku, potem po nazwie i dacie');
+// Ostatnie zgłoszenia: przelew (adopt_signups) i karta (subscriptions) w jednej liście.
+$formRows = adopt_form_signup_rows(
+    [
+        ['created_at' => '2026-09-20 18:54:03', 'email' => 'm@x.pl', 'status' => 'pending',
+         'payload' => json_encode(['imie' => 'Michalina', 'nazwisko' => 'Dzwonek', 'dzieci' => 1])],
+        ['created_at' => '2026-09-22 14:35:00', 'email' => 'g@x.pl', 'status' => 'confirmed',
+         'payload' => json_encode(['imie' => 'Gosia', 'nazwisko' => 'Nowak', 'dzieci' => 2])],
+    ],
+    [
+        ['created_at' => '2026-09-20 21:22:43', 'email' => 'i@x.pl', 'first_name' => 'Izabela',
+         'last_name' => 'Sarba', 'children' => null, 'n_adoptions' => 2, 'status' => 'active'],
+        ['created_at' => '2026-07-13 14:45:54', 'email' => 't@x.pl', 'first_name' => 'Asia',
+         'last_name' => 'Test', 'children' => 1, 'n_adoptions' => 0, 'status' => 'cancelled'],
+    ]
+);
+eq(array_column($formRows, 'name'), ['Gosia Nowak', 'Izabela Sarba', 'Michalina Dzwonek', 'Asia Test'],
+   'zgłoszenia: karta i przelew razem, od najnowszych');
+eq([$formRows[1]['method'], $formRows[1]['children'], $formRows[1]['status'], $formRows[1]['badge']],
+   ['karta', 2, 'opłacone kartą', 'badge-ok'], 'zgłoszenia: karta bez children bierze liczbę adopcji');
+eq([$formRows[2]['method'], $formRows[2]['status'], $formRows[2]['badge']],
+   ['przelew', 'czeka na e-mail', 'badge-err'], 'zgłoszenia: niepotwierdzony przelew');
+eq($formRows[3]['status'], 'karta anulowana', 'zgłoszenia: anulowana subskrypcja widoczna jako anulowana');
+eq(count(adopt_form_signup_rows([], [['created_at' => 'a'], ['created_at' => 'b']], 1)), 1,
+   'zgłoszenia: limit po scaleniu');
+
 eq(adopt_adoption_end_label(['duration' => 'fixed', 'end_month' => null]),
    'brak daty końca', 'fixed bez końca: widoczna niespójność');
 eq(adopt_adoption_end_label(['duration' => 'indefinite', 'end_month' => null]),
